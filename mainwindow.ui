@@ -224,8 +224,15 @@
            </layout>
           </widget>
          </item>
-         
-         <item><spacer name="spacerRightPanel"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>5</height></size></property></spacer></item>
+         <item>
+          <widget class="QPushButton" name="btnSettings">
+           <property name="text"><string>参数设置</string></property>
+           <property name="minimumHeight"><number>35</number></property>
+           <property name="styleSheet"><string>background-color: #0e639c; color: white; font-weight: bold;</string></property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacerRightPanel"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>5</height></size></property></spacer></item>
         </layout>
        </widget>
       </item>

@@ -119,6 +119,61 @@ void DeviceController::lensStop()
     sendTransparentData("PELCO_D", pkt3);
 }
 
+// ================= 预置位控制 =================
+void DeviceController::setPreset(int preset)
+{
+    quint8 addr = m_cfg->ptz().address;
+    QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x03, static_cast<quint8>(preset), 0x00);
+    sendTransparentData("PELCO_D", pkt);
+}
+
+void DeviceController::callPreset(int preset)
+{
+    quint8 addr = m_cfg->ptz().address;
+    QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x07, static_cast<quint8>(preset), 0x00);
+    sendTransparentData("PELCO_D", pkt);
+}
+
+void DeviceController::delPreset(int preset)
+{
+    quint8 addr = m_cfg->ptz().address;
+    QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x05, static_cast<quint8>(preset), 0x00);
+    sendTransparentData("PELCO_D", pkt);
+}
+
+// ================= 附加功能开关 =================
+void DeviceController::setDigitalZoom(bool enable)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "DigitalZoom";
+    cmd["DigitalZoom"] = enable ? 1 : 0;
+    m_client->sendJsonCmd(cmd, FrameType::SetDigitalZoom);
+}
+
+void DeviceController::setAutoZoom(bool enable)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "AutoZoom";
+    cmd["AutoZoom"] = enable ? 1 : 0;
+    m_client->sendJsonCmd(cmd, FrameType::Control);
+}
+
+void DeviceController::setCaptureUpload(bool enable)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "CaptureState";
+    cmd["CaptureState"] = enable ? 1 : 0;
+    m_client->sendJsonCmd(cmd, FrameType::SetCaptureState);
+}
+
+void DeviceController::posReset(bool enable)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "PosReset";
+    cmd["PosReset"] = enable ? 1 : 0;
+    m_client->sendJsonCmd(cmd, FrameType::SetPosReset);
+}
+
 void DeviceController::setLocation(const QString& lat, const QString& lon)
 {
     QJsonObject cmd;

@@ -90,6 +90,17 @@ public:
     void ptzMove(PtzDir dir);
     void ptzStop();
 
+    // ================= 预置位控制 (Pelco-D) =================
+    void setPreset(int preset);
+    void callPreset(int preset);
+    void delPreset(int preset);
+
+    // ================= 附加功能开关 =================
+    void setDigitalZoom(bool enable);
+    void setAutoZoom(bool enable);
+    void setCaptureUpload(bool enable);
+    void posReset(bool enable);
+
     // ================= 镜头控制 (VISCA / Pelco-D) =================
     // target: 0=可见光(VISCA), 1=红外(Pelco-D)
     void lensZoomIn(int target);

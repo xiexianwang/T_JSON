@@ -1,6 +1,8 @@
 ﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "settingsdialog.h"
+#include "rtspthread.h"
+#include "videowidget.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>
@@ -12,10 +14,18 @@ MainWindow::MainWindow(QWidget *parent)
     , m_client(new TJsonClient(this))
     , m_cfg(new ConfigManager(this))
     , m_device(new DeviceController(m_client, m_cfg, this))
+    , m_rtsp(new RtspThread(this))
 {
     ui->setupUi(this);
     setupUiStyles();
 
+    // ── RTSP video ──
+    connect(m_rtsp, &RtspThread::frameReady, this, &MainWindow::onRtspFrame);
+    connect(m_rtsp, &RtspThread::streamOpened, this, &MainWindow::onRtspOpened);
+    connect(m_rtsp, &RtspThread::streamError, this, &MainWindow::onRtspError);
+    connect(ui->videoWidget, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
+
+    // ── T-JSON control ──
     connect(m_client, &TJsonClient::deviceConnected, this, &MainWindow::onDeviceConnected);
     connect(m_client, &TJsonClient::deviceDisconnected, this, &MainWindow::onDeviceDisconnected);
     connect(m_client, &TJsonClient::errorOccurred, this, &MainWindow::onErrorOccurred);
@@ -99,6 +109,31 @@ MainWindow::MainWindow(QWidget *parent)
         m_cfg->lens().focusSpeed = static_cast<quint8>(val);
         m_cfg->save();
     });
+
+    // ================= 预置位控制 =================
+    connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
+        m_device->callPreset(ui->spinPreset->value());
+    });
+    connect(ui->btnSetPreset, &QPushButton::clicked, this, [this]() {
+        m_device->setPreset(ui->spinPreset->value());
+    });
+    connect(ui->btnDelPreset, &QPushButton::clicked, this, [this]() {
+        m_device->delPreset(ui->spinPreset->value());
+    });
+
+    // ================= 附加功能开关 =================
+    connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
+        m_device->setDigitalZoom(checked);
+    });
+    connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
+        m_device->setAutoZoom(checked);
+    });
+    connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
+        m_device->setCaptureUpload(checked);
+    });
+    connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
+        m_device->posReset(checked);
+    });
 }
 
 MainWindow::~MainWindow()
@@ -131,6 +166,61 @@ void MainWindow::on_btnConnect_clicked()
         ui->btnConnect->setText(QString::fromUtf8("连接中..."));
         ui->btnConnect->setEnabled(false);
     }
+}
+
+void MainWindow::on_btnVideoConnect_clicked()
+{
+    QString url = ui->lineEditRtsp->text().trimmed();
+    if (url.isEmpty()) {
+        QMessageBox::warning(this, "RTSP", "请输入 RTSP 地址");
+        return;
+    }
+    m_rtsp->openStream(url);
+    ui->btnVideoConnect->setEnabled(false);
+    ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
+    ui->statusbar->showMessage(QString::fromUtf8("正在连接 RTSP 视频流..."));
+}
+
+void MainWindow::on_btnVideoDisconnect_clicked()
+{
+    m_rtsp->closeStream();
+    ui->btnVideoConnect->setEnabled(true);
+    ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
+    ui->statusbar->showMessage(QString::fromUtf8("视频已断开"), 3000);
+}
+
+void MainWindow::onRtspFrame(const QImage &frame)
+{
+    ui->videoWidget->setFrame(frame);
+}
+
+void MainWindow::onRtspOpened()
+{
+    ui->btnVideoConnect->setEnabled(false);
+    ui->btnVideoConnect->setText(QString::fromUtf8("已连接"));
+    ui->statusbar->showMessage(QString::fromUtf8("RTSP 视频已连接"), 3000);
+}
+
+void MainWindow::onRtspError(const QString &msg)
+{
+    ui->btnVideoConnect->setEnabled(true);
+    ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
+    ui->statusbar->showMessage(msg);
+}
+
+void MainWindow::onVideoSelection(const QRectF &normRect)
+{
+    // normRect: [0,1] normalized to display area
+    // Calculate center + width/height for box tracking
+    double cx = (normRect.left() + normRect.right()) / 2.0;
+    double cy = (normRect.top() + normRect.bottom()) / 2.0;
+    double w = normRect.width();
+    double h = normRect.height();
+    ui->statusbar->showMessage(
+        QString::fromUtf8("框选跟踪: 中心(%1,%2) 宽%3高%4")
+            .arg(cx, 0, 'f', 3).arg(cy, 0, 'f', 3)
+            .arg(w, 0, 'f', 3).arg(h, 0, 'f', 3));
+    // TODO: send box tracking command via T-JSON
 }
 
 void MainWindow::onDeviceConnected()

@@ -10,6 +10,18 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
+# ---- FFmpeg ----
+set(FFMPEG_DIR "${CMAKE_SOURCE_DIR}/thirdparty/ffmpeg" CACHE PATH "FFmpeg root directory")
+set(FFMPEG_INCLUDE_DIR "${FFMPEG_DIR}/include")
+set(FFMPEG_LIB_DIR "${FFMPEG_DIR}/lib")
+
+set(FFMPEG_LIBS
+    "${FFMPEG_LIB_DIR}/avformat.lib"
+    "${FFMPEG_LIB_DIR}/avcodec.lib"
+    "${FFMPEG_LIB_DIR}/avutil.lib"
+    "${FFMPEG_LIB_DIR}/swscale.lib"
+)
+
 qt_add_executable(T-JSON
     WIN32 MACOSX_BUNDLE
     main.cpp
@@ -25,8 +37,14 @@ qt_add_executable(T-JSON
     settingsdialog.cpp
     settingsdialog.h
     settingsdialog.ui
+    videowidget.cpp
+    videowidget.h
+    rtspthread.cpp
+    rtspthread.h
     resources.qrc
 )
+
+target_include_directories(T-JSON PRIVATE "${FFMPEG_INCLUDE_DIR}")
 
 target_link_libraries(T-JSON
     PRIVATE
@@ -34,7 +52,20 @@ target_link_libraries(T-JSON
         Qt::Widgets
         Qt::Network
         Qt::Gui
+        ${FFMPEG_LIBS}
 )
+
+# ── Copy FFmpeg DLLs to output directory ──
+if(WIN32)
+    set(FFMPEG_DLL_DIR "${FFMPEG_DIR}/bin")
+    file(GLOB FFMPEG_DLLS "${FFMPEG_DLL_DIR}/*.dll")
+    foreach(dll ${FFMPEG_DLLS})
+        add_custom_command(TARGET T-JSON POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${dll}" "$<TARGET_FILE_DIR:T-JSON>"
+            COMMENT "Copying ${dll}"
+        )
+    endforeach()
+endif()
 
 install(TARGETS T-JSON
     BUNDLE  DESTINATION .

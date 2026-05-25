@@ -23,13 +23,26 @@
     
     <!-- ==================== 顶部设备连接区域 ==================== -->
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_top">
-      <item><widget class="QLabel" name="label_ip"><property name="text"><string>设备 IP:</string></property></widget></item>
-      <item><widget class="QLineEdit" name="lineEditIp"><property name="text"><string>192.168.1.135</string></property></widget></item>
-      <item><widget class="QLabel" name="label_port"><property name="text"><string>通信端口:</string></property></widget></item>
-      <item><widget class="QSpinBox" name="spinBoxPort"><property name="maximum"><number>65535</number></property><property name="value"><number>8089</number></property></widget></item>
-      <item><widget class="QPushButton" name="btnConnect"><property name="text"><string>连接设备</string></property></widget></item>
-      <item><spacer name="spacerTop"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <layout class="QVBoxLayout" name="verticalLayout_top">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_top1">
+        <item><widget class="QLabel" name="label_ip"><property name="text"><string>设备 IP:</string></property></widget></item>
+        <item><widget class="QLineEdit" name="lineEditIp"><property name="text"><string>192.168.1.135</string></property></widget></item>
+        <item><widget class="QLabel" name="label_port"><property name="text"><string>通信端口:</string></property></widget></item>
+        <item><widget class="QSpinBox" name="spinBoxPort"><property name="maximum"><number>65535</number></property><property name="value"><number>8089</number></property></widget></item>
+        <item><widget class="QPushButton" name="btnConnect"><property name="text"><string>连接设备</string></property></widget></item>
+        <item><spacer name="spacerTop"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_top2">
+        <item><widget class="QLabel" name="labelRtsp"><property name="text"><string>RTSP 地址:</string></property></widget></item>
+        <item><widget class="QLineEdit" name="lineEditRtsp"><property name="text"><string>rtsp://192.168.1.135:554/stream1</string></property></widget></item>
+        <item><widget class="QPushButton" name="btnVideoConnect"><property name="text"><string>连视频</string></property></widget></item>
+        <item><widget class="QPushButton" name="btnVideoDisconnect"><property name="text"><string>断视频</string></property></widget></item>
+        <item><spacer name="spacerTop2"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+       </layout>
+      </item>
      </layout>
     </item>
 
@@ -49,12 +62,10 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout_displayDummy">
+        <layout class="QVBoxLayout" name="verticalLayout_display">
          <item>
-          <widget class="QLabel" name="labelDummyInfo">
-           <property name="text"><string>主体监控画面区 (16:9)\n(在 C++ 中重写以支持缩放黑边与坐标映射)</string></property>
-           <property name="alignment"><set>Qt::AlignCenter</set></property>
-           <property name="styleSheet"><string>color: #666666; font-size: 18px; border: none;</string></property>
+          <widget class="VideoWidget" name="videoWidget" native="true">
+           <property name="styleSheet"><string>border: none;</string></property>
           </widget>
          </item>
         </layout>
@@ -449,6 +460,13 @@
 
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
- <resources/>
- <connections/>
+  <resources/>
+  <connections/>
+  <customwidgets>
+   <customwidget>
+    <class>VideoWidget</class>
+    <extends>QWidget</extends>
+    <header>videowidget.h</header>
+   </customwidget>
+  </customwidgets>
 </ui>

@@ -7,6 +7,9 @@
 #include "devicecontroller.h"
 #include "configmanager.h"
 
+class RtspThread;
+class VideoWidget;
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -23,6 +26,8 @@ public:
 
 private slots:
     void on_btnConnect_clicked();
+    void on_btnVideoConnect_clicked();
+    void on_btnVideoDisconnect_clicked();
     void onDeviceConnected();
     void onDeviceDisconnected();
     void onErrorOccurred(const QString& errorMsg);
@@ -39,11 +44,17 @@ private slots:
     void on_comboLensTarget_currentIndexChanged(int index);
     void on_btnSetLocation_clicked();
 
+    void onRtspFrame(const QImage &frame);
+    void onRtspOpened();
+    void onRtspError(const QString &msg);
+    void onVideoSelection(const QRectF &normRect);
+
 private:
     Ui::MainWindow *ui;
     TJsonClient *m_client;
     ConfigManager *m_cfg;
     DeviceController *m_device;
+    RtspThread *m_rtsp;
     bool m_updatingFromDevice = false;
 
     double m_currentVisZoom = 1.0;

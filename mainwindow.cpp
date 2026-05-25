@@ -379,12 +379,42 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         updateLensStats();
 
     } else if (controlType == "ImageSetting") {
-        ui->paramResolution->setText(QString::number(doc.value("ImageSize").toInt()));
-        ui->paramBitrate->setText(QString::number(doc.value("ImageBit").toInt()));
-        ui->paramCodec->setText(QString::number(doc.value("ImageCode").toInt()));
-        ui->paramWorkMode->setText(QString::number(doc.value("WorkMode").toInt()));
-        ui->paramPipShow->setText(QString::number(doc.value("PipShow").toInt()));
-        ui->paramAlgoModel->setText(QString::number(doc.value("Model").toInt()));
+        // 图像分辨率
+        static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
+        int imgSize = doc.value("ImageSize").toInt();
+        ui->paramResolution->setText(imgSize >= 0 && imgSize < 4 ? resMap[imgSize] : QString::number(imgSize));
+
+        // 图像码率
+        ui->paramBitrate->setText(QString("%1 Kb/s").arg(doc.value("ImageBit").toInt()));
+
+        // 编码格式
+        static const char* codecMap[] = {"H264", "H265"};
+        int codec = doc.value("ImageCode").toInt();
+        ui->paramCodec->setText(codec >= 0 && codec < 2 ? codecMap[codec] : QString::number(codec));
+
+        // 工作模式
+        static const char* wmMap[] = {"关闭AI", "识别", "自动跟踪", "点选跟踪", "波门/框选跟踪"};
+        int wm = doc.value("WorkMode").toInt();
+        ui->paramWorkMode->setText(wm >= 0 && wm < 5 ? QString::fromUtf8(wmMap[wm]) : QString::number(wm));
+
+        // 显示类型
+        static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
+        int pip = doc.value("PipShow").toInt();
+        ui->paramPipShow->setText(pip >= 0 && pip < 5 ? QString::fromUtf8(pipMap[pip]) : QString::number(pip));
+
+        // 算法类型: 高段×10+低段
+        int model = doc.value("Model").toInt();
+        int high = model / 10;
+        int low  = model % 10;
+        static const char* highMap[] = {"可见光", "红外"};
+        static const char* lowMap[]  = {"", "", "人车识别", "船识别", "无人机识别", "飞机直升机识别", "鸟识别"};
+        QString modelStr;
+        if (high >= 0 && high < 2)
+            modelStr = QString::fromUtf8(highMap[high]);
+        if (low >= 2 && low <= 6)
+            modelStr += QString(" / %1").arg(QString::fromUtf8(lowMap[low]));
+        ui->paramAlgoModel->setText(modelStr.isEmpty() ? QString::number(model) : modelStr);
+
         ui->paramMaxVisFL->setText(doc.value("MaxVisFL").toString());
         ui->paramMaxIRFL->setText(doc.value("MaxIRFL").toString());
 

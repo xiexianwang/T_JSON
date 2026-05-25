@@ -20,6 +20,8 @@ qt_add_executable(T-JSON
     tjsonclient.h
     devicecontroller.cpp
     devicecontroller.h
+    configmanager.cpp
+    configmanager.h
     settingsdialog.cpp
     settingsdialog.h
     settingsdialog.ui

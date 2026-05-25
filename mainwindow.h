@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include "tjsonclient.h"
 #include "devicecontroller.h"
+#include "configmanager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -33,14 +34,27 @@ private slots:
     void on_radioModeAutoTrack_clicked();
     void on_btnPtzMoveTo_clicked();
     void on_btnSettings_clicked();
+    void on_comboAlgoModel_currentIndexChanged(int index);
+    void on_comboDisplayMode_currentIndexChanged(int index);
+    void on_comboLensTarget_currentIndexChanged(int index);
+    void on_btnSetLocation_clicked();
 
 private:
     Ui::MainWindow *ui;
     TJsonClient *m_client;
+    ConfigManager *m_cfg;
     DeviceController *m_device;
+    bool m_updatingFromDevice = false;
+
+    double m_currentVisZoom = 1.0;
+    double m_currentIrZoom = 1.0;
+    int m_currentPipShow = 0;
     
     void setupUiStyles();
     void updateStatusFromJson(const QJsonObject& doc);
+    void syncLensTargetByDisplayMode(int pipShow);
+    void updateLensStats();
+    QString missMradStr(double dx, double dy, double pixelSizeUm, double focalMm);
 };
 
 #endif // MAINWINDOW_H

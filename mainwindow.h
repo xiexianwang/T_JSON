@@ -44,6 +44,7 @@ private slots:
     void on_comboDisplayMode_currentIndexChanged(int index);
     void on_comboLensTarget_currentIndexChanged(int index);
     void on_btnSetLocation_clicked();
+    void on_btnGetImageParams_clicked();
 
     void onRtspFrame(const QImage &frame);
     void onRtspOpened();

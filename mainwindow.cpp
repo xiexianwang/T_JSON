@@ -481,6 +481,12 @@ void MainWindow::on_btnSetLocation_clicked()
     ui->statusbar->showMessage(QString::fromUtf8("已下发经纬度"), 3000);
 }
 
+void MainWindow::on_btnGetImageParams_clicked()
+{
+    m_device->queryImageParams();
+    ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
+}
+
 void MainWindow::syncLensTargetByDisplayMode(int pipShow)
 {
     int target = 0;

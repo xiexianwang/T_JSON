@@ -165,7 +165,17 @@ void MainWindow::on_btnConnect_clicked()
         m_client->connectToDevice(ip, port);
         ui->btnConnect->setText(QString::fromUtf8("连接中..."));
         ui->btnConnect->setEnabled(false);
+        ui->btnCancelConnect->setVisible(true);
     }
+}
+
+void MainWindow::on_btnCancelConnect_clicked()
+{
+    m_client->disconnectDevice();
+    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
+    ui->btnConnect->setEnabled(true);
+    ui->btnCancelConnect->setVisible(false);
+    ui->statusbar->showMessage(QString::fromUtf8("已取消连接"), 3000);
 }
 
 void MainWindow::on_btnVideoConnect_clicked()
@@ -228,6 +238,7 @@ void MainWindow::onDeviceConnected()
     ui->btnConnect->setText(QString::fromUtf8("断开连接"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setStyleSheet("background-color: #c75450;");
+    ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
 }
 
@@ -236,6 +247,7 @@ void MainWindow::onDeviceDisconnected()
     ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setStyleSheet("");
+    ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
 }
 
@@ -244,6 +256,7 @@ void MainWindow::onErrorOccurred(const QString& errorMsg)
     ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setStyleSheet("");
+    ui->btnCancelConnect->setVisible(false);
     QMessageBox::warning(this, QString::fromUtf8("连接错误"), errorMsg);
 }
 

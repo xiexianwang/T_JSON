@@ -26,7 +26,7 @@ protected:
 
 private:
     QImage m_frame;
-    QMutex m_frameMutex;
+    mutable QMutex m_frameMutex;
     bool m_hasFrame = false;
 
     // Selection state

@@ -26,6 +26,7 @@ public:
 
 private slots:
     void on_btnConnect_clicked();
+    void on_btnCancelConnect_clicked();
     void on_btnVideoConnect_clicked();
     void on_btnVideoDisconnect_clicked();
     void onDeviceConnected();

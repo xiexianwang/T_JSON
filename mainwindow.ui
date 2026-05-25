@@ -27,17 +27,18 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_top1">
         <item><widget class="QLabel" name="label_ip"><property name="text"><string>设备 IP:</string></property></widget></item>
-        <item><widget class="QLineEdit" name="lineEditIp"><property name="text"><string>192.168.1.135</string></property></widget></item>
+        <item><widget class="QLineEdit" name="lineEditIp"><property name="text"><string>192.168.1.200</string></property></widget></item>
         <item><widget class="QLabel" name="label_port"><property name="text"><string>通信端口:</string></property></widget></item>
         <item><widget class="QSpinBox" name="spinBoxPort"><property name="maximum"><number>65535</number></property><property name="value"><number>8089</number></property></widget></item>
         <item><widget class="QPushButton" name="btnConnect"><property name="text"><string>连接设备</string></property></widget></item>
+        <item><widget class="QPushButton" name="btnCancelConnect"><property name="text"><string>取消</string></property><property name="visible"><bool>false</bool></property><property name="styleSheet"><string>background-color: #cc4444; color: white;</string></property></widget></item>
         <item><spacer name="spacerTop"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
        </layout>
       </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_top2">
         <item><widget class="QLabel" name="labelRtsp"><property name="text"><string>RTSP 地址:</string></property></widget></item>
-        <item><widget class="QLineEdit" name="lineEditRtsp"><property name="text"><string>rtsp://192.168.1.135:554/stream1</string></property></widget></item>
+        <item><widget class="QLineEdit" name="lineEditRtsp"><property name="text"><string>rtsp://admin:admin@192.168.1.200:554/live/1</string></property></widget></item>
         <item><widget class="QPushButton" name="btnVideoConnect"><property name="text"><string>连视频</string></property></widget></item>
         <item><widget class="QPushButton" name="btnVideoDisconnect"><property name="text"><string>断视频</string></property></widget></item>
         <item><spacer name="spacerTop2"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>

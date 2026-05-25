@@ -36,7 +36,7 @@ void SettingsDialog::loadSettings()
     ui->spinSerialPort->setValue(settings.value("SerialPort", 4001).toInt());
 
     ui->spinVisPixelSize->setValue(settings.value("VisPixelSize", 2.9).toDouble());
-    ui->editVisResolution->setText(settings.value("VisResolution", "1920x1080").toString());
+    ui->editVisResolution->setText(settings.value("VisResolution", "2688x1520").toString());
     ui->spinVisMinFocal->setValue(settings.value("VisMinFocal", 6.0).toDouble());
     
     ui->spinIrPixelSize->setValue(settings.value("IrPixelSize", 12.0).toDouble());

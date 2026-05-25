@@ -50,8 +50,8 @@ struct LensConfig {
 struct CameraConfig {
     double visPixelSize = 2.9;
     double irPixelSize = 12.0;
-    int visResX = 1920;
-    int visResY = 1080;
+    int visResX = 2688;
+    int visResY = 1520;
     int irResX = 640;
     int irResY = 512;
     double visMinFocal = 6.0;
@@ -67,7 +67,7 @@ struct CameraConfig {
             QStringList p = str.split('x');
             if (p.size() == 2) { x = p[0].toInt(); y = p[1].toInt(); }
         };
-        parseRes(s.value("VisResolution", "1920x1080").toString(), visResX, visResY);
+        parseRes(s.value("VisResolution", "2688x1520").toString(), visResX, visResY);
         parseRes(s.value("IrResolution", "640x512").toString(), irResX, irResY);
     }
 };

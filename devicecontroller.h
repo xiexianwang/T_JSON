@@ -90,6 +90,9 @@ public:
     void ptzMove(PtzDir dir);
     void ptzStop();
 
+    // ================= 框选跟踪 =================
+    void setBoxTrack(int centerX, int centerY, int width, int height);
+
     // ================= 预置位控制 (Pelco-D) =================
     void setPreset(int preset);
     void callPreset(int preset);

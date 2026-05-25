@@ -141,6 +141,26 @@ void DeviceController::delPreset(int preset)
     sendTransparentData("PELCO_D", pkt);
 }
 
+// ================= 框选跟踪 =================
+void DeviceController::setBoxTrack(int centerX, int centerY, int width, int height)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "SetWorkMode";
+    cmd["SetWorkMode"] = 4;
+
+    QJsonObject center;
+    center["X"] = centerX;
+    center["Y"] = centerY;
+
+    QJsonObject p2;
+    p2["Center"] = center;
+    p2["DistanceX"] = width;
+    p2["DistanceY"] = height;
+
+    cmd["P2Track"] = p2;
+    m_client->sendJsonCmd(cmd, FrameType::Control);
+}
+
 // ================= 附加功能开关 =================
 void DeviceController::setDigitalZoom(bool enable)
 {

@@ -222,16 +222,27 @@ void MainWindow::onRtspError(const QString &msg)
 void MainWindow::onVideoSelection(const QRectF &normRect)
 {
     // normRect: [0,1] normalized to display area
-    // Calculate center + width/height for box tracking
     double cx = (normRect.left() + normRect.right()) / 2.0;
     double cy = (normRect.top() + normRect.bottom()) / 2.0;
     double w = normRect.width();
     double h = normRect.height();
+
+    // Map to image pixel coordinates based on current channel resolution
+    auto& cam = m_cfg->cam();
+    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    int imgW = isVis ? cam.visResX : cam.irResX;
+    int imgH = isVis ? cam.visResY : cam.irResY;
+
+    int px = qBound(0, int(cx * imgW), imgW - 1);
+    int py = qBound(0, int(cy * imgH), imgH - 1);
+    int pw = qBound(1, int(w  * imgW), imgW);
+    int ph = qBound(1, int(h  * imgH), imgH);
+
     ui->statusbar->showMessage(
-        QString::fromUtf8("框选跟踪: 中心(%1,%2) 宽%3高%4")
-            .arg(cx, 0, 'f', 3).arg(cy, 0, 'f', 3)
-            .arg(w, 0, 'f', 3).arg(h, 0, 'f', 3));
-    // TODO: send box tracking command via T-JSON
+        QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
+            .arg(px).arg(py).arg(pw).arg(ph));
+
+    m_device->setBoxTrack(px, py, pw, ph);
 }
 
 void MainWindow::onDeviceConnected()

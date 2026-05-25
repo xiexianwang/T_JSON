@@ -197,10 +197,8 @@ void TJsonClient::processBuffer()
             QByteArray payload = m_buffer.mid(7, length);
             m_buffer.remove(0, 7 + length);
             
-            if (type == static_cast<quint8>(FrameType::Status)) {
+            if (type != static_cast<quint8>(FrameType::Heartbeat) && !payload.isEmpty()) {
                 parseJsonFrame(payload);
-            } else if (type == static_cast<quint8>(FrameType::Heartbeat)) {
-                // Heartbeat response
             }
             
         } else if (b1 == 0xEB && b2 == 0x92) {

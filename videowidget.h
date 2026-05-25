@@ -20,6 +20,8 @@ signals:
     void selectionFinished(const QRectF &normRect);
 
 protected:
+    bool hasHeightForWidth() const override { return true; }
+    int heightForWidth(int w) const override { return w * 9 / 16; }
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;

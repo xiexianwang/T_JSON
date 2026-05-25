@@ -421,7 +421,6 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         m_currentPipShow = doc.value("PipShow").toInt();
 
         m_updatingFromDevice = true;
-        int model = doc.value("Model").toInt();
         if (model >= 0 && model < ui->comboAlgoModel->count())
             ui->comboAlgoModel->setCurrentIndex(model);
         int pipShow = doc.value("PipShow").toInt();

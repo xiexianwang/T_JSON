@@ -73,10 +73,9 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     // ================= 镜头控制 (Zoom / Focus) =================
-    auto getTarget = [this]() { return ui->comboLensTarget->currentIndex(); };
-    auto connectLensBtn = [this, &getTarget](QPushButton* btn, int op) {
-        connect(btn, &QPushButton::pressed, this, [this, op, &getTarget]() {
-            int t = getTarget();
+    auto connectLensBtn = [this](QPushButton* btn, int op) {
+        connect(btn, &QPushButton::pressed, this, [this, op]() {
+            int t = ui->comboLensTarget->currentIndex();
             if (op == 0) m_device->lensZoomIn(t);
             else if (op == 1) m_device->lensZoomOut(t);
             else if (op == 2) m_device->lensFocusIn(t);
@@ -194,6 +193,7 @@ void MainWindow::on_btnVideoConnect_clicked()
 void MainWindow::on_btnVideoDisconnect_clicked()
 {
     m_rtsp->closeStream();
+    ui->videoWidget->clearFrame();
     ui->btnVideoConnect->setEnabled(true);
     ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
     ui->statusbar->showMessage(QString::fromUtf8("视频已断开"), 3000);
@@ -213,6 +213,7 @@ void MainWindow::onRtspOpened()
 
 void MainWindow::onRtspError(const QString &msg)
 {
+    ui->videoWidget->clearFrame();
     ui->btnVideoConnect->setEnabled(true);
     ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
     ui->statusbar->showMessage(msg);

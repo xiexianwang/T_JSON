@@ -25,6 +25,7 @@ RtspThread::~RtspThread()
 void RtspThread::openStream(const QString &url)
 {
     QMutexLocker lock(&m_mutex);
+    m_stop = false;
     m_url = url;
     m_openRequested = true;
     m_cond.wakeOne();
@@ -40,7 +41,6 @@ void RtspThread::closeStream()
         m_cond.wakeOne();
     }
     wait(3000);
-    safeCleanup();
 }
 
 void RtspThread::safeCleanup()
@@ -129,14 +129,14 @@ void RtspThread::run()
 
         int w = m_decCtx->width;
         int h = m_decCtx->height;
-        m_swsCtx = sws_getContext(w, h, m_decCtx->pix_fmt,
-                                 w, h, AV_PIX_FMT_BGR32,
-                                 SWS_BILINEAR, nullptr, nullptr, nullptr);
+    m_swsCtx = sws_getContext(w, h, m_decCtx->pix_fmt,
+                             w, h, AV_PIX_FMT_RGB32,
+                             SWS_BILINEAR, nullptr, nullptr, nullptr);
 
-        int rgbLinesize = w * 4;
-        rgbBuf = (uint8_t*)av_malloc(rgbLinesize * h);
-        av_image_fill_arrays(rgb->data, rgb->linesize, rgbBuf,
-                             AV_PIX_FMT_BGR32, w, h, 1);
+    int rgbLinesize = w * 4;
+    rgbBuf = (uint8_t*)av_malloc(rgbLinesize * h);
+    av_image_fill_arrays(rgb->data, rgb->linesize, rgbBuf,
+                         AV_PIX_FMT_RGB32, w, h, 1);
 
         emit streamOpened();
 

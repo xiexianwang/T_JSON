@@ -7,73 +7,167 @@
     <x>0</x>
     <y>0</y>
     <width>1440</width>
-    <height>980</height>
+    <height>1027</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>T-JSON 监控控制客户端</string>
   </property>
-  
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_main">
-    <property name="leftMargin"><number>10</number></property>
-    <property name="topMargin"><number>10</number></property>
-    <property name="rightMargin"><number>10</number></property>
-    <property name="bottomMargin"><number>10</number></property>
-    
-    <!-- ==================== 顶部设备连接区域 ==================== -->
+    <property name="leftMargin">
+     <number>10</number>
+    </property>
+    <property name="topMargin">
+     <number>10</number>
+    </property>
+    <property name="rightMargin">
+     <number>10</number>
+    </property>
+    <property name="bottomMargin">
+     <number>10</number>
+    </property>
     <item>
      <layout class="QVBoxLayout" name="verticalLayout_top">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_top1">
-        <item><widget class="QLabel" name="label_ip"><property name="text"><string>设备 IP:</string></property></widget></item>
-        <item><widget class="QLineEdit" name="lineEditIp"><property name="text"><string>192.168.1.200</string></property></widget></item>
-        <item><widget class="QLabel" name="label_port"><property name="text"><string>通信端口:</string></property></widget></item>
-        <item><widget class="QSpinBox" name="spinBoxPort"><property name="maximum"><number>65535</number></property><property name="value"><number>8089</number></property></widget></item>
-        <item><widget class="QPushButton" name="btnConnect"><property name="text"><string>连接设备</string></property></widget></item>
-        <item><widget class="QPushButton" name="btnCancelConnect"><property name="text"><string>取消</string></property><property name="visible"><bool>false</bool></property><property name="styleSheet"><string>background-color: #cc4444; color: white;</string></property></widget></item>
-        <item><spacer name="spacerTop"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+        <item>
+         <widget class="QLabel" name="label_ip">
+          <property name="text">
+           <string>设备 IP:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="lineEditIp">
+          <property name="text">
+           <string>192.168.1.200</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_port">
+          <property name="text">
+           <string>通信端口:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinBoxPort">
+          <property name="maximum">
+           <number>65535</number>
+          </property>
+          <property name="value">
+           <number>8089</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnConnect">
+          <property name="text">
+           <string>连接设备</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnCancelConnect">
+          <property name="visible">
+           <bool>false</bool>
+          </property>
+          <property name="styleSheet">
+           <string>background-color: #cc4444; color: white;</string>
+          </property>
+          <property name="text">
+           <string>取消</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacerTop">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
        </layout>
       </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_top2">
-        <item><widget class="QLabel" name="labelRtsp"><property name="text"><string>RTSP 地址:</string></property></widget></item>
-        <item><widget class="QLineEdit" name="lineEditRtsp"><property name="text"><string>rtsp://admin:admin@192.168.1.200:554/live/1</string></property></widget></item>
-        <item><widget class="QPushButton" name="btnVideoConnect"><property name="text"><string>连视频</string></property></widget></item>
-        <item><widget class="QPushButton" name="btnVideoDisconnect"><property name="text"><string>断视频</string></property></widget></item>
-        <item><spacer name="spacerTop2"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+        <item>
+         <widget class="QLabel" name="labelRtsp">
+          <property name="text">
+           <string>RTSP 地址:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="lineEditRtsp">
+          <property name="text">
+           <string>rtsp://admin:admin@192.168.1.200:554/live/1</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnVideoConnect">
+          <property name="text">
+           <string>连视频</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnVideoDisconnect">
+          <property name="text">
+           <string>断视频</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacerTop2">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
        </layout>
       </item>
      </layout>
     </item>
-
-    <!-- ==================== 中部核心区域 (左画面 + 右控制) ==================== -->
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_middle" stretch="4,1">
-      
-      <!-- 左侧：画面显示区 -->
       <item>
        <widget class="QWidget" name="widgetDisplay" native="true">
-        <property name="styleSheet">
-         <string>background-color: #000000; border: 2px solid #333333;</string>
-        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="styleSheet">
+         <string>background-color: #000000; border: 2px solid #333333;</string>
+        </property>
         <layout class="QVBoxLayout" name="verticalLayout_display">
          <item>
           <widget class="VideoWidget" name="videoWidget" native="true">
-           <property name="styleSheet"><string>border: none;</string></property>
+           <property name="styleSheet">
+            <string>border: none;</string>
+           </property>
           </widget>
          </item>
         </layout>
        </widget>
       </item>
-
-      <!-- 右侧：操作控制面板 -->
       <item>
        <widget class="QWidget" name="widgetControl" native="true">
         <property name="maximumSize">
@@ -83,197 +177,643 @@
          </size>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_control">
-         <property name="leftMargin"><number>5</number></property>
-         <property name="rightMargin"><number>0</number></property>
-         <property name="topMargin"><number>0</number></property>
-         <property name="bottomMargin"><number>0</number></property>
-         <property name="spacing"><number>4</number></property>
-         
-         <!-- AI 模式与算法 -->
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <property name="leftMargin">
+          <number>5</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
          <item>
           <widget class="QGroupBox" name="groupAiAlgo">
-           <property name="title"><string>AI 与显示</string></property>
+           <property name="title">
+            <string>AI 与显示</string>
+           </property>
            <layout class="QGridLayout" name="gridLayout_aiAlgo">
-            <property name="verticalSpacing"><number>4</number></property>
-            <item row="0" column="0"><widget class="QRadioButton" name="radioModeOff"><property name="text"><string>关闭</string></property></widget></item>
-            <item row="0" column="1"><widget class="QRadioButton" name="radioModeIdentify"><property name="text"><string>识别</string></property><property name="checked"><bool>true</bool></property></widget></item>
-            <item row="0" column="2"><widget class="QRadioButton" name="radioModeAutoTrack"><property name="text"><string>跟踪</string></property></widget></item>
-            
-            <item row="1" column="0"><widget class="QLabel" name="lblAlgo"><property name="text"><string>算法:</string></property></widget></item>
+            <property name="verticalSpacing">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QRadioButton" name="radioModeOff">
+              <property name="text">
+               <string>关闭</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QRadioButton" name="radioModeIdentify">
+              <property name="text">
+               <string>识别</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QRadioButton" name="radioModeAutoTrack">
+              <property name="text">
+               <string>跟踪</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="lblAlgo">
+              <property name="text">
+               <string>算法:</string>
+              </property>
+             </widget>
+            </item>
             <item row="1" column="1" colspan="2">
              <widget class="QComboBox" name="comboAlgoModel">
-              <item><property name="text"><string>0:切换可见光模型</string></property></item>
-              <item><property name="text"><string>1:切换红外模型</string></property></item>
-              <item><property name="text"><string>2:人车识别</string></property></item>
-              <item><property name="text"><string>3:船识别</string></property></item>
-              <item><property name="text"><string>4:无人机识别</string></property></item>
-              <item><property name="text"><string>5:飞机,直升机识别</string></property></item>
-              <item><property name="text"><string>6:鸟识别</string></property></item>
+              <item>
+               <property name="text">
+                <string>0:切换可见光模型</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>1:切换红外模型</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>2:人车识别</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>3:船识别</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>4:无人机识别</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>5:飞机,直升机识别</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>6:鸟识别</string>
+               </property>
+              </item>
              </widget>
             </item>
-            <item row="2" column="0"><widget class="QLabel" name="lblDisplayMode"><property name="text"><string>显示:</string></property></widget></item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="lblDisplayMode">
+              <property name="text">
+               <string>显示:</string>
+              </property>
+             </widget>
+            </item>
             <item row="2" column="1" colspan="2">
              <widget class="QComboBox" name="comboDisplayMode">
-              <item><property name="text"><string>0:大图可见光,小图红外</string></property></item>
-              <item><property name="text"><string>1:红外</string></property></item>
-              <item><property name="text"><string>2:可见光</string></property></item>
-              <item><property name="text"><string>3:融合</string></property></item>
-              <item><property name="text"><string>4:大图红外,小图可见光</string></property></item>
+              <item>
+               <property name="text">
+                <string>0:大图可见光,小图红外</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>1:红外</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>2:可见光</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>3:融合</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>4:大图红外,小图可见光</string>
+               </property>
+              </item>
              </widget>
             </item>
            </layout>
           </widget>
          </item>
-
-         <!-- 独立：云台控制 -->
          <item>
           <widget class="QGroupBox" name="groupPTZ">
-           <property name="title"><string>云台控制 (PTZ)</string></property>
+           <property name="title">
+            <string>云台控制 (PTZ)</string>
+           </property>
            <layout class="QVBoxLayout" name="verticalLayout_ptz">
-            <property name="spacing"><number>4</number></property>
-            <!-- 8向按钮盘 -->
+            <property name="spacing">
+             <number>4</number>
+            </property>
             <item>
              <layout class="QGridLayout" name="gridLayout_8way">
-              <property name="verticalSpacing"><number>2</number></property>
-              <item row="0" column="0"><widget class="QPushButton" name="btnPtzTopLeft"><property name="text"><string>↖</string></property></widget></item>
-              <item row="0" column="1"><widget class="QPushButton" name="btnPtzUp"><property name="text"><string>↑</string></property></widget></item>
-              <item row="0" column="2"><widget class="QPushButton" name="btnPtzTopRight"><property name="text"><string>↗</string></property></widget></item>
-              <item row="1" column="0"><widget class="QPushButton" name="btnPtzLeft"><property name="text"><string>←</string></property></widget></item>
-              <item row="1" column="1"><widget class="QPushButton" name="btnPtzReset"><property name="text"><string>复位</string></property></widget></item>
-              <item row="1" column="2"><widget class="QPushButton" name="btnPtzRight"><property name="text"><string>→</string></property></widget></item>
-              <item row="2" column="0"><widget class="QPushButton" name="btnPtzBottomLeft"><property name="text"><string>↙</string></property></widget></item>
-              <item row="2" column="1"><widget class="QPushButton" name="btnPtzDown"><property name="text"><string>↓</string></property></widget></item>
-              <item row="2" column="2"><widget class="QPushButton" name="btnPtzBottomRight"><property name="text"><string>↘</string></property></widget></item>
-             </layout>
-             </item>
-             <!-- 速度滑动条 -->
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_speed">
-               <item><widget class="QLabel" name="lblSpeed"><property name="text"><string>速度:</string></property></widget></item>
-               <item><widget class="QSlider" name="sliderSpeed"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="minimum"><number>1</number></property><property name="maximum"><number>63</number></property><property name="value"><number>63</number></property></widget></item>
-               <item><widget class="QSpinBox" name="spinSpeed"><property name="minimum"><number>1</number></property><property name="maximum"><number>63</number></property><property name="value"><number>63</number></property><property name="maximumWidth"><number>50</number></property></widget></item>
-              </layout>
-             </item>
-             <!-- 绝对角度下发 -->
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_angleMove">
-              <item><widget class="QLabel"><property name="text"><string>H角:</string></property></widget></item>
-              <item><widget class="QLineEdit" name="editTargetPan"/></item>
-              <item><widget class="QLabel"><property name="text"><string>V角:</string></property></widget></item>
-              <item><widget class="QLineEdit" name="editTargetTilt"/></item>
-              <item><widget class="QPushButton" name="btnPtzMoveTo"><property name="text"><string>下发</string></property></widget></item>
+              <property name="verticalSpacing">
+               <number>2</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QPushButton" name="btnPtzTopLeft">
+                <property name="text">
+                 <string>↖</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QPushButton" name="btnPtzUp">
+                <property name="text">
+                 <string>↑</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QPushButton" name="btnPtzTopRight">
+                <property name="text">
+                 <string>↗</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QPushButton" name="btnPtzLeft">
+                <property name="text">
+                 <string>←</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QPushButton" name="btnPtzReset">
+                <property name="text">
+                 <string>复位</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="QPushButton" name="btnPtzRight">
+                <property name="text">
+                 <string>→</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QPushButton" name="btnPtzBottomLeft">
+                <property name="text">
+                 <string>↙</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QPushButton" name="btnPtzDown">
+                <property name="text">
+                 <string>↓</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="QPushButton" name="btnPtzBottomRight">
+                <property name="text">
+                 <string>↘</string>
+                </property>
+               </widget>
+              </item>
              </layout>
             </item>
-            <!-- 位置标定 -->
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_speed">
+              <item>
+               <widget class="QLabel" name="lblSpeed">
+                <property name="text">
+                 <string>速度:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QSlider" name="sliderSpeed">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>63</number>
+                </property>
+                <property name="value">
+                 <number>63</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QSpinBox" name="spinSpeed">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>63</number>
+                </property>
+                <property name="value">
+                 <number>63</number>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_angleMove">
+              <item>
+               <widget class="QLabel" name="label">
+                <property name="text">
+                 <string>H角:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="editTargetPan"/>
+              </item>
+              <item>
+               <widget class="QLabel" name="label">
+                <property name="text">
+                 <string>V角:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="editTargetTilt"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnPtzMoveTo">
+                <property name="text">
+                 <string>下发</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_angleCalib">
-              <item><widget class="QLabel"><property name="text"><string>H标:</string></property></widget></item>
-              <item><widget class="QLineEdit" name="editCalibPan"/></item>
-              <item><widget class="QLabel"><property name="text"><string>V标:</string></property></widget></item>
-              <item><widget class="QLineEdit" name="editCalibTilt"/></item>
-              <item><widget class="QPushButton" name="btnPtzCalib"><property name="text"><string>标定</string></property></widget></item>
+              <item>
+               <widget class="QLabel" name="label">
+                <property name="text">
+                 <string>H标:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="editCalibPan"/>
+              </item>
+              <item>
+               <widget class="QLabel" name="label">
+                <property name="text">
+                 <string>V标:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="editCalibTilt"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnPtzCalib">
+                <property name="text">
+                 <string>标定</string>
+                </property>
+               </widget>
+              </item>
              </layout>
             </item>
            </layout>
           </widget>
          </item>
-
-         <!-- 独立：镜头控制 -->
          <item>
           <widget class="QGroupBox" name="groupLens">
-           <property name="title"><string>镜头控制 (Lens)</string></property>
-            <layout class="QGridLayout" name="gridLayout_lens">
-             <property name="verticalSpacing"><number>4</number></property>
-             <item row="0" column="0"><widget class="QLabel"><property name="text"><string>操作目标:</string></property></widget></item>
-             <item row="0" column="1" colspan="2">
-              <widget class="QComboBox" name="comboLensTarget">
-               <item><property name="text"><string>可见光</string></property></item>
-               <item><property name="text"><string>红外</string></property></item>
-              </widget>
-             </item>
-             <item row="1" column="0"><widget class="QLabel"><property name="text"><string>变倍(Zoom):</string></property></widget></item>
-             <item row="1" column="1"><widget class="QPushButton" name="btnZoomOut"><property name="text"><string>缩小 (-)</string></property></widget></item>
-             <item row="1" column="2"><widget class="QPushButton" name="btnZoomIn"><property name="text"><string>放大 (+)</string></property></widget></item>
-             <item row="2" column="0"><widget class="QLabel"><property name="text"><string>变焦(Focus):</string></property></widget></item>
-             <item row="2" column="1"><widget class="QPushButton" name="btnFocusOut"><property name="text"><string>近焦 (-)</string></property></widget></item>
-             <item row="2" column="2"><widget class="QPushButton" name="btnFocusIn"><property name="text"><string>远焦 (+)</string></property></widget></item>
-             <item row="3" column="0"><widget class="QLabel" name="lblZoomSpeed"><property name="text"><string>变倍速度:</string></property></widget></item>
-             <item row="3" column="1" colspan="2">
-              <layout class="QHBoxLayout" name="horizontalLayout_zoomSpeed">
-               <item><widget class="QSlider" name="sliderZoomSpeed"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="minimum"><number>1</number></property><property name="maximum"><number>7</number></property><property name="value"><number>5</number></property></widget></item>
-               <item><widget class="QSpinBox" name="spinZoomSpeed"><property name="minimum"><number>1</number></property><property name="maximum"><number>7</number></property><property name="value"><number>5</number></property><property name="maximumWidth"><number>45</number></property></widget></item>
-              </layout>
-             </item>
-             <item row="4" column="0"><widget class="QLabel" name="lblFocusSpeed"><property name="text"><string>变焦速度:</string></property></widget></item>
-             <item row="4" column="1" colspan="2">
-              <layout class="QHBoxLayout" name="horizontalLayout_focusSpeed">
-               <item><widget class="QSlider" name="sliderFocusSpeed"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="minimum"><number>1</number></property><property name="maximum"><number>7</number></property><property name="value"><number>5</number></property></widget></item>
-               <item><widget class="QSpinBox" name="spinFocusSpeed"><property name="minimum"><number>1</number></property><property name="maximum"><number>7</number></property><property name="value"><number>5</number></property><property name="maximumWidth"><number>45</number></property></widget></item>
-              </layout>
-             </item>
-            </layout>
+           <property name="title">
+            <string>镜头控制 (Lens)</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_lens">
+            <property name="verticalSpacing">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>操作目标:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1" colspan="2">
+             <widget class="QComboBox" name="comboLensTarget">
+              <item>
+               <property name="text">
+                <string>可见光</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>红外</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>变倍(Zoom):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QPushButton" name="btnZoomOut">
+              <property name="text">
+               <string>缩小 (-)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QPushButton" name="btnZoomIn">
+              <property name="text">
+               <string>放大 (+)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>变焦(Focus):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QPushButton" name="btnFocusOut">
+              <property name="text">
+               <string>近焦 (-)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="QPushButton" name="btnFocusIn">
+              <property name="text">
+               <string>远焦 (+)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="lblZoomSpeed">
+              <property name="text">
+               <string>变倍速度:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1" colspan="2">
+             <layout class="QHBoxLayout" name="horizontalLayout_zoomSpeed">
+              <item>
+               <widget class="QSlider" name="sliderZoomSpeed">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>7</number>
+                </property>
+                <property name="value">
+                 <number>5</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QSpinBox" name="spinZoomSpeed">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>7</number>
+                </property>
+                <property name="value">
+                 <number>5</number>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="lblFocusSpeed">
+              <property name="text">
+               <string>变焦速度:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1" colspan="2">
+             <layout class="QHBoxLayout" name="horizontalLayout_focusSpeed">
+              <item>
+               <widget class="QSlider" name="sliderFocusSpeed">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>7</number>
+                </property>
+                <property name="value">
+                 <number>5</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QSpinBox" name="spinFocusSpeed">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>7</number>
+                </property>
+                <property name="value">
+                 <number>5</number>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </item>
-
-         <!-- 预置位控制 (加入删除按钮) -->
          <item>
           <widget class="QGroupBox" name="groupPreset">
-           <property name="title"><string>预置位控制</string></property>
+           <property name="title">
+            <string>预置位控制</string>
+           </property>
            <layout class="QHBoxLayout" name="horizontalLayout_preset">
-            <property name="spacing"><number>4</number></property>
-            <item><widget class="QLabel" name="lblPreset"><property name="text"><string>编号:</string></property></widget></item>
-            <item><widget class="QSpinBox" name="spinPreset"><property name="minimum"><number>1</number></property><property name="maximum"><number>255</number></property></widget></item>
-            <item><widget class="QPushButton" name="btnCallPreset"><property name="text"><string>调用</string></property></widget></item>
-            <item><widget class="QPushButton" name="btnSetPreset"><property name="text"><string>设置</string></property></widget></item>
-            <item><widget class="QPushButton" name="btnDelPreset"><property name="text"><string>删除</string></property></widget></item>
+            <property name="spacing">
+             <number>4</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="lblPreset">
+              <property name="text">
+               <string>编号:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="spinPreset">
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>255</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnCallPreset">
+              <property name="text">
+               <string>调用</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnSetPreset">
+              <property name="text">
+               <string>设置</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnDelPreset">
+              <property name="text">
+               <string>删除</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </item>
-         
-         <!-- 设备经纬度下发 -->
          <item>
           <widget class="QGroupBox" name="groupLocationSet">
-           <property name="title"><string>设备经纬度配置</string></property>
+           <property name="title">
+            <string>设备经纬度配置</string>
+           </property>
            <layout class="QFormLayout" name="formLayout_location">
-            <property name="verticalSpacing"><number>4</number></property>
-            <item row="0" column="0"><widget class="QLabel" name="lblSetLat"><property name="text"><string>纬度:</string></property></widget></item>
-            <item row="0" column="1"><widget class="QLineEdit" name="editSetLat"><property name="placeholderText"><string>39.8365N</string></property></widget></item>
-            <item row="1" column="0"><widget class="QLabel" name="lblSetLon"><property name="text"><string>经度:</string></property></widget></item>
-            <item row="1" column="1"><widget class="QLineEdit" name="editSetLon"><property name="placeholderText"><string>116.2874E</string></property></widget></item>
-            <item row="2" column="0" colspan="2"><widget class="QPushButton" name="btnSetLocation"><property name="text"><string>下发参数</string></property></widget></item>
+            <property name="verticalSpacing">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="lblSetLat">
+              <property name="text">
+               <string>纬度:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="editSetLat">
+              <property name="placeholderText">
+               <string>39.8365N</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="lblSetLon">
+              <property name="text">
+               <string>经度:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLineEdit" name="editSetLon">
+              <property name="placeholderText">
+               <string>116.2874E</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0" colspan="2">
+             <widget class="QPushButton" name="btnSetLocation">
+              <property name="text">
+               <string>下发参数</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </item>
-
-         <!-- 附加功能开关 -->
          <item>
           <widget class="QGroupBox" name="groupExtraSwitches">
-           <property name="title"><string>附加功能开关</string></property>
+           <property name="title">
+            <string>附加功能开关</string>
+           </property>
            <layout class="QGridLayout" name="gridLayout_extraSwitches">
-            <property name="verticalSpacing"><number>4</number></property>
-            <item row="0" column="0"><widget class="QCheckBox" name="checkDigitalZoom"><property name="text"><string>数字变倍</string></property></widget></item>
-            <item row="0" column="1"><widget class="QCheckBox" name="checkAutoZoom"><property name="text"><string>自动变倍</string></property></widget></item>
-            <item row="1" column="0"><widget class="QCheckBox" name="checkCaptureUpload"><property name="text"><string>抓拍上传</string></property></widget></item>
-            <item row="1" column="1"><widget class="QCheckBox" name="checkPosReset"><property name="text"><string>位置复位</string></property></widget></item>
+            <property name="verticalSpacing">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QCheckBox" name="checkDigitalZoom">
+              <property name="text">
+               <string>数字变倍</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QCheckBox" name="checkAutoZoom">
+              <property name="text">
+               <string>自动变倍</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QCheckBox" name="checkCaptureUpload">
+              <property name="text">
+               <string>抓拍上传</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QCheckBox" name="checkPosReset">
+              <property name="text">
+               <string>位置复位</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </item>
          <item>
           <widget class="QPushButton" name="btnSettings">
-           <property name="text"><string>参数设置</string></property>
-           <property name="minimumHeight"><number>35</number></property>
-           <property name="styleSheet"><string>background-color: #0e639c; color: white; font-weight: bold;</string></property>
+           <property name="styleSheet">
+            <string>background-color: #0e639c; color: white; font-weight: bold;</string>
+           </property>
+           <property name="text">
+            <string>参数设置</string>
+           </property>
           </widget>
          </item>
          <item>
-          <spacer name="spacerRightPanel"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>5</height></size></property></spacer></item>
+          <spacer name="spacerRightPanel">
+           <property name="orientation">
+            <enum>Qt::Orientation::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>5</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
         </layout>
        </widget>
       </item>
      </layout>
     </item>
-
-    <!-- ==================== 底部超薄状态仪表盘 ==================== -->
     <item>
      <widget class="QWidget" name="widgetBottomDashboard" native="true">
       <property name="maximumSize">
@@ -283,191 +823,606 @@
        </size>
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout_dashboard">
-       <property name="leftMargin"><number>0</number></property>
-       <property name="topMargin"><number>5</number></property>
-       <property name="rightMargin"><number>0</number></property>
-       <property name="bottomMargin"><number>0</number></property>
-       <property name="spacing"><number>4</number></property>
-
-       <!-- 列1：云台状态 -->
+       <property name="spacing">
+        <number>4</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
        <item>
         <widget class="QGroupBox" name="dashGroupPTZ">
-         <property name="title"><string>云台状态</string></property>
-         <property name="styleSheet"><string>QGroupBox { border-color: #2d5a88; }</string></property>
+         <property name="styleSheet">
+          <string>QGroupBox { border-color: #2d5a88; }</string>
+         </property>
+         <property name="title">
+          <string>云台状态</string>
+         </property>
          <layout class="QGridLayout" name="gridLayout_statPtz">
-          <property name="verticalSpacing"><number>2</number></property>
-          <property name="horizontalSpacing"><number>2</number></property>
-          <item row="0" column="0"><widget class="QLabel"><property name="text"><string>水平:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QLineEdit" name="statPanAngle"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="0" column="2"><widget class="QLabel"><property name="text"><string>垂直:</string></property></widget></item>
-          <item row="0" column="3"><widget class="QLineEdit" name="statTiltAngle"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="1" column="0"><widget class="QLabel"><property name="text"><string>距离:</string></property></widget></item>
-          <item row="1" column="1"><widget class="QLineEdit" name="statDistance"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="1" column="2"><widget class="QLabel"><property name="text"><string>模式:</string></property></widget></item>
-          <item row="1" column="3"><widget class="QLineEdit" name="statCamMode"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="2" column="0"><widget class="QLabel"><property name="text"><string>纬度:</string></property></widget></item>
-          <item row="2" column="1"><widget class="QLineEdit" name="statLatitude"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="2" column="2"><widget class="QLabel"><property name="text"><string>经度:</string></property></widget></item>
-          <item row="2" column="3"><widget class="QLineEdit" name="statLongitude"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="3" column="0"><widget class="QLabel"><property name="text"><string>高度:</string></property></widget></item>
-          <item row="3" column="1"><widget class="QLineEdit" name="statHeight"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>水平:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="statPanAngle">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>垂直:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLineEdit" name="statTiltAngle">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>距离:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="statDistance">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>模式:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="statCamMode">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>纬度:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="statLatitude">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>经度:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QLineEdit" name="statLongitude">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>高度:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="statHeight">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
-
-       <!-- 列2：镜头状态 -->
        <item>
         <widget class="QGroupBox" name="dashGroupLens">
-         <property name="title"><string>镜头状态</string></property>
-         <property name="styleSheet"><string>QGroupBox { border-color: #2d5a88; }</string></property>
+         <property name="styleSheet">
+          <string>QGroupBox { border-color: #2d5a88; }</string>
+         </property>
+         <property name="title">
+          <string>镜头状态</string>
+         </property>
          <layout class="QGridLayout" name="gridLayout_statLens">
-          <property name="verticalSpacing"><number>2</number></property>
-          <property name="horizontalSpacing"><number>2</number></property>
-          <item row="0" column="0"><widget class="QLabel"><property name="text"><string>V倍:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QLineEdit" name="statZoomVis"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="0" column="2"><widget class="QLabel"><property name="text"><string>V焦:</string></property></widget></item>
-          <item row="0" column="3"><widget class="QLineEdit" name="statFocalVis"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="1" column="0"><widget class="QLabel"><property name="text"><string>V角:</string></property></widget></item>
-          <item row="1" column="1"><widget class="QLineEdit" name="statFovVis"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="1" column="2"><widget class="QLabel"><property name="text"><string>V聚:</string></property></widget></item>
-          <item row="1" column="3"><widget class="QLineEdit" name="statFocusVis"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="2" column="0"><widget class="QLabel"><property name="text"><string>I倍:</string></property></widget></item>
-          <item row="2" column="1"><widget class="QLineEdit" name="statZoomIR"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="2" column="2"><widget class="QLabel"><property name="text"><string>I焦:</string></property></widget></item>
-          <item row="2" column="3"><widget class="QLineEdit" name="statFocalIR"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="3" column="0"><widget class="QLabel"><property name="text"><string>I角:</string></property></widget></item>
-          <item row="3" column="1"><widget class="QLineEdit" name="statFovIR"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
-          <item row="3" column="2"><widget class="QLabel"><property name="text"><string>I聚:</string></property></widget></item>
-          <item row="3" column="3"><widget class="QLineEdit" name="statFocusIR"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>60</number></property></widget></item>
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>可见光镜头倍率:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="statZoomVis">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>可见光镜头焦距:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLineEdit" name="statFocalVis">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>可见光镜头视场角:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="statFovVis">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>可见光镜头聚焦:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="statFocusVis">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>红外镜头倍率:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="statZoomIR">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>红外镜头焦距:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QLineEdit" name="statFocalIR">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>红外镜头视场角:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="statFovIR">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>红外镜头聚焦:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QLineEdit" name="statFocusIR">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
-
-       <!-- 列3：识别上报 -->
        <item>
         <widget class="QGroupBox" name="dashGroupIdentify">
-         <property name="title"><string>识别上报</string></property>
-         <property name="styleSheet"><string>QGroupBox { border-color: #2d5a88; }</string></property>
+         <property name="styleSheet">
+          <string>QGroupBox { border-color: #2d5a88; }</string>
+         </property>
+         <property name="title">
+          <string>识别上报</string>
+         </property>
          <layout class="QVBoxLayout" name="verticalLayout_identify">
-          <property name="topMargin"><number>2</number></property>
-          <property name="bottomMargin"><number>2</number></property>
+          <property name="topMargin">
+           <number>2</number>
+          </property>
+          <property name="bottomMargin">
+           <number>2</number>
+          </property>
           <item>
            <widget class="QLabel" name="lblIdentifyCount">
-            <property name="text"><string>目标总数: 0</string></property>
-            <property name="styleSheet"><string>color: #00aa00; font-weight: bold;</string></property>
+            <property name="styleSheet">
+             <string>color: #00aa00; font-weight: bold;</string>
+            </property>
+            <property name="text">
+             <string>目标总数: 0</string>
+            </property>
            </widget>
           </item>
           <item>
            <widget class="QTableWidget" name="tableIdentify">
-            <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
-            <property name="selectionBehavior"><set>QAbstractItemView::SelectRows</set></property>
-            <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
-            <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
-            <attribute name="horizontalHeaderStretchLastSection"><bool>true</bool></attribute>
-            <attribute name="horizontalHeaderDefaultSectionSize"><number>45</number></attribute>
-            <column><property name="text"><string>ID</string></property></column>
-            <column><property name="text"><string>类别</string></property></column>
-            <column><property name="text"><string>距离</string></property></column>
-            <column><property name="text"><string>坐标(X,Y)</string></property></column>
-            <column><property name="text"><string>脱靶(mrad)</string></property></column>
+            <property name="horizontalScrollBarPolicy">
+             <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+            </property>
+            <property name="editTriggers">
+             <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+            </property>
+            <property name="selectionBehavior">
+             <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
+            </property>
+            <attribute name="horizontalHeaderDefaultSectionSize">
+             <number>45</number>
+            </attribute>
+            <attribute name="horizontalHeaderStretchLastSection">
+             <bool>true</bool>
+            </attribute>
+            <attribute name="verticalHeaderVisible">
+             <bool>false</bool>
+            </attribute>
+            <column>
+             <property name="text">
+              <string>ID</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>类别</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>距离</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>坐标(X,Y)</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>脱靶(mrad)</string>
+             </property>
+            </column>
            </widget>
           </item>
          </layout>
         </widget>
        </item>
-
-       <!-- 列4：单目标跟踪上报 -->
        <item>
         <widget class="QGroupBox" name="dashGroupTrack">
-         <property name="title"><string>跟踪上报</string></property>
-         <property name="styleSheet"><string>QGroupBox { border-color: #2d5a88; }</string></property>
+         <property name="styleSheet">
+          <string>QGroupBox { border-color: #2d5a88; }</string>
+         </property>
+         <property name="title">
+          <string>跟踪上报</string>
+         </property>
          <layout class="QGridLayout" name="gridLayout_track">
-          <property name="verticalSpacing"><number>2</number></property>
-          <property name="horizontalSpacing"><number>2</number></property>
+          <property name="spacing">
+           <number>2</number>
+          </property>
           <item row="0" column="0" colspan="4">
            <widget class="QLabel" name="lblTrackStatus">
-            <property name="text"><string>状态: 未锁定</string></property>
-            <property name="styleSheet"><string>color: #aaaaaa; font-weight: bold;</string></property>
+            <property name="styleSheet">
+             <string>color: #aaaaaa; font-weight: bold;</string>
+            </property>
+            <property name="text">
+             <string>状态: 未锁定</string>
+            </property>
            </widget>
           </item>
-          <item row="1" column="0"><widget class="QLabel"><property name="text"><string>ID:</string></property></widget></item>
-          <item row="1" column="1"><widget class="QLineEdit" name="trackId"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>70</number></property></widget></item>
-          <item row="1" column="2"><widget class="QLabel"><property name="text"><string>类别:</string></property></widget></item>
-          <item row="1" column="3"><widget class="QLineEdit" name="trackClass"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>70</number></property></widget></item>
-          
-          <item row="2" column="0"><widget class="QLabel"><property name="text"><string>坐标:</string></property></widget></item>
-          <item row="2" column="1"><widget class="QLineEdit" name="trackPos"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>90</number></property></widget></item>
-          <item row="2" column="2"><widget class="QLabel"><property name="text"><string>脱靶:</string></property></widget></item>
-          <item row="2" column="3"><widget class="QLineEdit" name="trackMissDistance"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>70</number></property></widget></item>
-
-          <item row="3" column="0"><widget class="QLabel"><property name="text"><string>距离:</string></property></widget></item>
-          <item row="3" column="1"><widget class="QLineEdit" name="trackDistance"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>90</number></property></widget></item>
-          <item row="3" column="2"><widget class="QLabel"><property name="text"><string>偏角:</string></property></widget></item>
-          <item row="3" column="3"><widget class="QLineEdit" name="trackAngle"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>70</number></property></widget></item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>ID:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="trackId">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>类别:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="trackClass">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>坐标:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="trackPos">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>脱靶:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QLineEdit" name="trackMissDistance">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>距离:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="trackDistance">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>偏角:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QLineEdit" name="trackAngle">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
-
-       <!-- 列5：图像与系统参数 -->
        <item>
         <widget class="QGroupBox" name="dashGroupSysParams">
-         <property name="title"><string>系统参数</string></property>
-         <property name="styleSheet"><string>QGroupBox { border-color: #2d5a88; }</string></property>
+         <property name="styleSheet">
+          <string>QGroupBox { border-color: #2d5a88; }</string>
+         </property>
+         <property name="title">
+          <string>系统参数</string>
+         </property>
          <layout class="QVBoxLayout" name="verticalLayout_sysParams">
-          <property name="topMargin"><number>2</number></property>
-          <property name="bottomMargin"><number>2</number></property>
-          <property name="spacing"><number>2</number></property>
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="topMargin">
+           <number>2</number>
+          </property>
+          <property name="bottomMargin">
+           <number>2</number>
+          </property>
           <item>
            <widget class="QPushButton" name="btnGetImageParams">
-            <property name="text"><string>获取当前参数</string></property>
-            <property name="maximumHeight"><number>24</number></property>
+            <property name="text">
+             <string>获取当前参数</string>
+            </property>
            </widget>
           </item>
           <item>
            <layout class="QGridLayout" name="gridLayout_imgParamsInner">
-            <property name="verticalSpacing"><number>2</number></property>
-            <property name="horizontalSpacing"><number>2</number></property>
-            <item row="0" column="0"><widget class="QLabel"><property name="text"><string>分辨:</string></property></widget></item>
-            <item row="0" column="1"><widget class="QLineEdit" name="paramResolution"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            <item row="0" column="2"><widget class="QLabel"><property name="text"><string>码率:</string></property></widget></item>
-            <item row="0" column="3"><widget class="QLineEdit" name="paramBitrate"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            
-            <item row="1" column="0"><widget class="QLabel"><property name="text"><string>编码:</string></property></widget></item>
-            <item row="1" column="1"><widget class="QLineEdit" name="paramCodec"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            <item row="1" column="2"><widget class="QLabel"><property name="text"><string>模式:</string></property></widget></item>
-            <item row="1" column="3"><widget class="QLineEdit" name="paramWorkMode"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            
-            <item row="2" column="0"><widget class="QLabel"><property name="text"><string>PIP:</string></property></widget></item>
-            <item row="2" column="1"><widget class="QLineEdit" name="paramPipShow"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            <item row="2" column="2"><widget class="QLabel"><property name="text"><string>算法:</string></property></widget></item>
-            <item row="2" column="3"><widget class="QLineEdit" name="paramAlgoModel"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            
-            <item row="3" column="0"><widget class="QLabel"><property name="text"><string>VMax:</string></property></widget></item>
-            <item row="3" column="1"><widget class="QLineEdit" name="paramMaxVisFL"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
-            <item row="3" column="2"><widget class="QLabel"><property name="text"><string>IMax:</string></property></widget></item>
-            <item row="3" column="3"><widget class="QLineEdit" name="paramMaxIRFL"><property name="readOnly"><bool>true</bool></property><property name="maximumWidth"><number>65</number></property></widget></item>
+            <property name="spacing">
+             <number>2</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>分辨:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="paramResolution">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>码率:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="3">
+             <widget class="QLineEdit" name="paramBitrate">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>编码:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLineEdit" name="paramCodec">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>模式:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="3">
+             <widget class="QLineEdit" name="paramWorkMode">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>PIP:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLineEdit" name="paramPipShow">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>算法:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="3">
+             <widget class="QLineEdit" name="paramAlgoModel">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>VMax:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLineEdit" name="paramMaxVisFL">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="2">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>IMax:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="3">
+             <widget class="QLineEdit" name="paramMaxIRFL">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
          </layout>
         </widget>
        </item>
-
       </layout>
      </widget>
     </item>
-
    </layout>
   </widget>
-
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
-  <resources/>
-  <connections/>
-  <customwidgets>
-   <customwidget>
-    <class>VideoWidget</class>
-    <extends>QWidget</extends>
-    <header>videowidget.h</header>
-   </customwidget>
-  </customwidgets>
+ <customwidgets>
+  <customwidget>
+   <class>VideoWidget</class>
+   <extends>QWidget</extends>
+   <header>videowidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
 </ui>

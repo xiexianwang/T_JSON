@@ -13,6 +13,7 @@ public:
     explicit VideoWidget(QWidget *parent = nullptr);
 
     void setFrame(const QImage &frame);
+    void clearFrame();
     QRect selectionRect() const;
 
 signals:

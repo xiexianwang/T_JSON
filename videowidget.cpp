@@ -20,6 +20,15 @@ void VideoWidget::setFrame(const QImage &frame)
         update();
 }
 
+void VideoWidget::clearFrame()
+{
+    QMutexLocker lock(&m_frameMutex);
+    m_frame = QImage();
+    m_hasFrame = false;
+    m_selecting = false;
+    update();
+}
+
 QRect VideoWidget::selectionRect() const
 {
     QMutexLocker lock(&m_frameMutex);

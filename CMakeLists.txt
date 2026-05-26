@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.19)
 project(T-JSON LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel)
+# Compute Qt binary directory from Qt6_DIR
+get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../../bin" ABSOLUTE)
 
 qt_standard_project_setup()
 
@@ -41,6 +43,12 @@ qt_add_executable(T-JSON
     videowidget.h
     rtspthread.cpp
     rtspthread.h
+    mapwidget.cpp
+    mapwidget.h
+    mapbridge.cpp
+    mapbridge.h
+    mapdialog.cpp
+    mapdialog.h
     resources.qrc
 )
 
@@ -52,6 +60,8 @@ target_link_libraries(T-JSON
         Qt::Widgets
         Qt::Network
         Qt::Gui
+        Qt::WebEngineWidgets
+        Qt::WebChannel
         ${FFMPEG_LIBS}
 )
 
@@ -65,6 +75,14 @@ if(WIN32)
             COMMENT "Copying ${dll}"
         )
     endforeach()
+
+    # ── Deploy Qt runtimes (WebEngine, WebChannel, etc.) ──
+    if(EXISTS "${QT_BIN_DIR}/windeployqt6.exe")
+        add_custom_command(TARGET T-JSON POST_BUILD
+            COMMAND "${QT_BIN_DIR}/windeployqt6" "$<TARGET_FILE_DIR:T-JSON>/T-JSON.exe" --verbose 0
+            COMMENT "Deploying Qt runtimes via windeployqt"
+        )
+    endif()
 endif()
 
 install(TARGETS T-JSON

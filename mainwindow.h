@@ -3,12 +3,15 @@
 
 #include <QMainWindow>
 #include <QJsonObject>
+#include <QPushButton>
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
 
 class RtspThread;
 class VideoWidget;
+class MapWidget;
+class MapDialog;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -34,6 +37,7 @@ private slots:
     void onErrorOccurred(const QString& errorMsg);
     void onJsonReceived(const QJsonObject& doc);
     void onImageSnapped(const QByteArray& jpegData, const QRect& location);
+    void onAckReceived(quint8 statusCode);
 
     void on_radioModeOff_clicked();
     void on_radioModeIdentify_clicked();
@@ -49,7 +53,7 @@ private slots:
     void onRtspFrame(const QImage &frame);
     void onRtspOpened();
     void onRtspError(const QString &msg);
-    void onVideoSelection(const QRectF &normRect);
+    void onVideoSelection(int cx, int cy, int pw, int ph);
 
 private:
     Ui::MainWindow *ui;
@@ -57,6 +61,8 @@ private:
     ConfigManager *m_cfg;
     DeviceController *m_device;
     RtspThread *m_rtsp;
+    MapDialog *m_mapDlg;
+    QPushButton *m_btnMap;
     bool m_updatingFromDevice = false;
 
     double m_currentVisZoom = 1.0;
@@ -68,6 +74,12 @@ private:
     void syncLensTargetByDisplayMode(int pipShow);
     void updateLensStats();
     QString missMradStr(double dx, double dy, double pixelSizeUm, double focalMm);
+
+    // Map helpers
+    void updateMapDevicePosition(const QJsonObject& doc);
+    void updateMapTargets(const QJsonObject& doc, int workMode);
+    void pixelToGps(double pixelX, double pixelY, double distance,
+                    double& outLat, double& outLon);
 };
 
 #endif // MAINWINDOW_H

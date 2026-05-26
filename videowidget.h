@@ -17,7 +17,7 @@ public:
     QRect selectionRect() const;
 
 signals:
-    void selectionFinished(const QRectF &normRect);
+    void selectionFinished(int centerX, int centerY, int width, int height);
 
 protected:
     bool hasHeightForWidth() const override { return true; }
@@ -39,6 +39,7 @@ private:
 
     // Computed display geometry
     QRect m_displayRect;
+    QSize m_frameSize;
 
     QRect normalizedSelRect() const;
 };

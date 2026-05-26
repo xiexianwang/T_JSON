@@ -197,7 +197,10 @@ void TJsonClient::processBuffer()
             QByteArray payload = m_buffer.mid(7, length);
             m_buffer.remove(0, 7 + length);
             
-            if (type != static_cast<quint8>(FrameType::Heartbeat) && !payload.isEmpty()) {
+            if (type == static_cast<quint8>(FrameType::Ack) && payload.size() >= 2) {
+                quint8 statusCode = static_cast<quint8>(payload.at(1));
+                emit ackReceived(statusCode);
+            } else if (type != static_cast<quint8>(FrameType::Heartbeat) && !payload.isEmpty()) {
                 parseJsonFrame(payload);
             }
             

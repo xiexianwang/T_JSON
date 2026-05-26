@@ -15,6 +15,7 @@ void VideoWidget::setFrame(const QImage &frame)
 {
     QMutexLocker lock(&m_frameMutex);
     m_frame = frame;
+    m_frameSize = frame.size();
     m_hasFrame = true;
     if (isVisible())
         update();
@@ -97,17 +98,21 @@ void VideoWidget::mouseReleaseEvent(QMouseEvent *event)
         QRect sel = QRect(m_selStart, m_selEnd).normalized();
 
         // Only emit if selection has meaningful size
-        if (sel.width() > 4 && sel.height() > 4) {
-            // Normalize to displayRect coords [0, 1]
-            QRectF norm;
-            norm.setLeft  ((sel.left()   - m_displayRect.left()) / (double)m_displayRect.width());
-            norm.setTop   ((sel.top()    - m_displayRect.top())  / (double)m_displayRect.height());
-            norm.setRight ((sel.right()  - m_displayRect.left()) / (double)m_displayRect.width());
-            norm.setBottom((sel.bottom() - m_displayRect.top())  / (double)m_displayRect.height());
+        if (sel.width() > 4 && sel.height() > 4 &&
+            !m_frameSize.isEmpty() && m_displayRect.width() > 0 && m_displayRect.height() > 0) {
 
-            // Clamp to [0, 1]
-            norm = norm.intersected(QRectF(0, 0, 1, 1));
-            emit selectionFinished(norm);
+            // Map directly from widget coords → original frame pixel coords
+            int cx = int((sel.center().x() - m_displayRect.left()) * m_frameSize.width()  / (double)m_displayRect.width());
+            int cy = int((sel.center().y() - m_displayRect.top() ) * m_frameSize.height() / (double)m_displayRect.height());
+            int pw = int(sel.width()  * m_frameSize.width()  / (double)m_displayRect.width());
+            int ph = int(sel.height() * m_frameSize.height() / (double)m_displayRect.height());
+
+            cx = qBound(0, cx, m_frameSize.width()  - 1);
+            cy = qBound(0, cy, m_frameSize.height() - 1);
+            pw = qMax(1, qMin(pw, m_frameSize.width()));
+            ph = qMax(1, qMin(ph, m_frameSize.height()));
+
+            emit selectionFinished(cx, cy, pw, ph);
         }
 
         update();

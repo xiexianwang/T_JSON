@@ -64,6 +64,9 @@ signals:
     // JSON Status Frame (0x01)
     void jsonReceived(const QJsonObject& doc);
     
+    // ACK Frame (0x12)
+    void ackReceived(quint8 statusCode);
+    
     // Image Snap Frame (0xEB 0x92 0x04)
     void imageSnapped(const QByteArray& jpegData, const QRect& location);
 

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+* { margin:0; padding:0; }
+html, body, #map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+window._AMapSecurityConfig = {
+    securityJsCode: '23d67210462f4b840c9965529466fe6b'
+};
+</script>
+<script src="https://webapi.amap.com/maps?v=2.0&key=aef8e706793055fe21360044ab430506"></script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script>
+// ========== WGS-84 → GCJ-02 ==========
+var pi = 3.1415926535897932384626;
+var a = 6378245.0;
+var ee = 0.00669342162296594323;
+
+function transformLat(x, y) {
+    var ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+    ret += (20.0 * Math.sin(6.0 * x * pi) + 20.0 * Math.sin(2.0 * x * pi)) * 2.0 / 3.0;
+    ret += (20.0 * Math.sin(y * pi) + 40.0 * Math.sin(y / 3.0 * pi)) * 2.0 / 3.0;
+    ret += (160.0 * Math.sin(y / 12.0 * pi) + 320.0 * Math.sin(y * pi / 30.0)) * 2.0 / 3.0;
+    return ret;
+}
+function transformLon(x, y) {
+    var ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+    ret += (20.0 * Math.sin(6.0 * x * pi) + 20.0 * Math.sin(2.0 * x * pi)) * 2.0 / 3.0;
+    ret += (20.0 * Math.sin(x * pi) + 40.0 * Math.sin(x / 3.0 * pi)) * 2.0 / 3.0;
+    ret += (150.0 * Math.sin(x / 12.0 * pi) + 300.0 * Math.sin(x / 30.0 * pi)) * 2.0 / 3.0;
+    return ret;
+}
+function wgs84ToGcj02(wgsLat, wgsLon) {
+    var dlat = transformLat(wgsLon - 105.0, wgsLat - 35.0);
+    var dlon = transformLon(wgsLon - 105.0, wgsLat - 35.0);
+    var radlat = wgsLat / 180.0 * pi;
+    var magic = Math.sin(radlat);
+    magic = 1 - ee * magic * magic;
+    var sqrtmagic = Math.sqrt(magic);
+    dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * pi);
+    dlon = (dlon * 180.0) / (a / sqrtmagic * Math.cos(radlat) * pi);
+    return [wgsLat + dlat, wgsLon + dlon];
+}
+function wgsToGcjLngLat(lat, lon) {
+    var g = wgs84ToGcj02(lat, lon);
+    return [g[1], g[0]]; // AMap uses [lng, lat]
+}
+
+// ========== Map ==========
+var map = new AMap.Map('map', {
+    center: [116.4, 39.9],
+    zoom: 13,
+    resizeEnable: true,
+    mapStyle: 'amap://styles/light',
+    features: ['bg', 'road', 'building', 'point']
+});
+
+// ---- Device marker ----
+var deviceMarker = new AMap.Marker({
+    position: [0, 0],
+    content: '<div style="font-size:28px;line-height:28px;text-shadow:0 0 6px rgba(0,0,0,0.8);">📍</div>',
+    offset: new AMap.Pixel(-14, -14),
+    zIndex: 1000
+});
+var deviceCircle = new AMap.Circle({
+    center: [0, 0],
+    radius: 50,
+    fillColor: '#3388ff',
+    strokeColor: '#3388ff',
+    fillOpacity: 0.08,
+    strokeWeight: 1
+});
+
+// ---- FOV polygon ----
+var fovLayer = new AMap.Polygon({
+    path: [],
+    strokeColor: '#ff8800',
+    strokeWeight: 2,
+    fillOpacity: 0.12
+});
+
+// ---- Track ----
+var trackPolylines = {};
+var trackEndMarkers = {};
+
+// ---- Targets ----
+var targetOverlays = [];
+
+// ---- Helpers ----
+function computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
+    if (rangeM <= 0) return [];
+    var R = 6371000;
+    var latR = lat * Math.PI / 180, lonR = lon * Math.PI / 180;
+    var panR = panDeg * Math.PI / 180;
+    var halfH = hfovDeg / 2 * Math.PI / 180;
+    var corners = [];
+    for (var i = -1; i <= 1; i += 2) {
+        for (var j = -1; j <= 1; j += 2) {
+            var brg = panR + i * halfH;
+            var d = rangeM / R;
+            var clat = Math.asin(Math.sin(latR) * Math.cos(d) + Math.cos(latR) * Math.sin(d) * Math.cos(brg));
+            var clon = lonR + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(latR), Math.cos(d) - Math.sin(latR) * Math.sin(clat));
+            corners.push([clat * 180 / Math.PI, clon * 180 / Math.PI]);
+        }
+    }
+    corners.push([lat, lon]);
+    return corners;
+}
+
+var bridge = null;
+
+function onMapReady() {
+    map.on('complete', function() {
+        new QWebChannel(qt.webChannelTransport, function(channel) {
+            bridge = channel.objects.bridge;
+            if (bridge && bridge.onMapInitialized) {
+                bridge.onMapInitialized();
+            }
+        });
+    });
+}
+
+if (typeof AMap !== 'undefined') {
+    onMapReady();
+} else {
+    window.onAMapUILoaded = onMapReady;
+}
+
+// ========== JS API called from C++ ==========
+
+function jsSetDevicePos(lat, lon) {
+    var g = wgsToGcjLngLat(lat, lon);
+    deviceMarker.setPosition(g);
+    deviceCircle.setCenter(g);
+    if (!deviceCircle.getMap()) deviceCircle.setMap(map);
+    map.setCenter(g);
+}
+
+function jsSetDeviceFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
+    var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
+    pts = pts.map(function(p) { return wgsToGcjLngLat(p[0], p[1]); });
+    if (pts.length > 0) {
+        fovLayer.setPath(pts);
+        if (!fovLayer.getMap()) fovLayer.setMap(map);
+    } else {
+        if (fovLayer.getMap()) fovLayer.setMap(null);
+    }
+}
+
+function jsClearFov() {
+    if (fovLayer.getMap()) fovLayer.setMap(null);
+}
+
+function jsAddTrackPoint(trackId, lat, lon) {
+    var g = wgsToGcjLngLat(lat, lon);
+    if (!trackPolylines[trackId]) {
+        trackPolylines[trackId] = new AMap.Polyline({
+            path: [],
+            strokeColor: '#ff4444',
+            strokeWeight: 3,
+            strokeOpacity: 0.8
+        });
+        trackPolylines[trackId].setMap(map);
+        trackEndMarkers[trackId] = new AMap.Marker({
+            position: g,
+            content: '<div style="background:#44aaff;border:2px solid #fff;border-radius:50%;width:10px;height:10px;box-shadow:0 0 4px rgba(0,100,255,0.5);"></div>',
+            offset: new AMap.Pixel(-7, -7)
+        });
+        trackEndMarkers[trackId].setMap(map);
+    }
+    var pl = trackPolylines[trackId];
+    var path = pl.getPath() || [];
+    path.push(new AMap.LngLat(g[0], g[1]));
+    pl.setPath(path);
+    trackEndMarkers[trackId].setPosition(g);
+}
+
+function jsClearTrack(trackId) {
+    if (trackPolylines[trackId]) { trackPolylines[trackId].setMap(null); delete trackPolylines[trackId]; }
+    if (trackEndMarkers[trackId]) { trackEndMarkers[trackId].setMap(null); delete trackEndMarkers[trackId]; }
+}
+
+function jsClearAllTracks() {
+    Object.keys(trackPolylines).forEach(function(id) { trackPolylines[id].setMap(null); });
+    Object.keys(trackEndMarkers).forEach(function(id) { trackEndMarkers[id].setMap(null); });
+    trackPolylines = {}; trackEndMarkers = {};
+}
+
+function jsUpdateTargets(jsonStr) {
+    targetOverlays.forEach(function(o) { o.setMap(null); });
+    targetOverlays = [];
+    var arr = JSON.parse(jsonStr);
+    var infoWin = null;
+    arr.forEach(function(t) {
+        var g = wgsToGcjLngLat(t.lat, t.lon);
+        var color = t.locked ? '#00ff00' : '#ff4444';
+        var m = new AMap.CircleMarker({
+            center: g,
+            radius: 6,
+            fillColor: color,
+            strokeColor: color,
+            fillOpacity: 0.7,
+            strokeWeight: 2
+        });
+        m.setMap(map);
+        m._targetId = t.id;
+        m._targetCls = t.cls;
+        m._targetDist = t.dist;
+        m.on('click', function(e) {
+            if (infoWin) infoWin.close();
+            infoWin = new AMap.InfoWindow({
+                content: '<div><b>' + m._targetId + '</b></div><div>Class: ' + m._targetCls + '</div><div>Dist: ' + (m._targetDist || '-') + 'm</div>',
+                offset: new AMap.Pixel(0, -20)
+            });
+            infoWin.open(map, g);
+        });
+        targetOverlays.push(m);
+    });
+}
+
+map.on('click', function(e) {
+    if (bridge && bridge.onMapClick) {
+        bridge.onMapClick(e.lnglat.getLat(), e.lnglat.getLng());
+    }
+});
+</script>
+</body>
+</html>

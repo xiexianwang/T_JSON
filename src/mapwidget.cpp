@@ -1,5 +1,8 @@
 #include "mapwidget.h"
-#include <QVBoxLayout>
+#include "ui_mapwidget.h"
+#include <QWebEngineView>
+#include <QWebEnginePage>
+#include <QWebChannel>
 #include <QFile>
 #include <QJsonDocument>
 #include <QDebug>
@@ -7,30 +10,31 @@
 
 MapWidget::MapWidget(QWidget *parent)
     : QWidget(parent)
-    , m_webView(new QWebEngineView(this))
+    , ui(new Ui::MapWidget)
     , m_channel(new QWebChannel(this))
     , m_bridge(new MapBridge(this))
 {
-    auto *lay = new QVBoxLayout(this);
-    lay->setContentsMargins(0, 0, 0, 0);
-    lay->addWidget(m_webView);
+    ui->setupUi(this);
 
     m_channel->registerObject(QStringLiteral("bridge"), m_bridge);
-    m_webView->page()->setWebChannel(m_channel);
+    ui->m_webView->page()->setWebChannel(m_channel);
 
     // Load map HTML with AMap JS API (loaded from CDN)
     QFile htmlF(QStringLiteral(":/map.html"));
     if (htmlF.open(QFile::ReadOnly)) {
         QString html = QString::fromUtf8(htmlF.readAll());
-        m_webView->setHtml(html, QUrl(QStringLiteral("https://localhost/")));
+        ui->m_webView->setHtml(html, QUrl(QStringLiteral("https://localhost/")));
     } else {
         qWarning() << "Failed to load map resources";
     }
 
-    // When map is ready, flush pending
-    connect(m_bridge, &MapBridge::mapReadyChanged, this, [this]() {
-        m_mapReady = true;
-        flushPending();
+    // Debug: JS console messages
+    auto *page = ui->m_webView->page();
+    connect(page, &QWebEnginePage::loadFinished, this, [](bool ok) {
+        qDebug() << "[Map] Page load:" << (ok ? "OK" : "FAILED");
+    });
+    connect(page, &QWebEnginePage::loadProgress, this, [](int p) {
+        qDebug() << "[Map] Load progress:" << p << "%";
     });
 
     // Forward map click
@@ -63,27 +67,42 @@ MapWidget::MapWidget(QWidget *parent)
     connect(m_bridge, &MapBridge::jsUpdateTargets, this, [this](const QString& json) {
         runJS(QStringLiteral("jsUpdateTargets('%1')").arg(json));
     });
+    connect(m_bridge, &MapBridge::jsSetMapType, this, [this](int type) {
+        if (type == 0)
+            runJS(QStringLiteral("jsSetSatelliteMap()"));
+        else
+            runJS(QStringLiteral("jsSetStreetMap()"));
+    });
+    connect(m_bridge, &MapBridge::jsSetZoom, this, [this](int level) {
+        runJS(QStringLiteral("jsSetZoom(%1)").arg(level));
+    });
+    connect(m_bridge, &MapBridge::jsDeviceInfo, this, [this](double lat, double lon, double alt, double pan, double tilt, double hfov, double vfov, double range) {
+        runJS(QStringLiteral("jsSetDeviceInfo(%1,%2,%3,%4,%5,%6,%7,%8)")
+              .arg(lat, 0, 'f', 6).arg(lon, 0, 'f', 6)
+              .arg(alt, 0, 'f', 1).arg(pan, 0, 'f', 1)
+              .arg(tilt, 0, 'f', 1).arg(hfov, 0, 'f', 1)
+              .arg(vfov, 0, 'f', 1).arg(range, 0, 'f', 0));
+    });
+}
+
+MapWidget::~MapWidget()
+{
+    delete ui;
 }
 
 void MapWidget::runJS(const QString& js)
 {
-    if (m_mapReady) {
-        m_webView->page()->runJavaScript(js);
-    } else {
-        m_pendingJs.append(js);
-    }
-}
-
-void MapWidget::flushPending()
-{
-    for (const auto& js : m_pendingJs)
-        m_webView->page()->runJavaScript(js);
-    m_pendingJs.clear();
+    ui->m_webView->page()->runJavaScript(js);
 }
 
 void MapWidget::setDevicePosition(double lat, double lon)
 {
     emit m_bridge->jsDevicePos(lat, lon);
+}
+
+void MapWidget::setDeviceInfo(double lat, double lon, double alt, double pan, double tilt, double hfov, double vfov, double range)
+{
+    emit m_bridge->jsDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range);
 }
 
 void MapWidget::setDeviceFov(double lat, double lon, double panDeg, double tiltDeg,
@@ -117,4 +136,14 @@ void MapWidget::updateTargetMarkers(const QJsonArray& targets)
     QJsonDocument doc(targets);
     QString json = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
     emit m_bridge->jsUpdateTargets(json);
+}
+
+void MapWidget::setMapType(int type)
+{
+    emit m_bridge->jsSetMapType(type);
+}
+
+void MapWidget::setZoom(int level)
+{
+    emit m_bridge->jsSetZoom(level);
 }

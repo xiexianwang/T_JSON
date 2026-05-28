@@ -6,6 +6,8 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidge
 get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../../bin" ABSOLUTE)
 
 qt_standard_project_setup()
+set(CMAKE_AUTOUIC_SEARCH_PATHS "ui")
+set(CMAKE_AUTORCC ON)
 
 # 强制使用 UTF-8 编码编译，解决 MSVC 下中文字符串乱码问题
 if(MSVC)
@@ -26,30 +28,34 @@ set(FFMPEG_LIBS
 
 qt_add_executable(T-JSON
     WIN32 MACOSX_BUNDLE
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    mainwindow.ui
-    tjsonclient.cpp
-    tjsonclient.h
-    devicecontroller.cpp
-    devicecontroller.h
-    configmanager.cpp
-    configmanager.h
-    settingsdialog.cpp
-    settingsdialog.h
-    settingsdialog.ui
-    videowidget.cpp
-    videowidget.h
-    rtspthread.cpp
-    rtspthread.h
-    mapwidget.cpp
-    mapwidget.h
-    mapbridge.cpp
-    mapbridge.h
-    mapdialog.cpp
-    mapdialog.h
-    resources.qrc
+    src/main.cpp
+    src/mainwindow.cpp
+    src/mainwindow.h
+    ui/mainwindow.ui
+    src/tjsonclient.cpp
+    src/tjsonclient.h
+    src/devicecontroller.cpp
+    src/devicecontroller.h
+    src/configmanager.cpp
+    src/configmanager.h
+    src/settingsdialog.cpp
+    src/settingsdialog.h
+    ui/settingsdialog.ui
+    ui/mapdialog.ui
+    ui/mapwidget.ui
+    src/videowidget.cpp
+    src/videowidget.h
+    src/rtspthread.cpp
+    src/rtspthread.h
+    src/mapwidget.cpp
+    src/mapwidget.h
+    src/mapbridge.cpp
+    src/mapbridge.h
+    src/mapdialog.cpp
+    src/mapdialog.h
+    src/cmdlogdialog.cpp
+    src/cmdlogdialog.h
+    resources/resources.qrc
 )
 
 target_include_directories(T-JSON PRIVATE "${FFMPEG_INCLUDE_DIR}")

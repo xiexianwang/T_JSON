@@ -5,6 +5,7 @@
 #include "videowidget.h"
 #include "mapdialog.h"
 #include "mapwidget.h"
+#include "cmdlogdialog.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>
@@ -159,6 +160,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
         m_device->posReset(checked);
     });
+
+    // ================= 指令日志窗口 =================
+    auto *cmdLog = new CmdLogDialog(this);
+    connect(m_device, &DeviceController::commandSent, cmdLog, &CmdLogDialog::appendLog);
+    cmdLog->show();
 }
 
 MainWindow::~MainWindow()
@@ -271,6 +277,9 @@ void MainWindow::onDeviceConnected()
     ui->btnConnect->setStyleSheet("background-color: #c75450;");
     ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
+
+    // Auto-query image parameters on connect
+    m_device->queryImageParams();
 }
 
 void MainWindow::onDeviceDisconnected()
@@ -521,19 +530,19 @@ void MainWindow::updateLensStats()
     double visFocal = cam.visMinFocal * m_currentVisZoom;
     double irFocal  = cam.irMinFocal * m_currentIrZoom;
 
-    ui->statZoomVis->setText(QString::number(m_currentVisZoom, 'f', 1));
-    ui->statFocalVis->setText(QString::number(visFocal, 'f', 1));
+    ui->statZoomVis->setText(QString::number(m_currentVisZoom, 'f', 2));
+    ui->statFocalVis->setText(QString::number(visFocal, 'f', 2));
     ui->statFocusVis->clear();
 
     double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
-    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 1));
+    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2));
 
-    ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 1));
-    ui->statFocalIR->setText(QString::number(irFocal, 'f', 1));
+    ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2));
+    ui->statFocalIR->setText(QString::number(irFocal, 'f', 2));
     ui->statFocusIR->clear();
 
     double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
-    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 1));
+    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2));
 }
 
 QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double focalMm)
@@ -569,6 +578,7 @@ void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
     if (m_updatingFromDevice) return;
+    syncLensTargetByDisplayMode(index);
     m_device->setDisplayMode(index);
 }
 
@@ -598,16 +608,35 @@ void MainWindow::on_btnGetImageParams_clicked()
     ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }
 
+// Strip trailing N/S/E/W and apply sign
+static double parseCoord(const QString& s) {
+    QString t = s.trimmed().toUpper();
+    char suf = 0;
+    if (!t.isEmpty()) {
+        QChar c = t.at(t.size() - 1);
+        if (c == 'N' || c == 'S' || c == 'E' || c == 'W') {
+            suf = c.toLatin1(); t.chop(1);
+        }
+    }
+    bool ok = false;
+    double v = t.toDouble(&ok);
+    if (!ok) return 0.0;
+    return (suf == 'S' || suf == 'W') ? -v : v;
+}
+
 void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
 {
-    double lat = doc.value("Latitude").toString().toDouble();
-    double lon = doc.value("Longitude").toString().toDouble();
+    QString latStr = doc.value("Latitude").toString();
+    QString lonStr = doc.value("Longitude").toString();
+    double lat = parseCoord(latStr);
+    double lon = parseCoord(lonStr);
     double alt = doc.value("Height").toDouble(0);
     double pan = doc.value("PTZInfoH").toDouble(0);
     double tilt = doc.value("PTZInfoV").toDouble(0);
     double range = doc.value("LaserRange").toDouble(0);
     if (range <= 0) range = 1000;
 
+    qDebug() << "[MapPos] raw:" << latStr << lonStr << "parsed:" << lat << lon;
     if (lat == 0 && lon == 0) return;
 
     m_mapDlg->mapWidget()->setDevicePosition(lat, lon);
@@ -626,6 +655,7 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     double vfovDeg = hfovDeg * 9.0 / 16.0;
 
     m_mapDlg->mapWidget()->setDeviceFov(lat, lon, pan, tilt, hfovDeg, vfovDeg, range);
+    m_mapDlg->mapWidget()->setDeviceInfo(lat, lon, alt, pan, tilt, hfovDeg, vfovDeg, range);
 }
 
 void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
@@ -641,8 +671,8 @@ void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
     int halfW = resX / 2, halfH = resY / 2;
 
     // Read latest device GPS from UI (set by ZoomInfo)
-    double devLat = ui->statLatitude->text().toDouble();
-    double devLon = ui->statLongitude->text().toDouble();
+    double devLat = parseCoord(ui->statLatitude->text());
+    double devLon = parseCoord(ui->statLongitude->text());
     double pan = ui->statPanAngle->text().toDouble();
     double tilt = ui->statTiltAngle->text().toDouble();
 
@@ -653,11 +683,58 @@ void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
     double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
     double dyAngle = (pixelY - halfH) * px / (focal * 1000.0);
 
-    // Absolute bearing & elevation
-    double bearing = (pan + dxAngle) * M_PI / 180.0;
+    // Absolute bearing (pan in degrees, dxAngle in radians)
+    double bearing = pan * M_PI / 180.0 + dxAngle;
     double range = distance > 0 ? distance : 100.0; // default 100m
 
     // Haversine: device GPS + bearing + range → target GPS
+    double R = 6371000.0;
+    double lat1 = devLat * M_PI / 180.0;
+    double lon1 = devLon * M_PI / 180.0;
+    double d = range / R;
+
+    double lat2 = qAsin(qSin(lat1) * qCos(d) + qCos(lat1) * qSin(d) * qCos(bearing));
+    double lon2 = lon1 + qAtan2(qSin(bearing) * qSin(d) * qCos(lat1), qCos(d) - qSin(lat1) * qSin(lat2));
+
+    outLat = lat2 * 180.0 / M_PI;
+    outLon = lon2 * 180.0 / M_PI;
+}
+
+void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
+                                  double tiltDeg, double& outLat, double& outLon)
+{
+    CameraConfig& cam = m_cfg->cam();
+    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    double px = isVis ? cam.visPixelSize : cam.irPixelSize;
+    double focal = isVis ? cam.visMinFocal * m_currentVisZoom
+                         : cam.irMinFocal * m_currentIrZoom;
+    int resX = isVis ? cam.visResX : cam.irResX;
+    int resY = isVis ? cam.visResY : cam.irResY;
+    int halfW = resX / 2, halfH = resY / 2;
+
+    double devLat = parseCoord(ui->statLatitude->text());
+    double devLon = parseCoord(ui->statLongitude->text());
+    double pan = ui->statPanAngle->text().toDouble();
+
+    if (devLat == 0 && devLon == 0) { outLat = 0; outLon = 0; return; }
+    if (focal < 0.1) { outLat = 0; outLon = 0; return; }
+
+    double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
+    double dyAngle = (pixelY - halfH) * px / (focal * 1000.0);
+
+    // Adjust range for vertical pixel offset using camera tilt
+    double tiltRad = tiltDeg * M_PI / 180.0;
+    double rangeAdj = distance;
+    if (tiltRad > 0.01) {
+        double H = distance * qSin(tiltRad);
+        double effTilt = tiltRad + dyAngle;
+        if (effTilt > 0.005 && effTilt < M_PI - 0.005)
+            rangeAdj = H / qSin(effTilt);
+    }
+
+    double bearing = pan * M_PI / 180.0 + dxAngle;
+    double range = rangeAdj > 0 ? rangeAdj : (distance > 0 ? distance : 100.0);
+
     double R = 6371000.0;
     double lat1 = devLat * M_PI / 180.0;
     double lon1 = devLon * M_PI / 180.0;
@@ -682,6 +759,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 
     QJsonObject objMap = doc.value("Object").toObject();
     QJsonArray targetArr;
+    double tilt = ui->statTiltAngle->text().toDouble();
 
     for (auto it = objMap.begin(); it != objMap.end(); ++it) {
         QString id = it.key();
@@ -693,24 +771,46 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 
         if (obj.contains("Points")) {
             QJsonObject pts = obj.value("Points").toObject();
-            double px = (pts.value("Left").toInt() + pts.value("Right").toInt()) / 2.0;
-            double py = (pts.value("Top").toInt() + pts.value("Bottom").toInt()) / 2.0;
-            pixelToGps(px, py, dist, tLat, tLon);
+            int L = pts.value("Left").toInt();
+            int T = pts.value("Top").toInt();
+            int R = pts.value("Right").toInt();
+            int B = pts.value("Bottom").toInt();
+            double cx = (L + R) / 2.0;
+            double cy = (T + B) / 2.0;
+            pixelToGps(cx, cy, dist, tLat, tLon);
 
             // Track trajectory
             if (workMode >= 2 && tLat != 0 && tLon != 0) {
                 m_mapDlg->mapWidget()->appendTrackPoint(id, tLat, tLon);
             }
-        }
 
-        QJsonObject t;
-        t[QStringLiteral("id")] = id;
-        t[QStringLiteral("cls")] = cls;
-        t[QStringLiteral("dist")] = dist;
-        t[QStringLiteral("lat")] = tLat;
-        t[QStringLiteral("lon")] = tLon;
-        t[QStringLiteral("locked")] = (cls == 0xB1 || cls == 0xB2);
-        targetArr.append(t);
+            // Compute bbox 4 corners with tilt-adjusted distance
+            QJsonArray bbox;
+            double bLat, bLon;
+            pixelBboxToGps(L, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+            pixelBboxToGps(R, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+            pixelBboxToGps(R, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+            pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+
+            QJsonObject t;
+            t[QStringLiteral("id")] = id;
+            t[QStringLiteral("cls")] = cls;
+            t[QStringLiteral("dist")] = dist;
+            t[QStringLiteral("lat")] = tLat;
+            t[QStringLiteral("lon")] = tLon;
+            t[QStringLiteral("locked")] = (cls == 0xB1 || cls == 0xB2);
+            t[QStringLiteral("bbox")] = bbox;
+            targetArr.append(t);
+        } else {
+            QJsonObject t;
+            t[QStringLiteral("id")] = id;
+            t[QStringLiteral("cls")] = cls;
+            t[QStringLiteral("dist")] = dist;
+            t[QStringLiteral("lat")] = tLat;
+            t[QStringLiteral("lon")] = tLon;
+            t[QStringLiteral("locked")] = false;
+            targetArr.append(t);
+        }
     }
 
     m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);

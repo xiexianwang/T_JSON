@@ -80,6 +80,8 @@ private:
     void updateMapTargets(const QJsonObject& doc, int workMode);
     void pixelToGps(double pixelX, double pixelY, double distance,
                     double& outLat, double& outLon);
+    void pixelBboxToGps(double pixelX, double pixelY, double distance,
+                        double tiltDeg, double& outLat, double& outLon);
 };
 
 #endif // MAINWINDOW_H

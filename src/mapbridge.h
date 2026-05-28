@@ -29,6 +29,9 @@ signals:
     void jsClearTrack(const QString& trackId);
     void jsClearAllTracks();
     void jsUpdateTargets(const QString& jsonStr);
+    void jsSetMapType(int type);
+    void jsSetZoom(int level);
+    void jsDeviceInfo(double lat, double lon, double alt, double pan, double tilt, double hfov, double vfov, double range);
 
 private:
     bool m_ready = false;

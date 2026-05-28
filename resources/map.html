@@ -5,11 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
 * { margin:0; padding:0; }
-html, body, #map { width:100%; height:100%; }
+html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-serif; }
+#deviceInfo {
+    position:absolute; top:10px; left:10px; z-index:999;
+    background:rgba(0,0,0,0.7); color:#eee;
+    font-size:12px; line-height:1.6; padding:8px 12px;
+    border-radius:4px; border:1px solid rgba(255,255,255,0.15);
+    min-width:200px; pointer-events:none;
+}
+#deviceInfo .label { color:#999; }
+#deviceInfo .val  { color:#fff; font-weight:bold; }
+#deviceInfo .row  { white-space:nowrap; }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="deviceInfo">
+    <div class="row"><span class="label">经纬度: </span><span class="val" id="infoLatLon">--</span></div>
+    <div class="row"><span class="label">高度: </span><span class="val" id="infoAlt">--</span><span class="label"> 距离: </span><span class="val" id="infoRange">--</span></div>
+    <div class="row"><span class="label">方位角: </span><span class="val" id="infoPan">--</span><span class="label"> 俯仰角: </span><span class="val" id="infoTilt">--</span></div>
+    <div class="row"><span class="label">视场角(H×V): </span><span class="val" id="infoFov">--</span></div>
+</div>
 <script>
 window._AMapSecurityConfig = {
     securityJsCode: '23d67210462f4b840c9965529466fe6b'
@@ -54,13 +70,18 @@ function wgsToGcjLngLat(lat, lon) {
 }
 
 // ========== Map ==========
+console.log("AMap version:", AMap.v);
 var map = new AMap.Map('map', {
-    center: [116.4, 39.9],
-    zoom: 13,
+    center: [0, 0],
+    zoom: 17,
     resizeEnable: true,
-    mapStyle: 'amap://styles/light',
-    features: ['bg', 'road', 'building', 'point']
+    viewMode: '3D',
+    pitch: 0,
+    showIndoorMap: false,
+    layers: [new AMap.TileLayer.Satellite()]
 });
+map.on('complete', function() { console.log("Map complete"); });
+map.on('error', function(e) { console.error("Map error:", e); });
 
 // ---- Device marker ----
 var deviceMarker = new AMap.Marker({
@@ -92,6 +113,7 @@ var trackEndMarkers = {};
 
 // ---- Targets ----
 var targetOverlays = [];
+var bboxOverlays = [];
 
 // ---- Helpers ----
 function computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
@@ -141,6 +163,16 @@ function jsSetDevicePos(lat, lon) {
     deviceCircle.setCenter(g);
     if (!deviceCircle.getMap()) deviceCircle.setMap(map);
     map.setCenter(g);
+}
+
+function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
+    document.getElementById('infoLatLon').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
+    document.getElementById('infoAlt').textContent = alt > 0 ? alt.toFixed(1) + ' m' : '--';
+    document.getElementById('infoRange').textContent = range > 0 ? range.toFixed(0) + ' m' : '--';
+    document.getElementById('infoPan').textContent = pan.toFixed(1) + '\u00B0';
+    document.getElementById('infoTilt').textContent = tilt.toFixed(1) + '\u00B0';
+    if (hfov > 0 && vfov > 0)
+        document.getElementById('infoFov').textContent = hfov.toFixed(1) + '\u00B0 \u00D7 ' + vfov.toFixed(1) + '\u00B0';
 }
 
 function jsSetDeviceFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
@@ -194,13 +226,17 @@ function jsClearAllTracks() {
 }
 
 function jsUpdateTargets(jsonStr) {
+    // Clear old overlays
     targetOverlays.forEach(function(o) { o.setMap(null); });
     targetOverlays = [];
+    bboxOverlays.forEach(function(o) { o.setMap(null); });
+    bboxOverlays = [];
     var arr = JSON.parse(jsonStr);
     var infoWin = null;
     arr.forEach(function(t) {
         var g = wgsToGcjLngLat(t.lat, t.lon);
         var color = t.locked ? '#00ff00' : '#ff4444';
+        // Circle marker at center
         var m = new AMap.CircleMarker({
             center: g,
             radius: 6,
@@ -215,14 +251,52 @@ function jsUpdateTargets(jsonStr) {
         m._targetDist = t.dist;
         m.on('click', function(e) {
             if (infoWin) infoWin.close();
+            var content = '<div><b>' + m._targetId + '</b></div>' +
+                '<div>Class: ' + m._targetCls + '</div>' +
+                '<div>Dist: ' + (m._targetDist || '-') + 'm</div>';
+            if (t.bbox) {
+                content += '<div>BBox: ' + t.bbox.length + ' pts</div>';
+            }
             infoWin = new AMap.InfoWindow({
-                content: '<div><b>' + m._targetId + '</b></div><div>Class: ' + m._targetCls + '</div><div>Dist: ' + (m._targetDist || '-') + 'm</div>',
+                content: content,
                 offset: new AMap.Pixel(0, -20)
             });
             infoWin.open(map, g);
         });
         targetOverlays.push(m);
+
+        // Bounding box polygon (识别范围)
+        if (t.bbox && t.bbox.length >= 4) {
+            var bboxGcj = t.bbox.map(function(p) { return wgsToGcjLngLat(p[0], p[1]); });
+            // Filter out invalid points
+            var valid = bboxGcj.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
+            if (valid.length >= 3) {
+                var poly = new AMap.Polygon({
+                    path: valid,
+                    strokeColor: color,
+                    strokeWeight: 2,
+                    fillColor: color,
+                    fillOpacity: 0.08,
+                    strokeStyle: 'dashed'
+                });
+                poly.setMap(map);
+                bboxOverlays.push(poly);
+            }
+        }
     });
+}
+
+// ========== Zoom control ==========
+function jsSetZoom(level) {
+    map.setZoom(level);
+}
+
+// ========== Map type switching ==========
+function jsSetSatelliteMap() {
+    map.setLayers([new AMap.TileLayer.Satellite()]);
+}
+function jsSetStreetMap() {
+    map.setLayers([new AMap.TileLayer()]);
 }
 
 map.on('click', function(e) {

@@ -48,19 +48,19 @@ struct LensConfig {
 };
 
 struct CameraConfig {
-    double visPixelSize = 2.9;
+    double visPixelSize = 2.92;
     double irPixelSize = 12.0;
     int visResX = 2688;
     int visResY = 1520;
     int irResX = 640;
     int irResY = 512;
-    double visMinFocal = 6.0;
+    double visMinFocal = 6.1;
     double irMinFocal = 25.0;
 
     void load(QSettings& s) {
-        visPixelSize = s.value("VisPixelSize", 2.9).toDouble();
+        visPixelSize = s.value("VisPixelSize", 2.92).toDouble();
         irPixelSize  = s.value("IrPixelSize", 12.0).toDouble();
-        visMinFocal  = s.value("VisMinFocal", 6.0).toDouble();
+        visMinFocal  = s.value("VisMinFocal", 6.1).toDouble();
         irMinFocal   = s.value("IrMinFocal", 25.0).toDouble();
 
         auto parseRes = [](const QString& str, int& x, int& y) {

@@ -58,6 +58,8 @@ void DeviceController::ptzStop()
 
 void DeviceController::lensZoomIn(int target)
 {
+    m_lastLensTarget = target;
+    m_lastLensIsZoom = true;
     LensConfig& l = m_cfg->lens();
     quint8 speed = l.zoomSpeed;
     if (target == 0) {
@@ -65,12 +67,14 @@ void DeviceController::lensZoomIn(int target)
         sendTransparentData("VISCA", pkt);
     } else {
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x20, 0x00, speed);
-        sendTransparentData("PELCO_D", pkt);
+        sendTransparentData("VISCAIR", pkt);
     }
 }
 
 void DeviceController::lensZoomOut(int target)
 {
+    m_lastLensTarget = target;
+    m_lastLensIsZoom = true;
     LensConfig& l = m_cfg->lens();
     quint8 speed = l.zoomSpeed;
     if (target == 0) {
@@ -78,45 +82,53 @@ void DeviceController::lensZoomOut(int target)
         sendTransparentData("VISCA", pkt);
     } else {
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x40, 0x00, speed);
-        sendTransparentData("PELCO_D", pkt);
+        sendTransparentData("VISCAIR", pkt);
     }
 }
 
 void DeviceController::lensFocusIn(int target)
 {
+    m_lastLensTarget = target;
+    m_lastLensIsZoom = false;
     LensConfig& l = m_cfg->lens();
     quint8 speed = l.focusSpeed;
     if (target == 0) {
         QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, true, speed);
         sendTransparentData("VISCA", pkt);
     } else {
-        QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x80, 0x00, 0x00, speed);
-        sendTransparentData("PELCO_D", pkt);
+        QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x01, 0x00, 0x00, 0x00);
+        sendTransparentData("VISCAIR", pkt);
     }
 }
 
 void DeviceController::lensFocusOut(int target)
 {
+    m_lastLensTarget = target;
+    m_lastLensIsZoom = false;
     LensConfig& l = m_cfg->lens();
     quint8 speed = l.focusSpeed;
     if (target == 0) {
         QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, false, speed);
         sendTransparentData("VISCA", pkt);
     } else {
-        QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x40, 0x00, 0x00, speed);
-        sendTransparentData("PELCO_D", pkt);
+        QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x80, 0x00, 0x00);
+        sendTransparentData("VISCAIR", pkt);
     }
 }
 
 void DeviceController::lensStop()
 {
     LensConfig& l = m_cfg->lens();
-    QByteArray pkt1 = ProtocolBuilder::buildViscaStop(l.visAddress, true);
-    sendTransparentData("VISCA", pkt1);
-    QByteArray pkt2 = ProtocolBuilder::buildViscaStop(l.visAddress, false);
-    sendTransparentData("VISCA", pkt2);
-    QByteArray pkt3 = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x00, 0x00, 0x00);
-    sendTransparentData("PELCO_D", pkt3);
+    if (m_lastLensTarget == 0) {
+        // VISCA visible
+        if (m_lastLensIsZoom)
+            sendTransparentData("VISCA", ProtocolBuilder::buildViscaStop(l.visAddress, true));
+        else
+            sendTransparentData("VISCA", ProtocolBuilder::buildViscaStop(l.visAddress, false));
+    } else {
+        // VISCAIR IR: 变倍/变焦停止均用 Cmd2=0x00
+        sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x00, 0x00, 0x00));
+    }
 }
 
 // ================= 预置位控制 =================
@@ -205,6 +217,6 @@ void DeviceController::setLocation(const QString& lat, const QString& lon)
 
 void DeviceController::sendTransparentData(const QString& serialType, const QByteArray& data)
 {
-    // 调用底层的 JSON 透传组包接口
+    emit commandSent(serialType, data);
     m_client->sendSerialCmd(serialType, data);
 }

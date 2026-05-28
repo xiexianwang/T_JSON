@@ -1,18 +1,11 @@
 ﻿#include "settingsdialog.h"
 #include "ui_settingsdialog.h"
-#include <QFile>
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::SettingsDialog)
 {
     ui->setupUi(this);
-    
-    QFile qssFile(":/style.qss");
-    if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
-        this->setStyleSheet(QLatin1String(qssFile.readAll()));
-        qssFile.close();
-    }
     
     loadSettings();
 }

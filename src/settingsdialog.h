@@ -1,8 +1,16 @@
-﻿#ifndef SETTINGSDIALOG_H
+﻿// ============================================================
+// 文件: settingsdialog.h
+// 描述: 系统参数设置对话框，用于编辑串口、云台协议、镜头协议
+//       以及相机传感器参数。通过 ConfigManager 统一读写，不
+//       直接操作 QSettings。
+// ============================================================
+
+#ifndef SETTINGSDIALOG_H
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
-#include <QSettings>
+
+class ConfigManager;
 
 namespace Ui {
 class SettingsDialog;
@@ -13,7 +21,7 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(QWidget *parent = nullptr);
+    explicit SettingsDialog(ConfigManager *cfg, QWidget *parent = nullptr);
     ~SettingsDialog();
 
 private slots:
@@ -21,7 +29,8 @@ private slots:
 
 private:
     Ui::SettingsDialog *ui;
-    
+    ConfigManager *m_cfg;
+
     void loadSettings();
     void saveSettings();
 };

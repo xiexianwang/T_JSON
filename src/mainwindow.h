@@ -1,4 +1,9 @@
-﻿#ifndef MAINWINDOW_H
+﻿//============================================================================
+// mainwindow.h - T-JSON 主窗口头文件
+// 定义主界面类 MainWindow，负责整体 UI 布局、事件响应、设备交互调度
+// 以及视频显示、地图展示、云台控制、AI 识别/跟踪结果展示等功能
+//============================================================================
+#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QMainWindow>
@@ -19,6 +24,13 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
+//============================================================================
+// MainWindow - 应用程序主窗口
+// 整合设备连接/断连、视频流显示、AI 识别列表、目标跟踪状态、
+// 地图定位/视场角叠加、云台(Pelco-D)与镜头控制等多个子系统。
+// 通过 Qt 信号-槽机制将底层 TJsonClient / DeviceController 的异步
+// 事件转化为 UI 更新，是前后端通信的调度中枢。
+//============================================================================
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -28,59 +40,69 @@ public:
     ~MainWindow() override;
 
 private slots:
-    void on_btnConnect_clicked();
-    void on_btnCancelConnect_clicked();
-    void on_btnVideoConnect_clicked();
-    void on_btnVideoDisconnect_clicked();
-    void onDeviceConnected();
-    void onDeviceDisconnected();
-    void onErrorOccurred(const QString& errorMsg);
-    void onJsonReceived(const QJsonObject& doc);
-    void onImageSnapped(const QByteArray& jpegData, const QRect& location);
-    void onAckReceived(quint8 statusCode);
+    // ── 设备连接相关 ──
+    void on_btnConnect_clicked();           // 连接/断开设备按钮
+    void on_btnCancelConnect_clicked();     // 取消正在进行的连接
+    void onDeviceConnected();               // 设备连接成功回调
+    void onDeviceDisconnected();            // 设备断开回调
+    void onErrorOccurred(const QString& errorMsg);  // 连接错误处理
+    void onAckReceived(quint8 statusCode);  // T-JSON ACK 应答处理
 
-    void on_radioModeOff_clicked();
-    void on_radioModeIdentify_clicked();
-    void on_radioModeAutoTrack_clicked();
-    void on_btnPtzMoveTo_clicked();
-    void on_btnSettings_clicked();
-    void on_comboAlgoModel_currentIndexChanged(int index);
-    void on_comboDisplayMode_currentIndexChanged(int index);
-    void on_comboLensTarget_currentIndexChanged(int index);
-    void on_btnSetLocation_clicked();
-    void on_btnGetImageParams_clicked();
+    // ── JSON 数据与抓拍 ──
+    void onJsonReceived(const QJsonObject& doc);        // 收到设备 JSON 帧
+    void onImageSnapped(const QByteArray& jpegData,     // 抓拍图像回调
+                        const QRect& location);
 
-    void onRtspFrame(const QImage &frame);
-    void onRtspOpened();
-    void onRtspError(const QString &msg);
-    void onVideoSelection(int cx, int cy, int pw, int ph);
+    // ── 工作模式切换 ──
+    void on_radioModeOff_clicked();          // 关闭 AI
+    void on_radioModeIdentify_clicked();     // 识别模式
+    void on_radioModeAutoTrack_clicked();    // 自动跟踪模式
+
+    // ── 界面交互 ──
+    void on_btnPtzMoveTo_clicked();                     // 云台转动到指定角度
+    void on_btnSettings_clicked();                      // 打开设置对话框
+    void on_comboAlgoModel_currentIndexChanged(int index); // 算法模型切换
+    void on_comboDisplayMode_currentIndexChanged(int index); // 显示模式切换
+    void on_comboLensTarget_currentIndexChanged(int index);  // 镜头目标切换
+    void on_btnSetLocation_clicked();                   // 手动下发经纬度
+    void on_btnGetImageParams_clicked();                // 查询图像参数
+
+    // ── RTSP 视频流 ──
+    void on_btnVideoConnect_clicked();      // 连接 RTSP 视频流
+    void on_btnVideoDisconnect_clicked();   // 断开 RTSP 视频流
+    void onRtspFrame(const QImage &frame);  // 收到一帧视频图像
+    void onRtspOpened();                    // RTSP 连接成功
+    void onRtspError(const QString &msg);   // RTSP 连接出错
+    void onVideoSelection(int cx, int cy, int pw, int ph); // 视频画面框选
 
 private:
-    Ui::MainWindow *ui;
-    TJsonClient *m_client;
-    ConfigManager *m_cfg;
-    DeviceController *m_device;
-    RtspThread *m_rtsp;
-    MapDialog *m_mapDlg;
-    QPushButton *m_btnMap;
-    bool m_updatingFromDevice = false;
+    Ui::MainWindow *ui;             // UI 设计器生成的界面对象
+    TJsonClient *m_client;          // TCP JSON 协议客户端
+    ConfigManager *m_cfg;           // 配置管理器（持久化设置）
+    DeviceController *m_device;     // 设备指令控制器（封装协议细节）
+    RtspThread *m_rtsp;            // RTSP 视频流拉取线程
+    MapDialog *m_mapDlg;           // 地图对话框（显示 GPS / 视场角 / 目标）
+    QPushButton *m_btnMap;         // 顶部工具栏上的地图按钮
+    bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
 
-    double m_currentVisZoom = 1.0;
-    double m_currentIrZoom = 1.0;
-    int m_currentPipShow = 0;
+    double m_currentVisZoom;        // 当前可见光镜头倍率（从设备 ZoomInfo 更新）
+    double m_currentIrZoom;         // 当前红外镜头倍率
+    int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
     
-    void setupUiStyles();
-    void updateStatusFromJson(const QJsonObject& doc);
-    void syncLensTargetByDisplayMode(int pipShow);
-    void updateLensStats();
-    QString missMradStr(double dx, double dy, double pixelSizeUm, double focalMm);
+    // ── 私有工具方法 ──
+    void setupUiStyles();                           // 加载并应用 QSS 样式表
+    void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI
+    void syncLensTargetByDisplayMode(int pipShow);  // 根据显示模式同步镜头目标选择
+    void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）
+    QString missMradStr(double dx, double dy,       // 计算脱靶量（毫弧度）
+                        double pixelSizeUm, double focalMm);
 
-    // Map helpers
-    void updateMapDevicePosition(const QJsonObject& doc);
-    void updateMapTargets(const QJsonObject& doc, int workMode);
-    void pixelToGps(double pixelX, double pixelY, double distance,
+    // ── 地图辅助方法 ──
+    void updateMapDevicePosition(const QJsonObject& doc);    // 更新设备在地图上的位置
+    void updateMapTargets(const QJsonObject& doc, int workMode); // 更新地图上的目标标记
+    void pixelToGps(double pixelX, double pixelY, double distance,     // 像素坐标 → GPS 坐标
                     double& outLat, double& outLon);
-    void pixelBboxToGps(double pixelX, double pixelY, double distance,
+    void pixelBboxToGps(double pixelX, double pixelY, double distance, // 像素框四角 → GPS（含俯仰校正）
                         double tiltDeg, double& outLat, double& outLon);
 };
 

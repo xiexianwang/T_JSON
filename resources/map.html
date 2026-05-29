@@ -1,8 +1,22 @@
 <!DOCTYPE html>
+<!--
+  ======================================================================
+  map.html — 基于 Leaflet 的地图页面
+  支持离线和在线地图，无需 API Key。
+  功能：
+    1. 显示卫星/街道底图，支持切换
+    2. 标记设备当前位置（WGS-84 直接使用，无坐标偏移）
+    3. 绘制设备视场角（FOV）扇形覆盖区域（大圆线计算）
+    4. 绘制设备运动轨迹（折线 + 端点标记）
+    5. 显示检测到的目标（圆形标记 + 识别范围多边形）
+    6. 通过 QWebChannel 与 C++（Qt WebEngine）双向通信
+  ======================================================================
+-->
 <html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="stylesheet" href="qrc:///leaflet.css"/>
 <style>
 * { margin:0; padding:0; }
 html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-serif; }
@@ -26,96 +40,99 @@ html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-s
     <div class="row"><span class="label">方位角: </span><span class="val" id="infoPan">--</span><span class="label"> 俯仰角: </span><span class="val" id="infoTilt">--</span></div>
     <div class="row"><span class="label">视场角(H×V): </span><span class="val" id="infoFov">--</span></div>
 </div>
-<script>
-window._AMapSecurityConfig = {
-    securityJsCode: '23d67210462f4b840c9965529466fe6b'
-};
-</script>
-<script src="https://webapi.amap.com/maps?v=2.0&key=aef8e706793055fe21360044ab430506"></script>
+<script src="qrc:///leaflet.js"></script>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script>
-// ========== WGS-84 → GCJ-02 ==========
-var pi = 3.1415926535897932384626;
-var a = 6378245.0;
-var ee = 0.00669342162296594323;
-
-function transformLat(x, y) {
-    var ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
-    ret += (20.0 * Math.sin(6.0 * x * pi) + 20.0 * Math.sin(2.0 * x * pi)) * 2.0 / 3.0;
-    ret += (20.0 * Math.sin(y * pi) + 40.0 * Math.sin(y / 3.0 * pi)) * 2.0 / 3.0;
-    ret += (160.0 * Math.sin(y / 12.0 * pi) + 320.0 * Math.sin(y * pi / 30.0)) * 2.0 / 3.0;
-    return ret;
-}
-function transformLon(x, y) {
-    var ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
-    ret += (20.0 * Math.sin(6.0 * x * pi) + 20.0 * Math.sin(2.0 * x * pi)) * 2.0 / 3.0;
-    ret += (20.0 * Math.sin(x * pi) + 40.0 * Math.sin(x / 3.0 * pi)) * 2.0 / 3.0;
-    ret += (150.0 * Math.sin(x / 12.0 * pi) + 300.0 * Math.sin(x / 30.0 * pi)) * 2.0 / 3.0;
-    return ret;
-}
-function wgs84ToGcj02(wgsLat, wgsLon) {
-    var dlat = transformLat(wgsLon - 105.0, wgsLat - 35.0);
-    var dlon = transformLon(wgsLon - 105.0, wgsLat - 35.0);
-    var radlat = wgsLat / 180.0 * pi;
-    var magic = Math.sin(radlat);
-    magic = 1 - ee * magic * magic;
-    var sqrtmagic = Math.sqrt(magic);
-    dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * pi);
-    dlon = (dlon * 180.0) / (a / sqrtmagic * Math.cos(radlat) * pi);
-    return [wgsLat + dlat, wgsLon + dlon];
-}
-function wgsToGcjLngLat(lat, lon) {
-    var g = wgs84ToGcj02(lat, lon);
-    return [g[1], g[0]]; // AMap uses [lng, lat]
-}
-
-// ========== Map ==========
-console.log("AMap version:", AMap.v);
-var map = new AMap.Map('map', {
+// ======================================================================
+// ---- 地图初始化 ----
+// 默认卫星底图（ESRI World Imagery），Leaflet 使用 WGS-84 坐标系
+// ======================================================================
+var map = L.map('map', {
     center: [0, 0],
     zoom: 17,
-    resizeEnable: true,
-    viewMode: '3D',
-    pitch: 0,
-    showIndoorMap: false,
-    layers: [new AMap.TileLayer.Satellite()]
+    zoomControl: false
 });
-map.on('complete', function() { console.log("Map complete"); });
-map.on('error', function(e) { console.error("Map error:", e); });
 
-// ---- Device marker ----
-var deviceMarker = new AMap.Marker({
-    position: [0, 0],
-    content: '<div style="font-size:28px;line-height:28px;text-shadow:0 0 6px rgba(0,0,0,0.8);">📍</div>',
-    offset: new AMap.Pixel(-14, -14),
-    zIndex: 1000
+// 街道底图：OpenStreetMap 标准瓦片
+var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://openstreetmap.org/copyright">OSM</a>'
 });
-var deviceCircle = new AMap.Circle({
-    center: [0, 0],
-    radius: 50,
+
+// 卫星底图：ESRI World Imagery
+var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://esri.com">Esri</a>'
+});
+
+// 当前底图容器（用于切换）
+var currentLayer = satelliteLayer.addTo(map);
+
+// 首次定位标记：第一次收到设备位置时居中，之后不再抢用户拖动
+var firstCentered = false;
+
+// ---- 设备位置标记 ----
+var deviceMarker = L.marker([0, 0], {
+    icon: L.divIcon({
+        className: '',
+        html: '<div style="width:20px;height:20px;border-radius:50%;background:rgba(255,68,68,0.5);"></div>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+    }),
+    zIndexOffset: 1000
+}).addTo(map);
+
+// ---- 识别范围指示圆 ----
+// 可见光识别范围（蓝色半透明，4km）
+var visCircle = L.circle([0, 0], {
+    radius: 4000,
     fillColor: '#3388ff',
-    strokeColor: '#3388ff',
-    fillOpacity: 0.08,
-    strokeWeight: 1
+    fillOpacity: 0.5,
+    weight: 0
+});
+// 红外识别范围（红色半透明，2km）
+var irCircle = L.circle([0, 0], {
+    radius: 2000,
+    fillColor: '#ff4444',
+    fillOpacity: 0.5,
+    weight: 0
 });
 
-// ---- FOV polygon ----
-var fovLayer = new AMap.Polygon({
-    path: [],
-    strokeColor: '#ff8800',
-    strokeWeight: 2,
-    fillOpacity: 0.12
+// ---- 视场角多边形 ----
+// 可见光视场角（蓝色不透明锥形，4km）
+var visFovLayer = L.polygon([], {
+    fillColor: '#3388ff',
+    fillOpacity: 1
+});
+// 红外视场角（红色不透明锥形，4km）
+var irFovLayer = L.polygon([], {
+    fillColor: '#ff4444',
+    fillOpacity: 1
 });
 
-// ---- Track ----
+// ---- 轨迹容器 ----
 var trackPolylines = {};
 var trackEndMarkers = {};
 
-// ---- Targets ----
+// ---- 目标容器 ----
 var targetOverlays = [];
 var bboxOverlays = [];
 
-// ---- Helpers ----
+// ---- 信息弹窗 ----
+var infoPopup = null;
+
+// ---- 默认图标（用于轨迹端点） ----
+var dotIcon = L.divIcon({
+    className: '',
+    html: '<div style="background:#44aaff;border:2px solid #fff;border-radius:50%;width:10px;height:10px;box-shadow:0 0 4px rgba(0,100,255,0.5);"></div>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7]
+});
+
+// ======================================================================
+// ---- 辅助函数：计算 FOV 扇形顶点 ----
+// 基于球面几何（大圆线 Haversine 公式）
+// ======================================================================
 function computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
     if (rangeM <= 0) return [];
     var R = 6371000;
@@ -127,8 +144,11 @@ function computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) 
         for (var j = -1; j <= 1; j += 2) {
             var brg = panR + i * halfH;
             var d = rangeM / R;
-            var clat = Math.asin(Math.sin(latR) * Math.cos(d) + Math.cos(latR) * Math.sin(d) * Math.cos(brg));
-            var clon = lonR + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(latR), Math.cos(d) - Math.sin(latR) * Math.sin(clat));
+            var clat = Math.asin(Math.sin(latR) * Math.cos(d)
+                       + Math.cos(latR) * Math.sin(d) * Math.cos(brg));
+            var clon = lonR + Math.atan2(
+                Math.sin(brg) * Math.sin(d) * Math.cos(latR),
+                Math.cos(d) - Math.sin(latR) * Math.sin(clat));
             corners.push([clat * 180 / Math.PI, clon * 180 / Math.PI]);
         }
     }
@@ -136,33 +156,30 @@ function computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) 
     return corners;
 }
 
+// ---- QWebChannel 桥接 ----
 var bridge = null;
+new QWebChannel(qt.webChannelTransport, function(channel) {
+    bridge = channel.objects.bridge;
+    if (bridge && bridge.onMapInitialized) {
+        bridge.onMapInitialized();
+    }
+});
 
-function onMapReady() {
-    map.on('complete', function() {
-        new QWebChannel(qt.webChannelTransport, function(channel) {
-            bridge = channel.objects.bridge;
-            if (bridge && bridge.onMapInitialized) {
-                bridge.onMapInitialized();
-            }
-        });
-    });
-}
-
-if (typeof AMap !== 'undefined') {
-    onMapReady();
-} else {
-    window.onAMapUILoaded = onMapReady;
-}
-
-// ========== JS API called from C++ ==========
+// ======================================================================
+// ---- C++ 调用的 JS API ----
+// 函数签名与之前 AMap 版本保持一致，C++ 侧无需修改
+// ======================================================================
 
 function jsSetDevicePos(lat, lon) {
-    var g = wgsToGcjLngLat(lat, lon);
-    deviceMarker.setPosition(g);
-    deviceCircle.setCenter(g);
-    if (!deviceCircle.getMap()) deviceCircle.setMap(map);
-    map.setCenter(g);
+    var ll = [lat, lon];
+    deviceMarker.setLatLng(ll);
+    visCircle.setLatLng(ll);
+    irCircle.setLatLng(ll);
+    if (!map.hasLayer(visCircle)) { visCircle.addTo(map); irCircle.addTo(map); }
+    if (!firstCentered) {
+        map.setView(ll, map.getZoom());
+        firstCentered = true;
+    }
 }
 
 function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
@@ -175,133 +192,126 @@ function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
         document.getElementById('infoFov').textContent = hfov.toFixed(1) + '\u00B0 \u00D7 ' + vfov.toFixed(1) + '\u00B0';
 }
 
-function jsSetDeviceFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
+function jsSetVisFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
     var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
-    pts = pts.map(function(p) { return wgsToGcjLngLat(p[0], p[1]); });
     if (pts.length > 0) {
-        fovLayer.setPath(pts);
-        if (!fovLayer.getMap()) fovLayer.setMap(map);
+        visFovLayer.setLatLngs(pts);
+        if (!map.hasLayer(visFovLayer)) visFovLayer.addTo(map);
     } else {
-        if (fovLayer.getMap()) fovLayer.setMap(null);
+        if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+    }
+}
+
+function jsSetIrFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
+    var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
+    if (pts.length > 0) {
+        irFovLayer.setLatLngs(pts);
+        if (!map.hasLayer(irFovLayer)) irFovLayer.addTo(map);
+    } else {
+        if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
     }
 }
 
 function jsClearFov() {
-    if (fovLayer.getMap()) fovLayer.setMap(null);
+    if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+    if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
 }
 
 function jsAddTrackPoint(trackId, lat, lon) {
-    var g = wgsToGcjLngLat(lat, lon);
+    var ll = [lat, lon];
     if (!trackPolylines[trackId]) {
-        trackPolylines[trackId] = new AMap.Polyline({
-            path: [],
-            strokeColor: '#ff4444',
-            strokeWeight: 3,
-            strokeOpacity: 0.8
-        });
-        trackPolylines[trackId].setMap(map);
-        trackEndMarkers[trackId] = new AMap.Marker({
-            position: g,
-            content: '<div style="background:#44aaff;border:2px solid #fff;border-radius:50%;width:10px;height:10px;box-shadow:0 0 4px rgba(0,100,255,0.5);"></div>',
-            offset: new AMap.Pixel(-7, -7)
-        });
-        trackEndMarkers[trackId].setMap(map);
+        trackPolylines[trackId] = L.polyline([], {
+            color: '#ff4444',
+            weight: 3,
+            opacity: 0.8
+        }).addTo(map);
+        trackEndMarkers[trackId] = L.marker(ll, {
+            icon: dotIcon,
+            zIndexOffset: 500
+        }).addTo(map);
     }
-    var pl = trackPolylines[trackId];
-    var path = pl.getPath() || [];
-    path.push(new AMap.LngLat(g[0], g[1]));
-    pl.setPath(path);
-    trackEndMarkers[trackId].setPosition(g);
+    trackPolylines[trackId].addLatLng(ll);
+    trackEndMarkers[trackId].setLatLng(ll);
 }
 
 function jsClearTrack(trackId) {
-    if (trackPolylines[trackId]) { trackPolylines[trackId].setMap(null); delete trackPolylines[trackId]; }
-    if (trackEndMarkers[trackId]) { trackEndMarkers[trackId].setMap(null); delete trackEndMarkers[trackId]; }
+    if (trackPolylines[trackId]) { map.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
+    if (trackEndMarkers[trackId]) { map.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
 }
 
 function jsClearAllTracks() {
-    Object.keys(trackPolylines).forEach(function(id) { trackPolylines[id].setMap(null); });
-    Object.keys(trackEndMarkers).forEach(function(id) { trackEndMarkers[id].setMap(null); });
+    Object.keys(trackPolylines).forEach(function(id) { map.removeLayer(trackPolylines[id]); });
+    Object.keys(trackEndMarkers).forEach(function(id) { map.removeLayer(trackEndMarkers[id]); });
     trackPolylines = {}; trackEndMarkers = {};
 }
 
 function jsUpdateTargets(jsonStr) {
-    // Clear old overlays
-    targetOverlays.forEach(function(o) { o.setMap(null); });
+    targetOverlays.forEach(function(o) { map.removeLayer(o); });
     targetOverlays = [];
-    bboxOverlays.forEach(function(o) { o.setMap(null); });
+    bboxOverlays.forEach(function(o) { map.removeLayer(o); });
     bboxOverlays = [];
     var arr = JSON.parse(jsonStr);
-    var infoWin = null;
     arr.forEach(function(t) {
-        var g = wgsToGcjLngLat(t.lat, t.lon);
+        var ll = [t.lat, t.lon];
         var color = t.locked ? '#00ff00' : '#ff4444';
-        // Circle marker at center
-        var m = new AMap.CircleMarker({
-            center: g,
+
+        var m = L.circleMarker(ll, {
             radius: 6,
             fillColor: color,
-            strokeColor: color,
-            fillOpacity: 0.7,
-            strokeWeight: 2
-        });
-        m.setMap(map);
+            fillOpacity: 0.5
+        }).addTo(map);
         m._targetId = t.id;
         m._targetCls = t.cls;
         m._targetDist = t.dist;
+
         m.on('click', function(e) {
-            if (infoWin) infoWin.close();
+            if (infoPopup) map.closePopup(infoPopup);
             var content = '<div><b>' + m._targetId + '</b></div>' +
                 '<div>Class: ' + m._targetCls + '</div>' +
                 '<div>Dist: ' + (m._targetDist || '-') + 'm</div>';
             if (t.bbox) {
                 content += '<div>BBox: ' + t.bbox.length + ' pts</div>';
             }
-            infoWin = new AMap.InfoWindow({
-                content: content,
-                offset: new AMap.Pixel(0, -20)
-            });
-            infoWin.open(map, g);
+            infoPopup = L.popup({ offset: [0, -10] })
+                .setLatLng(ll)
+                .setContent(content)
+                .openOn(map);
         });
         targetOverlays.push(m);
 
-        // Bounding box polygon (识别范围)
         if (t.bbox && t.bbox.length >= 4) {
-            var bboxGcj = t.bbox.map(function(p) { return wgsToGcjLngLat(p[0], p[1]); });
-            // Filter out invalid points
-            var valid = bboxGcj.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
+            var valid = t.bbox.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
             if (valid.length >= 3) {
-                var poly = new AMap.Polygon({
-                    path: valid,
-                    strokeColor: color,
-                    strokeWeight: 2,
+                var poly = L.polygon(valid, {
                     fillColor: color,
-                    fillOpacity: 0.08,
-                    strokeStyle: 'dashed'
-                });
-                poly.setMap(map);
+                    fillOpacity: 0.5
+                }).addTo(map);
                 bboxOverlays.push(poly);
             }
         }
     });
 }
 
-// ========== Zoom control ==========
 function jsSetZoom(level) {
     map.setZoom(level);
 }
 
-// ========== Map type switching ==========
 function jsSetSatelliteMap() {
-    map.setLayers([new AMap.TileLayer.Satellite()]);
-}
-function jsSetStreetMap() {
-    map.setLayers([new AMap.TileLayer()]);
+    if (currentLayer) map.removeLayer(currentLayer);
+    satelliteLayer.addTo(map);
+    currentLayer = satelliteLayer;
 }
 
+function jsSetStreetMap() {
+    if (currentLayer) map.removeLayer(currentLayer);
+    streetLayer.addTo(map);
+    currentLayer = streetLayer;
+}
+
+// ---- 地图单击事件 ----
 map.on('click', function(e) {
     if (bridge && bridge.onMapClick) {
-        bridge.onMapClick(e.lnglat.getLat(), e.lnglat.getLng());
+        bridge.onMapClick(e.latlng.lat, e.latlng.lng);
     }
 });
 </script>

@@ -1,3 +1,9 @@
+// ============================================================
+// 文件: configmanager.h
+// 描述: 配置管理器模块。通过 QSettings 将云台(PTZ)、镜头(Lens)
+//       和相机(Camera)参数持久化到本地存储，并提供运行时的读写接口。
+// ============================================================
+
 #ifndef CONFIGMANAGER_H
 #define CONFIGMANAGER_H
 
@@ -5,12 +11,15 @@
 #include <QSettings>
 #include <QString>
 
+// PTZ（云台）配置结构体
+// 包含地址、Pan/Tilt 速度以及协议类型
 struct PtzConfig {
-    quint8 address = 1;
-    quint8 panSpeed = 63;
-    quint8 tiltSpeed = 63;
-    QString protocol = "PELCO_D";
+    quint8 address = 1;        // 云台设备地址，默认 1
+    quint8 panSpeed = 63;      // 水平旋转速度 (0-63)，默认 63
+    quint8 tiltSpeed = 63;     // 垂直俯仰速度 (0-63)，默认 63
+    QString protocol = "PELCO_D";  // 通信协议，默认 Pelco-D
 
+    // 从 QSettings 中加载 PTZ 配置
     void load(QSettings& s) {
         address    = static_cast<quint8>(s.value("PtzAddress", 1).toUInt());
         panSpeed   = static_cast<quint8>(s.value("PtzPanSpeed", 63).toUInt());
@@ -18,6 +27,7 @@ struct PtzConfig {
         protocol   = s.value("PtzProtocol", "Pelco-D").toString();
     }
 
+    // 将 PTZ 配置保存到 QSettings
     void save(QSettings& s) const {
         s.setValue("PtzAddress",   address);
         s.setValue("PtzPanSpeed",  panSpeed);
@@ -26,17 +36,23 @@ struct PtzConfig {
     }
 };
 
+// 镜头配置结构体
+// 包含变倍/变焦速度、可见光与红外相机各自的设备地址
 struct LensConfig {
     quint8 zoomSpeed = 5;
     quint8 focusSpeed = 5;
     quint8 visAddress = 1;
     quint8 irAddress = 2;
+    QString visProtocol = "VISCA";
+    QString irProtocol = "Pelco-D";
 
     void load(QSettings& s) {
-        zoomSpeed  = static_cast<quint8>(s.value("LensZoomSpeed", 5).toUInt());
-        focusSpeed = static_cast<quint8>(s.value("LensFocusSpeed", 5).toUInt());
-        visAddress = static_cast<quint8>(s.value("VisAddress", 1).toUInt());
-        irAddress  = static_cast<quint8>(s.value("IrAddress", 2).toUInt());
+        zoomSpeed   = static_cast<quint8>(s.value("LensZoomSpeed", 5).toUInt());
+        focusSpeed  = static_cast<quint8>(s.value("LensFocusSpeed", 5).toUInt());
+        visAddress  = static_cast<quint8>(s.value("VisAddress", 1).toUInt());
+        irAddress   = static_cast<quint8>(s.value("IrAddress", 2).toUInt());
+        visProtocol = s.value("VisProtocol", "VISCA").toString();
+        irProtocol  = s.value("IrProtocol", "Pelco-D").toString();
     }
 
     void save(QSettings& s) const {
@@ -44,19 +60,24 @@ struct LensConfig {
         s.setValue("LensFocusSpeed", focusSpeed);
         s.setValue("VisAddress", visAddress);
         s.setValue("IrAddress",  irAddress);
+        s.setValue("VisProtocol", visProtocol);
+        s.setValue("IrProtocol",  irProtocol);
     }
 };
 
+// 相机传感器参数配置结构体
+// 包含可见光与红外传感器的像素尺寸、分辨率和最短焦距
 struct CameraConfig {
-    double visPixelSize = 2.92;
-    double irPixelSize = 12.0;
-    int visResX = 2688;
-    int visResY = 1520;
-    int irResX = 640;
-    int irResY = 512;
-    double visMinFocal = 6.1;
-    double irMinFocal = 25.0;
+    double visPixelSize = 2.92;   // 可见光像元尺寸 (μm)
+    double irPixelSize = 12.0;    // 红外像元尺寸 (μm)
+    int visResX = 2688;           // 可见光水平分辨率 (px)
+    int visResY = 1520;           // 可见光垂直分辨率 (px)
+    int irResX = 640;             // 红外水平分辨率 (px)
+    int irResY = 512;             // 红外垂直分辨率 (px)
+    double visMinFocal = 6.1;     // 可见光最短焦距 (mm)
+    double irMinFocal = 25.0;     // 红外最短焦距 (mm)
 
+    // 从 QSettings 中加载相机参数
     void load(QSettings& s) {
         visPixelSize = s.value("VisPixelSize", 2.92).toDouble();
         irPixelSize  = s.value("IrPixelSize", 12.0).toDouble();
@@ -70,30 +91,48 @@ struct CameraConfig {
         parseRes(s.value("VisResolution", "2688x1520").toString(), visResX, visResY);
         parseRes(s.value("IrResolution", "640x512").toString(), irResX, irResY);
     }
+
+    void save(QSettings& s) const {
+        s.setValue("VisPixelSize", visPixelSize);
+        s.setValue("IrPixelSize",  irPixelSize);
+        s.setValue("VisMinFocal",  visMinFocal);
+        s.setValue("IrMinFocal",   irMinFocal);
+        s.setValue("VisResolution", QString("%1x%2").arg(visResX).arg(visResY));
+        s.setValue("IrResolution",  QString("%1x%2").arg(irResX).arg(irResY));
+    }
 };
 
+// 配置管理器类
+// 负责统一管理 PTZ、镜头和相机三类配置的加载、保存与信号通知
 class ConfigManager : public QObject
 {
     Q_OBJECT
 public:
     explicit ConfigManager(QObject *parent = nullptr);
 
-    void load();
-    void reload();
-    void save();
+    void load();                // 从本地存储加载所有配置
+    void reload();              // 重新加载配置（委托给 load）
+    void save();                // 将所有配置写入本地存储并发射变更信号
 
-    PtzConfig& ptz() { return m_ptz; }
-    LensConfig& lens() { return m_lens; }
-    CameraConfig& cam() { return m_cam; }
+    PtzConfig& ptz() { return m_ptz; }       // 获取 PTZ 配置引用
+    LensConfig& lens() { return m_lens; }    // 获取镜头配置引用
+    CameraConfig& cam() { return m_cam; }    // 获取相机配置引用
+    QString serialIp() const { return m_serialIp; }        // 串口服务器 IP
+    quint16 serialPort() const { return m_serialPort; }    // 串口服务器端口
+    void setSerialIp(const QString& ip) { m_serialIp = ip; }
+    void setSerialPort(quint16 port) { m_serialPort = port; }
 
 signals:
-    void ptzConfigChanged();
-    void lensConfigChanged();
+    void ptzConfigChanged();     // PTZ 配置变更时发射
+    void lensConfigChanged();    // 镜头配置变更时发射
+    void cameraConfigChanged();  // 相机参数配置变更时发射
 
 private:
-    PtzConfig m_ptz;
-    LensConfig m_lens;
-    CameraConfig m_cam;
+    PtzConfig m_ptz;             // PTZ 配置实例
+    LensConfig m_lens;           // 镜头配置实例
+    CameraConfig m_cam;          // 相机参数配置实例
+    QString m_serialIp = "192.168.1.66";   // 串口服务器 IP 地址
+    quint16 m_serialPort = 4001;           // 串口服务器端口号
 };
 
 #endif // CONFIGMANAGER_H

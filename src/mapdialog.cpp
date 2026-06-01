@@ -66,6 +66,11 @@ MapDialog::MapDialog(QWidget *parent)
 
 MapDialog::~MapDialog()
 {
+    // 先显式销毁 MapWidget（含 QWebEngineView），触发内部线程清理
+    if (ui && ui->m_map) {
+        delete ui->m_map;
+        ui->m_map = nullptr;
+    }
     delete ui;
 }
 

@@ -17,6 +17,7 @@
 #include <QDir>
 #include <QDateTime>
 #include <QApplication>
+#include <QEventLoop>
 #include <QtMath>
 
 //============================================================================
@@ -231,9 +232,22 @@ MainWindow::MainWindow(QWidget *parent)
 // 析构函数：释放 UI 资源
 // 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapDlg) 
 // 均以 MainWindow 为父对象，由 Qt 对象树自动析构
+// 析构前主动按序停止地图（WebEngine）和 RTSP 线程，避免子线程未退出告警
 //============================================================================
 MainWindow::~MainWindow()
 {
+    // 先关闭地图（含 QWebEngineView），触发内部 Chromium 子线程清理
+    if (m_mapDlg) {
+        m_mapDlg->hide();
+        delete m_mapDlg;
+        m_mapDlg = nullptr;
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 300);
+    }
+    // 再关闭 RTSP 拉流线程（其析构内含 wait(3000)）
+    if (m_rtsp) {
+        m_rtsp->closeStream();
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 100);
+    }
     delete ui;
 }
 

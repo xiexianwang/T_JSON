@@ -24,6 +24,7 @@ MapDialog::MapDialog(QWidget *parent)
     // 对顶部工具栏应用暗色背景样式，与地图暗色主题保持一致
     ui->toolbar->setStyleSheet(QStringLiteral(
         "background:#252526;border-bottom:1px solid #333;"
+        "color:#ccc;"
     ));
     // layout 拉伸：工具栏（第 0 行）不拉伸，地图（第 1 行）拉伸
     ui->verticalLayout->setStretch(0, 0);

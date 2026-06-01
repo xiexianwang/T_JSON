@@ -52,6 +52,8 @@ MapWidget::MapWidget(QWidget *parent)
 
     // 将 Bridge 收到的地图单击信号转发到 MapWidget 的同名信号
     connect(m_bridge, &MapBridge::mapClicked, this, &MapWidget::mapClicked);
+    // 地图缩放变化
+    connect(m_bridge, &MapBridge::mapZoomChanged, this, &MapWidget::mapZoomChanged);
 
     // ---- Bridge 信号 → 执行 JS ----
     // 每个信号对应 map.html 中一个 jsXxx 函数

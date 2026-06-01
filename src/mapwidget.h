@@ -64,6 +64,8 @@ public:
 signals:
     // 用户在地图上单击时触发，传出 GPS 坐标
     void mapClicked(double lat, double lon);
+    // 地图缩放变化时触发
+    void mapZoomChanged(int zoom);
 
 private:
     // 辅助：在页面 WebEngine 中执行一段 JavaScript

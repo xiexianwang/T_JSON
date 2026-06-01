@@ -74,6 +74,13 @@ var map = L.map('map', {
 
 });
 
+// 地图缩放变化 → 通知 C++ 侧同步 SpinBox
+map.on('zoomend', function() {
+    if (typeof bridge !== 'undefined') {
+        bridge.onMapZoomChanged(map.getZoom());
+    }
+});
+
 // Leaflet 控件：设备信息悬浮面板
 var DeviceInfoControl = L.Control.extend({
     onAdd: function() {

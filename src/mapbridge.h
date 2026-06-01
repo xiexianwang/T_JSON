@@ -38,6 +38,8 @@ public slots:
     void onMapInitialized();
     // 用户单击地图时由 JS 调用，传出经纬度坐标
     void onMapClick(double lat, double lon);
+    // 地图缩放变化时由 JS 调用，传出当前级别
+    void onMapZoomChanged(int zoom);
 
 signals:
     // ---- C++ → JS 方向（内部信号，由 mapwidget.cpp 监听） ----
@@ -45,6 +47,9 @@ signals:
 
     // 用户单击地图（转发到 MapWidget::mapClicked）
     void mapClicked(double lat, double lon);
+
+    // 地图缩放变化（转发到 MapWidget::mapZoomChanged）
+    void mapZoomChanged(int zoom);
 
     void jsDevicePos(double lat, double lon);                       // 设置设备位置标记
     void jsVisFov(double lat, double lon, double pan,               // 绘制可见光 FOV（蓝色）

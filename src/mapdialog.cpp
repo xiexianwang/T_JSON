@@ -36,6 +36,13 @@ MapDialog::MapDialog(QWidget *parent)
         ui->m_map->setZoom(val);
     });
 
+    // 地图缩放变化（滚轮/手势）→ 同步 SpinBox 的值
+    connect(ui->m_map, &MapWidget::mapZoomChanged,
+            this, [this](int zoom) {
+        QSignalBlocker _(ui->spinZoom);
+        ui->spinZoom->setValue(zoom);
+    });
+
     // 设备信息 OSD 开关
     connect(ui->chkDeviceInfo, &QCheckBox::toggled,
             this, [this](bool checked) {

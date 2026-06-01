@@ -28,3 +28,9 @@ void MapBridge::onMapClick(double lat, double lon)
 {
     emit mapClicked(lat, lon);
 }
+
+// ---- JS → C++：地图缩放变化 ----
+void MapBridge::onMapZoomChanged(int zoom)
+{
+    emit mapZoomChanged(zoom);
+}

@@ -1,4 +1,4 @@
-# C++ and Qt
+﻿# C++ and Qt
 build/
 .qtcreator/
 *.user
@@ -35,3 +35,7 @@ CMakeLists.txt.user*
 *.out
 *.app
 *.pdf
+
+# Allow FFmpeg libraries
+!thirdparty/ffmpeg/lib/*.lib
+!thirdparty/ffmpeg/bin/*.dll

@@ -15,14 +15,20 @@ extern "C" {
 RtspThread::RtspThread(QObject *parent)
     : QThread(parent)
 {
+    setObjectName("RtspThread");
 }
 
-// 析构函数：确保流被关闭、线程退出并等待其结束
+// 析构函数：确保流被关闭、线程退出并等待其结?
 RtspThread::~RtspThread()
 {
+    qDebug() << "RtspThread::~RtspThread() called!";
     closeStream();
     quit();
-    wait(3000);
+    if (!wait(6000)) {
+        qDebug() << "RtspThread failed to finish within 6 seconds, forcibly terminating!";
+        terminate(); // 强行终止
+        wait(1000);
+    }
 }
 
 // 打开 RTSP 流（非阻塞接口）

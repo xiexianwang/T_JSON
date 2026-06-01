@@ -10,6 +10,7 @@
 #include <QtEndian>
 #include <QDebug>
 #include <QJsonParseError>
+#include <QNetworkProxy>
 
 // 构造函数：初始化 Socket、心跳定时器和重连定时器
 TJsonClient::TJsonClient(QObject *parent)
@@ -22,6 +23,8 @@ TJsonClient::TJsonClient(QObject *parent)
     , m_currentDelay(2000)                      // 初始重连延迟 2 秒
     , m_autoReconnectEnabled(false)             // 默认不启用自动重连
 {
+    m_socket->setProxy(QNetworkProxy::NoProxy); // 禁用系统代理，直连设备
+
     // 连接 Socket 信号与对应处理槽
     connect(m_socket, &QTcpSocket::connected, this, &TJsonClient::onSocketConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &TJsonClient::onSocketDisconnected);

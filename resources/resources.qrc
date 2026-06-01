@@ -4,5 +4,7 @@
         <file>map.html</file>
         <file>leaflet.css</file>
         <file>leaflet.js</file>
+        <file>leaflet-semicircle.js</file>
+        <file>tilecache.js</file>
     </qresource>
 </RCC>

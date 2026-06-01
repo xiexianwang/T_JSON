@@ -69,6 +69,7 @@ private slots:
     void on_comboLensTarget_currentIndexChanged(int index);  // 镜头目标切换
     void on_btnSetLocation_clicked();                   // 手动下发经纬度
     void on_btnGetImageParams_clicked();                // 查询图像参数
+    void onSysParamTimerTimeout();                      // 200ms 周期查询系统参数
 
     // ── RTSP 视频流 ──
     void on_btnVideoConnect_clicked();      // 连接 RTSP 视频流
@@ -111,6 +112,9 @@ private:
     QVector<PendingTrackPt> m_pendingTracks;
     QTimer *m_trackEmitTimer;
     void flushPendingTrackPoints();
+
+    // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
+    QTimer *m_sysParamTimer;
 
     // ── 私有工具方法 ──
     void setupUiStyles();                           // 加载并应用 QSS 样式表

@@ -66,6 +66,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_trackEmitTimer->setSingleShot(true);
     connect(m_trackEmitTimer, &QTimer::timeout, this, &MainWindow::flushPendingTrackPoints);
 
+    // 系统参数轮询：200ms 周期查询设备 ImageSetting
+    m_sysParamTimer = new QTimer(this);
+    m_sysParamTimer->setInterval(200);
+    connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
+
     //============================================================================
     // RTSP 视频流信号连接
     // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
@@ -361,6 +366,9 @@ void MainWindow::onDeviceConnected()
 
     // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
     m_device->queryImageParams();
+
+    // 启动系统参数定时下发
+    m_sysParamTimer->start();
 }
 
 //============================================================================
@@ -374,6 +382,15 @@ void MainWindow::onDeviceDisconnected()
     ui->btnConnect->setStyleSheet("");
     ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
+
+    // 停止系统参数定时下发
+    m_sysParamTimer->stop();
+}
+
+// 200ms 周期查询系统参数（仅连接状态时下发）
+void MainWindow::onSysParamTimerTimeout()
+{
+    if (m_client->isConnected()) m_device->queryImageParams();
 }
 
 //============================================================================
@@ -716,9 +733,9 @@ QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double
 //   0 = 关闭 AI, 1 = 识别, 2 = 自动跟踪
 // 点选跟踪(3)和框选跟踪(4)由视频框选操作触发
 //============================================================================
-void MainWindow::on_radioModeOff_clicked() { m_device->setWorkMode(0); }
-void MainWindow::on_radioModeIdentify_clicked() { m_device->setWorkMode(1); }
-void MainWindow::on_radioModeAutoTrack_clicked() { m_device->setWorkMode(2); }
+void MainWindow::on_radioModeOff_clicked() { m_device->setWorkMode(0); m_device->queryImageParams(); }
+void MainWindow::on_radioModeIdentify_clicked() { m_device->setWorkMode(1); m_device->queryImageParams(); }
+void MainWindow::on_radioModeAutoTrack_clicked() { m_device->setWorkMode(2); m_device->queryImageParams(); }
 
 //============================================================================
 // on_btnPtzMoveTo_clicked - 云台转到指定角度 (预留功能，暂未实现)
@@ -746,6 +763,7 @@ void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 {
     if (m_updatingFromDevice) return;
     m_device->setAlgoModel(index);
+    m_device->queryImageParams();
 }
 
 //============================================================================
@@ -1197,6 +1215,7 @@ void MainWindow::flushPendingTrackPoints()
     }
     m_pendingTracks.clear();
 }
+
 
 //============================================================================
 // syncLensTargetByDisplayMode - 根据显示模式自动同步镜头目标

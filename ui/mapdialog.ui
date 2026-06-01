@@ -87,30 +87,54 @@
          </property>
         </widget>
        </item>
-       <item>
-        <widget class="QSpinBox" name="spinZoom">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>20</number>
-         </property>
-         <property name="value">
-          <number>17</number>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>60</width>
-           <height>20</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>9</pointsize>
-          </font>
-         </property>
-        </widget>
-       </item>
+        <item>
+         <widget class="QSpinBox" name="spinZoom">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>20</number>
+          </property>
+          <property name="value">
+           <number>17</number>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>60</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="chkDeviceInfo">
+          <property name="text">
+           <string>设备信息</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>80</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string>color:#ccc;</string>
+          </property>
+         </widget>
+        </item>
        <item>
         <spacer name="horizontalSpacer">
         <property name="orientation">

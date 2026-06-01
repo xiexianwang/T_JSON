@@ -19,41 +19,22 @@
 
 html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-serif; }
 
-#deviceInfo {
-
-    position:absolute; top:12px; left:12px; z-index:1000;
-    
-    background:rgba(0,0,0,0.75);
-    
-    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-    
-    color:#eee;
-    
-    font-size:13px; line-height:1.7;
-    
-    padding:10px 14px;
-    
-    border-radius:6px;
-    
-    border:1px solid rgba(255,255,255,0.12);
-    
-    box-shadow:0 2px 12px rgba(0,0,0,0.4);
-    
-    min-width:220px;
-    
-    pointer-events:none;
-    
-    user-select:none;
-
+.deviceInfoContainer {
+    background:rgba(0,0,0,0.55);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    color:#eee;
+    font-size:13px; line-height:1.7;
+    padding:10px 14px;
+    border-radius:6px;
+    border:1px solid rgba(255,255,255,0.12);
+    box-shadow:0 2px 12px rgba(0,0,0,0.4);
+    min-width:220px;
+    user-select:none;
 }
-
-#deviceInfo .label { color:#999; }
-
-#deviceInfo .val  { color:#fff; font-weight:bold; }
-
-#deviceInfo .row  { white-space:nowrap; margin:2px 0; }
-
-#deviceInfo .title { font-size:11px; color:#888; letter-spacing:1px; margin-bottom:4px; text-transform:uppercase; }
+.deviceInfoContainer .label { color:#999; }
+.deviceInfoContainer .val  { color:#fff; font-weight:bold; }
+.deviceInfoContainer .row  { white-space:nowrap; margin:2px 0; }
+.deviceInfoContainer .title { font-size:11px; color:#888; letter-spacing:1px; margin-bottom:4px; text-transform:uppercase; }
 
 </style>
 
@@ -62,20 +43,6 @@ html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-s
 <body>
 
 <div id="map"></div>
-
-<div id="deviceInfo">
-
-    <div class="title">设备信息</div>
-
-    <div class="row"><span class="label">经纬度: </span><span class="val" id="infoLatLon">--</span></div>
-
-    <div class="row"><span class="label">高度: </span><span class="val" id="infoAlt">--</span><span class="label"> 距离: </span><span class="val" id="infoRange">--</span></div>
-
-    <div class="row"><span class="label">方位角: </span><span class="val" id="infoPan">--</span><span class="label"> 俯仰角: </span><span class="val" id="infoTilt">--</span></div>
-
-    <div class="row"><span class="label">视场角(H×V): </span><span class="val" id="infoFov">--</span></div>
-
-</div>
 
 <script src="qrc:///leaflet.js"></script>
 
@@ -106,6 +73,26 @@ var map = L.map('map', {
     zoomAnimation: true
 
 });
+
+// Leaflet 控件：设备信息悬浮面板
+var DeviceInfoControl = L.Control.extend({
+    onAdd: function() {
+        var div = L.DomUtil.create('div', 'deviceInfoContainer');
+        div.innerHTML = '<div class="title">设备信息</div>'
+            + '<div class="row"><span class="label">经纬度: </span><span class="val" id="infoLatLon">--</span></div>'
+            + '<div class="row"><span class="label">高度: </span><span class="val" id="infoAlt">--</span><span class="label"> 距离: </span><span class="val" id="infoRange">--</span></div>'
+            + '<div class="row"><span class="label">方位角: </span><span class="val" id="infoPan">--</span><span class="label"> 俯仰角: </span><span class="val" id="infoTilt">--</span></div>'
+            + '<div class="row"><span class="label">视场角(H×V): </span><span class="val" id="infoFov">--</span></div>';
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+    }
+});
+new DeviceInfoControl({ position: 'topleft' }).addTo(map);
+
+function jsToggleDeviceInfo(visible) {
+    var el = document.querySelector('.deviceInfoContainer');
+    if (el) el.style.display = visible ? '' : 'none';
+}
 
 
 

@@ -60,6 +60,7 @@ signals:
     void jsSetZoom(int level);                                      // 设置缩放级别
     void jsDeviceInfo(double lat, double lon, double alt,           // 更新设备信息面板
                       double pan, double tilt, double hfov, double vfov, double range);
+    void jsToggleDeviceInfo(bool visible);                          // 切换设备信息 OSD 可见性
 
 private:
     bool m_ready = false;   // 地图初始化完成标志

@@ -35,6 +35,12 @@ MapDialog::MapDialog(QWidget *parent)
         ui->m_map->setZoom(val);
     });
 
+    // 设备信息 OSD 开关
+    connect(ui->chkDeviceInfo, &QCheckBox::toggled,
+            this, [this](bool checked) {
+        ui->m_map->setDeviceInfoVisible(checked);
+    });
+
     // 将对话框居中显示在父窗口（或屏幕）的中央位置
     if (parent) {
         QWidget *p = parent->window();

@@ -46,6 +46,7 @@ public:
     // 将设备姿态/位置参数更新到左上角信息面板
     void setDeviceInfo(double lat, double lon, double alt, double pan,
                        double tilt, double hfov, double vfov, double range);
+    void setDeviceInfoVisible(bool visible);        // OSD 开关
 
     // ---- 轨迹管理 ----
     void appendTrackPoint(const QString& trackId, double lat, double lon, double speed = 0); // 追加轨迹点（含速度）

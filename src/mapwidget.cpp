@@ -119,6 +119,10 @@ MapWidget::MapWidget(QWidget *parent)
               .arg(tilt, 0, 'f', 1).arg(hfov, 0, 'f', 1)
               .arg(vfov, 0, 'f', 1).arg(range, 0, 'f', 0));
     });
+    // OSD 开关：设备信息面板显示/隐藏
+    connect(m_bridge, &MapBridge::jsToggleDeviceInfo, this, [this](bool visible) {
+        runJS(QStringLiteral("jsToggleDeviceInfo(%1)").arg(visible ? "true" : "false"));
+    });
 }
 
 MapWidget::~MapWidget()
@@ -201,4 +205,10 @@ void MapWidget::setMapType(int type)
 void MapWidget::setZoom(int level)
 {
     emit m_bridge->jsSetZoom(level);
+}
+
+// OSD 开关：切换设备信息面板可见性
+void MapWidget::setDeviceInfoVisible(bool visible)
+{
+    emit m_bridge->jsToggleDeviceInfo(visible);
 }

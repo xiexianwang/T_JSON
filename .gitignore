@@ -38,4 +38,4 @@ CMakeLists.txt.user*
 
 # Allow FFmpeg libraries
 !thirdparty/ffmpeg/lib/*.lib
-!thirdparty/ffmpeg/bin/*.dll
+

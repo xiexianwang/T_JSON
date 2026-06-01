@@ -66,11 +66,6 @@ MapDialog::MapDialog(QWidget *parent)
 
 MapDialog::~MapDialog()
 {
-    // 先显式销毁 MapWidget（含 QWebEngineView），触发内部线程清理
-    if (ui && ui->m_map) {
-        delete ui->m_map;
-        ui->m_map = nullptr;
-    }
     delete ui;
 }
 
@@ -91,5 +86,9 @@ void MapDialog::closeEvent(QCloseEvent *event)
 {
     QMessageBox::information(this, QStringLiteral("提示"),
                              QStringLiteral("正在关闭所有通道…"));
+    // 提前通知 WebEngine 停止活动，给内部线程退出机会
+    if (ui && ui->m_map) {
+        ui->m_map->stopWebEngine();
+    }
     event->accept();
 }

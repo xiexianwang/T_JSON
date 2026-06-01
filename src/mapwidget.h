@@ -61,6 +61,7 @@ public:
     void setMapType(int type);      // 切换卫星/街道底图
     void setZoom(int level);        // 设置缩放级别
     void reloadMap();               // 重新加载地图页面
+    void stopWebEngine();           // 停止 WebEngine 页面活动
 
 signals:
     // 用户在地图上单击时触发，传出 GPS 坐标

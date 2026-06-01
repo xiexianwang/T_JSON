@@ -13,8 +13,6 @@
 #include <QJsonDocument>
 #include <QDebug>
 #include <QtMath>
-#include <QCoreApplication>
-#include <QEventLoop>
 
 // ========================================================================
 // 构造函数
@@ -131,7 +129,14 @@ MapWidget::MapWidget(QWidget *parent)
 
 MapWidget::~MapWidget()
 {
-    // 主动停止 WebEngine，让内部线程有机会退出
+    qDebug() << "[Map] MapWidget destructing";
+    delete ui;
+}
+
+// 停止 WebEngine 页面活动并解除 WebChannel
+// 在 closeEvent 等安全时刻调用，让 WebEngine 内部线程提前退出
+void MapWidget::stopWebEngine()
+{
     if (ui && ui->m_webView) {
         auto *p = ui->m_webView->page();
         if (p) {
@@ -139,9 +144,6 @@ MapWidget::~MapWidget()
             p->setWebChannel(nullptr);
         }
     }
-    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 150);
-    delete ui;
-    qDebug() << "[Map] MapWidget destructed";
 }
 
 // 在 WebEngine 页面中执行 JavaScript 代码

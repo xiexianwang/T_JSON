@@ -8,6 +8,7 @@
 #define MAPDIALOG_H
 
 #include <QDialog>
+#include <QCloseEvent>
 
 class MapWidget;
 
@@ -33,6 +34,9 @@ public:
 private slots:
     // 底图类型切换 ComboBox 响应
     void on_comboMapType_currentIndexChanged(int index);
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     Ui::MapDialog *ui;

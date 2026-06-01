@@ -8,6 +8,7 @@
 #include "mapwidget.h"
 #include <QScreen>
 #include <QGuiApplication>
+#include <QMessageBox>
 
 // ========================================================================
 // 构造函数
@@ -78,4 +79,12 @@ MapWidget* MapDialog::mapWidget() const
 void MapDialog::on_comboMapType_currentIndexChanged(int index)
 {
     ui->m_map->setMapType(index);
+}
+
+// 关闭事件：弹出提示后销毁
+void MapDialog::closeEvent(QCloseEvent *event)
+{
+    QMessageBox::information(this, QStringLiteral("提示"),
+                             QStringLiteral("正在关闭所有通道…"));
+    event->accept();
 }

@@ -45,7 +45,7 @@ void RtspThread::openStream(const QString &url)
 }
 
 // 关闭 RTSP 流
-// 设置停止标志并唤醒线程，然后等待线程退出（最长 3 秒）
+// 设置停止标志并唤醒线程，不阻塞等待（由析构函数统一 wait）
 void RtspThread::closeStream()
 {
     {
@@ -53,12 +53,10 @@ void RtspThread::closeStream()
         m_stop = true;
         m_cond.wakeOne();
     }
-    wait(3000);
 }
 
 // 安全释放所有 FFmpeg 资源
-// 释放顺序：缩放上下文 → 解码器上下文 → 格式上下文
-// 将所有指针置空并将流索引重置为 -1
+// 释放顺序：缩放上下文 → RGB 缓冲 → 解码器上下文 → 格式上下文
 void RtspThread::safeCleanup()
 {
     if (m_swsCtx) {
@@ -71,6 +69,7 @@ void RtspThread::safeCleanup()
     if (m_fmtCtx) {
         avformat_close_input(&m_fmtCtx);
     }
+    av_freep(&m_rgbBuf);
     m_videoStreamIdx = -1;
 }
 
@@ -83,7 +82,6 @@ void RtspThread::run()
     AVPacket *pkt = av_packet_alloc();
     AVFrame  *decoded = av_frame_alloc();
     AVFrame  *rgb = av_frame_alloc();
-    uint8_t  *rgbBuf = nullptr;
 
     while (!m_stop) {
         // ── 等待外部通过 openStream() 发起的打开请求或停止信号 ──
@@ -94,7 +92,6 @@ void RtspThread::run()
             if (m_stop) break;
 
             m_openRequested = false;
-            m_url = m_url;
         }
 
         QByteArray url8 = m_url.toUtf8();
@@ -141,6 +138,11 @@ void RtspThread::run()
         }
 
         m_decCtx = avcodec_alloc_context3(codec);
+        if (!m_decCtx) {
+            emit streamError("分配解码器失败");
+            avformat_close_input(&m_fmtCtx);
+            continue;
+        }
         avcodec_parameters_to_context(m_decCtx, vs->codecpar);
         ret = avcodec_open2(m_decCtx, codec, nullptr);
         if (ret < 0) {
@@ -151,15 +153,46 @@ void RtspThread::run()
         }
 
         // ── 准备像素格式转换（原始格式 → RGB32）──
-        int w = m_decCtx->width;
-        int h = m_decCtx->height;
+        int64_t w64 = m_decCtx->width;
+        int64_t h64 = m_decCtx->height;
+        constexpr int64_t kMaxDim = 16384;
+        if (w64 <= 0 || h64 <= 0 || w64 > kMaxDim || h64 > kMaxDim) {
+            emit streamError(QString("异常分辨率 %1x%2").arg(w64).arg(h64));
+            avcodec_free_context(&m_decCtx);
+            avformat_close_input(&m_fmtCtx);
+            continue;
+        }
+        int w = static_cast<int>(w64);
+        int h = static_cast<int>(h64);
+        size_t rgbLinesize = static_cast<size_t>(w) * 4;
+        size_t rgbBufSize = rgbLinesize * static_cast<size_t>(h);
+        if (rgbBufSize > 64u * 1024 * 1024) {
+            emit streamError("RGB 缓冲超过 64MB 上限");
+            avcodec_free_context(&m_decCtx);
+            avformat_close_input(&m_fmtCtx);
+            continue;
+        }
+
         m_swsCtx = sws_getContext(w, h, m_decCtx->pix_fmt,
                                  w, h, AV_PIX_FMT_RGB32,
                                  SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (!m_swsCtx) {
+            emit streamError("初始化像素转换器失败");
+            avcodec_free_context(&m_decCtx);
+            avformat_close_input(&m_fmtCtx);
+            continue;
+        }
 
-        int rgbLinesize = w * 4;  // RGB32 每像素 4 字节
-        rgbBuf = (uint8_t*)av_malloc(rgbLinesize * h);
-        av_image_fill_arrays(rgb->data, rgb->linesize, rgbBuf,
+        av_freep(&m_rgbBuf);
+        m_rgbBuf = (uint8_t*)av_malloc(rgbBufSize);
+        if (!m_rgbBuf) {
+            emit streamError("分配 RGB 缓冲失败");
+            sws_freeContext(m_swsCtx); m_swsCtx = nullptr;
+            avcodec_free_context(&m_decCtx);
+            avformat_close_input(&m_fmtCtx);
+            continue;
+        }
+        av_image_fill_arrays(rgb->data, rgb->linesize, m_rgbBuf,
                              AV_PIX_FMT_RGB32, w, h, 1);
 
         // 通知外部流已成功打开
@@ -186,14 +219,17 @@ void RtspThread::run()
                     if (ret < 0) break;
 
                     // 将解码后的帧从原始像素格式转换为 RGB32
-                    sws_scale(m_swsCtx,
-                              decoded->data, decoded->linesize,
-                              0, h,
-                              rgb->data, rgb->linesize);
+                    int scaleRet = sws_scale(m_swsCtx,
+                                              decoded->data, decoded->linesize,
+                                              0, h,
+                                              rgb->data, rgb->linesize);
+                    if (scaleRet <= 0) continue;
 
-                    // 构造 QImage（共享 rgbBuf 数据）后深拷贝一份发送出去
-                    QImage img(rgbBuf, w, h, rgbLinesize, QImage::Format_RGB32);
-                    emit frameReady(img.copy());
+                    // 构造 QImage（共享 m_rgbBuf 数据）后深拷贝一份发送出去
+                    if (w > 0 && h > 0 && m_rgbBuf && rgbLinesize > 0) {
+                        QImage img(m_rgbBuf, w, h, static_cast<int>(rgbLinesize), QImage::Format_RGB32);
+                        emit frameReady(img.copy());
+                    }
                 }
             }
             av_packet_unref(pkt);
@@ -204,7 +240,6 @@ void RtspThread::run()
     }
 
     // 线程退出前释放所有持久分配的 FFmpeg 资源
-    av_freep(&rgbBuf);
     av_frame_free(&rgb);
     av_frame_free(&decoded);
     av_packet_free(&pkt);

@@ -6,6 +6,7 @@
 // ============================================================
 
 #include "devicecontroller.h"
+#include <QDebug>
 
 // 构造函数：保存 TJsonClient 和 ConfigManager 的指针
 // 注意：两者均为非拥有指针，由外部管理其生命周期
@@ -169,6 +170,10 @@ void DeviceController::lensStop()
 // 设置预置位：Pelco-D 命令 Set Preset (Cmd2=0x03)
 void DeviceController::setPreset(int preset)
 {
+    if (preset < 0 || preset > 255) {
+        qWarning() << "Preset out of range:" << preset;
+        return;
+    }
     quint8 addr = m_cfg->ptz().address;
     QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x03, static_cast<quint8>(preset), 0x00);
     sendTransparentData("PELCO_D", pkt);
@@ -177,6 +182,10 @@ void DeviceController::setPreset(int preset)
 // 调用预置位：Pelco-D 命令 Recall Preset (Cmd2=0x07)
 void DeviceController::callPreset(int preset)
 {
+    if (preset < 0 || preset > 255) {
+        qWarning() << "Preset out of range:" << preset;
+        return;
+    }
     quint8 addr = m_cfg->ptz().address;
     QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x07, static_cast<quint8>(preset), 0x00);
     sendTransparentData("PELCO_D", pkt);
@@ -185,6 +194,10 @@ void DeviceController::callPreset(int preset)
 // 删除预置位：Pelco-D 命令 Clear Preset (Cmd2=0x05)
 void DeviceController::delPreset(int preset)
 {
+    if (preset < 0 || preset > 255) {
+        qWarning() << "Preset out of range:" << preset;
+        return;
+    }
     quint8 addr = m_cfg->ptz().address;
     QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x05, static_cast<quint8>(preset), 0x00);
     sendTransparentData("PELCO_D", pkt);

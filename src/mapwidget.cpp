@@ -14,6 +14,26 @@
 #include <QDebug>
 #include <QtMath>
 
+namespace {
+// 转义 JS 字符串字面量中的特殊字符，防止设备数据破坏 JS 语法
+QString jsEscape(const QString& s)
+{
+    QString r;
+    r.reserve(s.size());
+    for (QChar c : s) {
+        switch (c.unicode()) {
+            case '\\': r += QStringLiteral("\\\\"); break;
+            case '\'': r += QStringLiteral("\\'"); break;
+            case '\n': r += QStringLiteral("\\n"); break;
+            case '\r': r += QStringLiteral("\\r"); break;
+            case '\t': r += QStringLiteral("\\t"); break;
+            default:   r += c; break;
+        }
+    }
+    return r;
+}
+}
+
 // ========================================================================
 // 构造函数
 // 1. 创建 QWebChannel，注册 MapBridge 为 "bridge" 对象
@@ -87,11 +107,11 @@ MapWidget::MapWidget(QWidget *parent)
     // 追加轨迹点（含速度）
     connect(m_bridge, &MapBridge::jsAddTrackPoint, this, [this](const QString& id, double lat, double lon, double speed) {
         runJS(QStringLiteral("jsAddTrackPoint('%1',%2,%3,%4)")
-              .arg(id).arg(lat, 0, 'f', 8).arg(lon, 0, 'f', 8).arg(speed, 0, 'f', 2));
+              .arg(jsEscape(id)).arg(lat, 0, 'f', 8).arg(lon, 0, 'f', 8).arg(speed, 0, 'f', 2));
     });
     // 清除单条轨迹
     connect(m_bridge, &MapBridge::jsClearTrack, this, [this](const QString& id) {
-        runJS(QStringLiteral("jsClearTrack('%1')").arg(id));
+        runJS(QStringLiteral("jsClearTrack('%1')").arg(jsEscape(id)));
     });
     // 清除全部轨迹
     connect(m_bridge, &MapBridge::jsClearAllTracks, this, [this]() {
@@ -99,7 +119,7 @@ MapWidget::MapWidget(QWidget *parent)
     });
     // 更新目标标记（JSON 序列化后传给 JS）
     connect(m_bridge, &MapBridge::jsUpdateTargets, this, [this](const QString& json) {
-        runJS(QStringLiteral("jsUpdateTargets('%1')").arg(json));
+        runJS(QStringLiteral("jsUpdateTargets('%1')").arg(jsEscape(json)));
     });
     // 切换底图类型：0=卫星，非0=街道
     connect(m_bridge, &MapBridge::jsSetMapType, this, [this](int type) {

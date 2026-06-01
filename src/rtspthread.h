@@ -58,6 +58,7 @@ private:
     AVFormatContext *m_fmtCtx = nullptr;  // 格式上下文（封装层）
     AVCodecContext  *m_decCtx = nullptr;  // 解码器上下文
     SwsContext      *m_swsCtx = nullptr;  // 像素格式/尺寸转换上下文
+    uint8_t         *m_rgbBuf = nullptr;  // RGB 转换缓冲
     int m_videoStreamIdx = -1;            // 视频流索引
 };
 

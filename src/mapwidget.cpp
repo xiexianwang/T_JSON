@@ -82,10 +82,10 @@ MapWidget::MapWidget(QWidget *parent)
     connect(m_bridge, &MapBridge::jsClearFov, this, [this]() {
         runJS(QStringLiteral("jsClearFov()"));
     });
-    // 追加轨迹点
-    connect(m_bridge, &MapBridge::jsAddTrackPoint, this, [this](const QString& id, double lat, double lon) {
-        runJS(QStringLiteral("jsAddTrackPoint('%1',%2,%3)")
-              .arg(id).arg(lat, 0, 'f', 8).arg(lon, 0, 'f', 8));
+    // 追加轨迹点（含速度）
+    connect(m_bridge, &MapBridge::jsAddTrackPoint, this, [this](const QString& id, double lat, double lon, double speed) {
+        runJS(QStringLiteral("jsAddTrackPoint('%1',%2,%3,%4)")
+              .arg(id).arg(lat, 0, 'f', 8).arg(lon, 0, 'f', 8).arg(speed, 0, 'f', 2));
     });
     // 清除单条轨迹
     connect(m_bridge, &MapBridge::jsClearTrack, this, [this](const QString& id) {
@@ -165,10 +165,10 @@ void MapWidget::clearFov()
     emit m_bridge->jsClearFov();
 }
 
-// 向指定轨迹追加一个坐标点
-void MapWidget::appendTrackPoint(const QString& trackId, double lat, double lon)
+// 向指定轨迹追加一个坐标点（含速度）
+void MapWidget::appendTrackPoint(const QString& trackId, double lat, double lon, double speed)
 {
-    emit m_bridge->jsAddTrackPoint(trackId, lat, lon);
+    emit m_bridge->jsAddTrackPoint(trackId, lat, lon, speed);
 }
 
 // 清除指定 ID 的轨迹

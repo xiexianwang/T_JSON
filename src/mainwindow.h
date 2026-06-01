@@ -9,6 +9,9 @@
 #include <QMainWindow>
 #include <QJsonObject>
 #include <QPushButton>
+#include <QDateTime>
+#include <QTimer>
+#include <QVector>
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
@@ -89,6 +92,26 @@ private:
     double m_currentIrZoom;         // 当前红外镜头倍率
     int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
     
+    // ── 跟踪状态管理（地图目标/轨迹逻辑） ──
+    struct TrackState {
+        QString id;             // 当前跟踪目标 ID
+        double lat = 0, lon = 0; // 最后已知位置
+        int cls = 0;            // 最后 Class
+        QDateTime lostSince;    // 首次失锁时间（空 = 锁定中）
+        double prevLat = 0, prevLon = 0; // 上一个轨迹点位置（速度计算用）
+        QDateTime prevTime;     // 上一个轨迹点时间
+    };
+    TrackState m_track;
+
+    // ── 轨迹节流（高频上报时缓冲，定时批量下发） ──
+    struct PendingTrackPt {
+        QString id;
+        double lat, lon, speed;
+    };
+    QVector<PendingTrackPt> m_pendingTracks;
+    QTimer *m_trackEmitTimer;
+    void flushPendingTrackPoints();
+
     // ── 私有工具方法 ──
     void setupUiStyles();                           // 加载并应用 QSS 样式表
     void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI

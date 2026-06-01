@@ -52,7 +52,7 @@ signals:
     void jsIrFov(double lat, double lon, double pan,                // 绘制红外 FOV（红色）
                  double tilt, double hfov, double vfov, double range);
     void jsClearFov();                                              // 清除所有 FOV
-    void jsAddTrackPoint(const QString& trackId, double lat, double lon); // 追加轨迹点
+    void jsAddTrackPoint(const QString& trackId, double lat, double lon, double speed = 0); // 追加轨迹点（含速度）
     void jsClearTrack(const QString& trackId);                      // 清除单条轨迹
     void jsClearAllTracks();                                        // 清除全部轨迹
     void jsUpdateTargets(const QString& jsonStr);                   // 更新目标标记

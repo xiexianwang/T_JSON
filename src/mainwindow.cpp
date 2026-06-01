@@ -60,6 +60,12 @@ MainWindow::MainWindow(QWidget *parent)
         m_mapDlg->activateWindow();
     });
 
+    // 轨迹节流定时器：100ms 批量下发一次轨迹点
+    m_trackEmitTimer = new QTimer(this);
+    m_trackEmitTimer->setInterval(100);
+    m_trackEmitTimer->setSingleShot(true);
+    connect(m_trackEmitTimer, &QTimer::timeout, this, &MainWindow::flushPendingTrackPoints);
+
     //============================================================================
     // RTSP 视频流信号连接
     // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
@@ -973,83 +979,223 @@ void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
     outLon = lon2 * 180.0 / M_PI;
 }
 
+// Haversine 公式计算两点间距离（米）
+static double haversineDistance(double lat1, double lon1, double lat2, double lon2)
+{
+    double R = 6371000.0;
+    double dLat = (lat2 - lat1) * M_PI / 180.0;
+    double dLon = (lon2 - lon1) * M_PI / 180.0;
+    double a = qSin(dLat / 2) * qSin(dLat / 2)
+             + qCos(lat1 * M_PI / 180.0) * qCos(lat2 * M_PI / 180.0)
+             * qSin(dLon / 2) * qSin(dLon / 2);
+    double c = 2.0 * qAtan2(qSqrt(a), qSqrt(1.0 - a));
+    return R * c;
+}
+
 //============================================================================
 // updateMapTargets - 更新地图上的 AI 目标标记
-// 遍历 Object 字典，对每个拥有像素框 (Points) 的目标：
-//   1. 计算目标中心 GPS (pixelToGps)
-//   2. 跟踪模式下追加轨迹点 (appendTrackPoint)
-//   3. 计算目标框四角 GPS (pixelBboxToGps，含俯仰校正)
-//   4. 打包所有目标信息为 JSON 数组传递到 MapWidget 渲染
-// 无目标时清理地图上的轨道与视场角
+// 跟踪模式 (WorkMode 2~4)：
+//   - 仅显示 1 个目标（锁定 0xB1 优先，丢失 0xB2 次之）
+//   - 首次失锁（0xB2）时记录时间，保持最后位置 5 秒
+//   - 失锁超 5 秒清除轨迹和目标点
+// 识别模式 (WorkMode 1)：显示全部识别目标，无上报时清空遗留
 //============================================================================
 void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 {
-    if (!doc.contains("Object") || !doc.value("Object").isObject()) {
-        if (workMode >= 2) {
+    bool hasObject = doc.contains("Object") && doc.value("Object").isObject();
+    QJsonObject objMap;
+    if (hasObject) objMap = doc.value("Object").toObject();
+    double tilt = ui->statTiltAngle->text().toDouble();
+
+    //==========================================================================
+    // 识别模式 (WorkMode=1)：显示所有目标，无上报时清空
+    //==========================================================================
+    if (workMode == 1) {
+        if (!hasObject || objMap.isEmpty()) {
             m_mapDlg->mapWidget()->clearAllTracks();
             m_mapDlg->mapWidget()->clearFov();
+            m_mapDlg->mapWidget()->updateTargetMarkers(QJsonArray());
+            return;
         }
+
+        QJsonArray targetArr;
+        for (auto it = objMap.begin(); it != objMap.end(); ++it) {
+            QString id = it.key();
+            QJsonObject obj = it.value().toObject();
+            double dist = obj.value("Distance").toDouble(0);
+            int cls = obj.value("Class").toInt();
+            double tLat = 0, tLon = 0;
+
+            if (obj.contains("Points")) {
+                QJsonObject pts = obj.value("Points").toObject();
+                int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
+                int R = pts.value("Right").toInt(), B = pts.value("Bottom").toInt();
+                double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
+                pixelToGps(cx, cy, dist, tLat, tLon);
+
+                QJsonArray bbox;
+                double bLat, bLon;
+                pixelBboxToGps(L, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                pixelBboxToGps(R, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                pixelBboxToGps(R, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+
+                QJsonObject t;
+                t[QStringLiteral("id")] = id;
+                t[QStringLiteral("cls")] = cls;
+                t[QStringLiteral("dist")] = dist;
+                t[QStringLiteral("lat")] = tLat;
+                t[QStringLiteral("lon")] = tLon;
+                t[QStringLiteral("locked")] = false;
+                t[QStringLiteral("bbox")] = bbox;
+                targetArr.append(t);
+            }
+        }
+        m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
         return;
     }
 
-    QJsonObject objMap = doc.value("Object").toObject();
-    QJsonArray targetArr;
-    double tilt = ui->statTiltAngle->text().toDouble();
+    //==========================================================================
+    // 跟踪模式 (WorkMode=2~4)
+    //==========================================================================
+    if (workMode >= 2 && workMode <= 4) {
 
-    for (auto it = objMap.begin(); it != objMap.end(); ++it) {
-        QString id = it.key();
-        QJsonObject obj = it.value().toObject();
-        double dist = obj.value("Distance").toDouble(0);
-        int cls = obj.value("Class").toInt();
+        // -- 查找锁定目标 0xB1 和丢失目标 0xB2 --
+        QString lockedId, lostId;
+        QJsonObject lockedObj, lostObj;
+        for (auto it = objMap.begin(); it != objMap.end(); ++it) {
+            QJsonObject obj = it.value().toObject();
+            int cls = obj.value("Class").toInt();
+            if (cls == 0xB1 && lockedId.isEmpty()) {
+                lockedId = it.key(); lockedObj = obj;
+            } else if (cls == 0xB2 && lostId.isEmpty()) {
+                lostId = it.key(); lostObj = obj;
+            }
+        }
 
-        double tLat = 0, tLon = 0;
+        // ---- 有锁定目标 ----
+        if (!lockedId.isEmpty()) {
+            m_track.lostSince = QDateTime();
 
-        if (obj.contains("Points")) {
-            QJsonObject pts = obj.value("Points").toObject();
-            int L = pts.value("Left").toInt();
-            int T = pts.value("Top").toInt();
-            int R = pts.value("Right").toInt();
-            int B = pts.value("Bottom").toInt();
-            double cx = (L + R) / 2.0;
-            double cy = (T + B) / 2.0;
-            pixelToGps(cx, cy, dist, tLat, tLon);
+            double dist = lockedObj.value("Distance").toDouble(0);
+            int cls = lockedObj.value("Class").toInt();
+            double tLat = 0, tLon = 0;
 
-            // 跟踪模式下记录目标轨迹（按 ID 区分不同目标）
-            if (workMode >= 2 && tLat != 0 && tLon != 0) {
-                m_mapDlg->mapWidget()->appendTrackPoint(id, tLat, tLon);
+            if (lockedObj.contains("Points")) {
+                QJsonObject pts = lockedObj.value("Points").toObject();
+                int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
+                int R = pts.value("Right").toInt(), B = pts.value("Bottom").toInt();
+                double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
+                pixelToGps(cx, cy, dist, tLat, tLon);
+
+                m_track.id = lockedId;
+                m_track.lat = tLat;
+                m_track.lon = tLon;
+                m_track.cls = cls;
+
+                // 计算速度（米/秒）
+                double speed = 0;
+                if (m_track.prevTime.isValid()) {
+                    double dist_m = haversineDistance(m_track.prevLat, m_track.prevLon, tLat, tLon);
+                    double dt_s = m_track.prevTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
+                    if (dt_s > 0) speed = dist_m / dt_s;
+                }
+                m_track.prevLat = tLat;
+                m_track.prevLon = tLon;
+                m_track.prevTime = QDateTime::currentDateTime();
+
+                if (tLat != 0 && tLon != 0) {
+                    // 存入缓冲队列，定时批量下发
+                    m_pendingTracks.append({lockedId, tLat, tLon, speed});
+                    if (!m_trackEmitTimer->isActive())
+                        m_trackEmitTimer->start();
+                }
+
+                QJsonArray targetArr;
+                QJsonObject t;
+                t[QStringLiteral("id")] = lockedId;
+                t[QStringLiteral("cls")] = cls;
+                t[QStringLiteral("dist")] = dist;
+                t[QStringLiteral("lat")] = tLat;
+                t[QStringLiteral("lon")] = tLon;
+                t[QStringLiteral("locked")] = true;
+
+                QJsonArray bbox;
+                double bLat, bLon;
+                pixelBboxToGps(L, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                pixelBboxToGps(R, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                pixelBboxToGps(R, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                t[QStringLiteral("bbox")] = bbox;
+                targetArr.append(t);
+                m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
+            }
+            return;
+        }
+
+        // ---- 有丢失目标 (0xB2) ----
+        if (!lostId.isEmpty()) {
+            double dist = lostObj.value("Distance").toDouble(0);
+            int cls = lostObj.value("Class").toInt();
+            double tLat = 0, tLon = 0;
+            bool hasPts = false;
+
+            if (lostObj.contains("Points")) {
+                QJsonObject pts = lostObj.value("Points").toObject();
+                int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
+                int R = pts.value("Right").toInt(), B = pts.value("Bottom").toInt();
+                double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
+                pixelToGps(cx, cy, dist, tLat, tLon);
+                hasPts = true;
             }
 
-            // 计算目标框四角 GPS（用于在地图上绘制目标轮廓）
-            QJsonArray bbox;
-            double bLat, bLon;
-            pixelBboxToGps(L, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-            pixelBboxToGps(R, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-            pixelBboxToGps(R, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-            pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+            // 首次失锁：保存位置，记录时间
+            if (m_track.lostSince.isNull()) {
+                m_track.id = lostId;
+                m_track.lat = tLat;
+                m_track.lon = tLon;
+                m_track.cls = cls;
+                m_track.lostSince = QDateTime::currentDateTime();
+            }
 
-            QJsonObject t;
-            t[QStringLiteral("id")] = id;
-            t[QStringLiteral("cls")] = cls;
-            t[QStringLiteral("dist")] = dist;
-            t[QStringLiteral("lat")] = tLat;
-            t[QStringLiteral("lon")] = tLon;
-            t[QStringLiteral("locked")] = (cls == 0xB1 || cls == 0xB2);
-            t[QStringLiteral("bbox")] = bbox;
-            targetArr.append(t);
-        } else {
-            // 无像素框的目标仅记录位置与类别
-            QJsonObject t;
-            t[QStringLiteral("id")] = id;
-            t[QStringLiteral("cls")] = cls;
-            t[QStringLiteral("dist")] = dist;
-            t[QStringLiteral("lat")] = tLat;
-            t[QStringLiteral("lon")] = tLon;
-            t[QStringLiteral("locked")] = false;
-            targetArr.append(t);
+            // 检查是否超过 5 秒
+            qint64 elapsed = m_track.lostSince.msecsTo(QDateTime::currentDateTime());
+            if (elapsed >= 5000) {
+                // 超过 5 秒，清除轨迹和目标
+                m_mapDlg->mapWidget()->clearAllTracks();
+                m_mapDlg->mapWidget()->updateTargetMarkers(QJsonArray());
+                return;
+            }
+
+            // 5 秒内：显示最后位置
+            if (hasPts) {
+                QJsonArray targetArr;
+                QJsonObject t;
+                t[QStringLiteral("id")] = m_track.id;
+                t[QStringLiteral("cls")] = m_track.cls;
+                t[QStringLiteral("dist")] = dist;
+                t[QStringLiteral("lat")] = m_track.lat;
+                t[QStringLiteral("lon")] = m_track.lon;
+                t[QStringLiteral("locked")] = false;
+                targetArr.append(t);
+                m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
+            }
+            return;
         }
-    }
 
-    m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
+        // ---- 有 Object 但无 0xB1/0xB2，清空 ----
+        m_mapDlg->mapWidget()->clearAllTracks();
+        m_mapDlg->mapWidget()->updateTargetMarkers(QJsonArray());
+    }
+}
+
+// 定时刷新：将缓冲的轨迹点批量下发到地图
+void MainWindow::flushPendingTrackPoints()
+{
+    for (const auto& pt : m_pendingTracks) {
+        m_mapDlg->mapWidget()->appendTrackPoint(pt.id, pt.lat, pt.lon, pt.speed);
+    }
+    m_pendingTracks.clear();
 }
 
 //============================================================================

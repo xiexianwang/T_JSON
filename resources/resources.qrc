@@ -5,6 +5,7 @@
         <file>leaflet.css</file>
         <file>leaflet.js</file>
         <file>leaflet-semicircle.js</file>
+        <file>leaflet.polylineDecorator.js</file>
         <file>tilecache.js</file>
     </qresource>
 </RCC>

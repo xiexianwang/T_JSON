@@ -48,7 +48,7 @@ public:
                        double tilt, double hfov, double vfov, double range);
 
     // ---- 轨迹管理 ----
-    void appendTrackPoint(const QString& trackId, double lat, double lon); // 追加轨迹点
+    void appendTrackPoint(const QString& trackId, double lat, double lon, double speed = 0); // 追加轨迹点（含速度）
     void clearTrack(const QString& trackId);                               // 清除单条轨迹
     void clearAllTracks();                                                 // 清除全部轨迹
 

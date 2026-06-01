@@ -13,6 +13,8 @@ int main(int argc, char *argv[])
 {
     // 配置 Chromium / WebEngine 标志：忽略 GPU 黑名单以启用 WebGL、
     // 设置光栅线程数、移除帧率限制、降低日志级别
+    // 使用 Chrome 访问 http://localhost:9999 调试地图页面
+    qputenv("QTWEBENGINE_REMOTE_DEBUGGING", "9999");
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--ignore-gpu-blocklist --enable-webgl --num-raster-threads=4 --disable-frame-rate-limit --log-level=3");
     QApplication a(argc, argv);                    // 创建 QApplication 实例
     a.setOrganizationName("TJSONClient");          // 设置组织名（用于 QSettings 路径）

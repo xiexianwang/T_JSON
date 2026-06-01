@@ -21,23 +21,23 @@ html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-s
 
 #deviceInfo {
 
-    position:absolute; top:10px; left:10px; z-index:999;
-    
-    background:rgba(0,0,0,0.7); color:#eee;
-    
-    font-size:12px; line-height:1.6; padding:8px 12px;
-    
-    border-radius:4px; border:1px solid rgba(255,255,255,0.15);
-    
-    min-width:200px; pointer-events:none;
+    position:absolute; top:10px; left:10px; z-index:999;
+    
+    background:rgba(0,0,0,0.7); color:#eee;
+    
+    font-size:12px; line-height:1.6; padding:8px 12px;
+    
+    border-radius:4px; border:1px solid rgba(255,255,255,0.15);
+    
+    min-width:200px; pointer-events:none;
 
 }
 
 #deviceInfo .label { color:#999; }
 
-#deviceInfo .val  { color:#fff; font-weight:bold; }
+#deviceInfo .val  { color:#fff; font-weight:bold; }
 
-#deviceInfo .row  { white-space:nowrap; }
+#deviceInfo .row  { white-space:nowrap; }
 
 </style>
 
@@ -50,13 +50,13 @@ html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-s
 <div id="deviceInfo">
 
 
-    <div class="row"><span class="label">经纬度: </span><span class="val" id="infoLatLon">--</span></div>
-    
-    <div class="row"><span class="label">高度: </span><span class="val" id="infoAlt">--</span><span class="label"> 距离: </span><span class="val" id="infoRange">--</span></div>
-    
-    <div class="row"><span class="label">方位角: </span><span class="val" id="infoPan">--</span><span class="label"> 俯仰角: </span><span class="val" id="infoTilt">--</span></div>
-    
-    <div class="row"><span class="label">视场角(H×V): </span><span class="val" id="infoFov">--</span></div>
+    <div class="row"><span class="label">经纬度: </span><span class="val" id="infoLatLon">--</span></div>
+    
+    <div class="row"><span class="label">高度: </span><span class="val" id="infoAlt">--</span><span class="label"> 距离: </span><span class="val" id="infoRange">--</span></div>
+    
+    <div class="row"><span class="label">方位角: </span><span class="val" id="infoPan">--</span><span class="label"> 俯仰角: </span><span class="val" id="infoTilt">--</span></div>
+    
+    <div class="row"><span class="label">视场角(H×V): </span><span class="val" id="infoFov">--</span></div>
 
 </div>
 
@@ -65,6 +65,7 @@ html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-s
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 
 <script>
+
 
 
 // ======================================================================
@@ -76,45 +77,45 @@ html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-s
 var map = L.map('map', {
 
     center: [0, 0],
-    
+
     zoom: 17,
-    
+
     zoomControl: false,
-    
-    preferCanvas: true, // 【优化】强制使用 Canvas 渲染，防止缩放图层错位
-    
+
+    preferCanvas: true,
+
     zoomAnimation: true
 
 });
 
 
 
-// 街道底图：OpenStreetMap 标准瓦片
+// ======================================================================
+// ---- 天地图图层初始化 ----
+// ======================================================================
 
-var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+var TDT_KEY = 'cb5396445b2686712e74750ad56190aa';
+var tdtSubdomains = ['0', '1', '2', '3', '4', '5', '6', '7'];
 
-    maxZoom: 19,
-    
-    attribution: '© <a href="https://openstreetmap.org/copyright">OSM</a>'
-
+// 街道图层：矢量底图 + 矢量文字注记
+var vecTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
+    maxZoom: 18, subdomains: tdtSubdomains, attribution: '© 天地图'
 });
-
-
-
-// 卫星底图：ESRI World Imagery
-
-var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-
-    maxZoom: 19,
-    
-    attribution: '© <a href="https://esri.com">Esri</a>'
-
+var cvaTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
+    maxZoom: 18, subdomains: tdtSubdomains
 });
+var streetLayer = L.layerGroup([vecTile, cvaTile]);
 
+// 卫星图层：影像底图 + 影像文字注记
+var imgTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
+    maxZoom: 18, subdomains: tdtSubdomains, attribution: '© 天地图'
+});
+var ciaTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
+    maxZoom: 18, subdomains: tdtSubdomains
+});
+var satelliteLayer = L.layerGroup([imgTile, ciaTile]);
 
-
-// 当前底图容器（用于切换）
-
+// 默认加载卫星图
 var currentLayer = satelliteLayer.addTo(map);
 
 
@@ -131,15 +132,15 @@ var firstCentered = false;
 
 var deviceMarker = L.circleMarker([0, 0], {
 
-    radius: 10,
-    
-    color: 'rgba(255,255,255,0.8)',
-    
-    weight: 2,
-    
-    fillColor: '#ff4444',
-    
-    fillOpacity: 1
+    radius: 10,
+    
+    color: 'rgba(255,255,255,0.8)',
+    
+    weight: 2,
+    
+    fillColor: '#ff4444',
+    
+    fillOpacity: 1
 
 }).addTo(map);
 
@@ -149,13 +150,13 @@ var deviceMarker = L.circleMarker([0, 0], {
 
 var visCircle = L.circle([0, 0], {
 
-    radius: 4000,
-    
-    fillColor: '#3388ff',
-    
-    fillOpacity: 0.5,
-    
-    weight: 0
+    radius: 4000,
+    
+    fillColor: '#3388ff',
+    
+    fillOpacity: 0.5,
+    
+    weight: 0
 
 });
 
@@ -163,13 +164,13 @@ var visCircle = L.circle([0, 0], {
 
 var irCircle = L.circle([0, 0], {
 
-    radius: 2000,
-    
-    fillColor: '#ff4444',
-    
-    fillOpacity: 0.5,
-    
-    weight: 0
+    radius: 2000,
+    
+    fillColor: '#ff4444',
+    
+    fillOpacity: 0.5,
+    
+    weight: 0
 
 });
 
@@ -179,9 +180,9 @@ var irCircle = L.circle([0, 0], {
 
 var visFovLayer = L.polygon([], {
 
-    fillColor: '#3388ff',
-    
-    fillOpacity: 1
+    fillColor: '#3388ff',
+    
+    fillOpacity: 1
 
 });
 
@@ -189,9 +190,9 @@ var visFovLayer = L.polygon([], {
 
 var irFovLayer = L.polygon([], {
 
-    fillColor: '#ff4444',
-    
-    fillOpacity: 1
+    fillColor: '#ff4444',
+    
+    fillOpacity: 1
 
 });
 
@@ -225,13 +226,13 @@ var infoPopup = null;
 
 var dotIcon = L.divIcon({
 
-    className: '',
-    
-    html: '<div style="background:#44aaff;border:2px solid #fff;border-radius:50%;width:10px;height:10px;box-shadow:0 0 4px rgba(0,100,255,0.5);"></div>',
-    
-    iconSize: [14, 14],
-    
-    iconAnchor: [7, 7]
+    className: '',
+    
+    html: '<div style="background:#44aaff;border:2px solid #fff;border-radius:50%;width:10px;height:10px;box-shadow:0 0 4px rgba(0,100,255,0.5);"></div>',
+    
+    iconSize: [14, 14],
+    
+    iconAnchor: [7, 7]
 
 });
 
@@ -245,45 +246,45 @@ var dotIcon = L.divIcon({
 
 function computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
-    if (rangeM <= 0) return [];
-    
-    var R = 6371000;
-    
-    var latR = lat * Math.PI / 180, lonR = lon * Math.PI / 180;
-    
-    var panR = panDeg * Math.PI / 180;
-    
-    var halfH = hfovDeg / 2 * Math.PI / 180;
-    
-    var corners = [];
-    
-    for (var i = -1; i <= 1; i += 2) {
-    
-        for (var j = -1; j <= 1; j += 2) {
-    
-            var brg = panR + i * halfH;
-    
-            var d = rangeM / R;
-    
-            var clat = Math.asin(Math.sin(latR) * Math.cos(d)
-    
-                       + Math.cos(latR) * Math.sin(d) * Math.cos(brg));
-    
-            var clon = lonR + Math.atan2(
-    
-                Math.sin(brg) * Math.sin(d) * Math.cos(latR),
-    
-                Math.cos(d) - Math.sin(latR) * Math.sin(clat));
-    
-            corners.push([clat * 180 / Math.PI, clon * 180 / Math.PI]);
-    
-        }
-    
-    }
-    
-    corners.push([lat, lon]);
-    
-    return corners;
+    if (rangeM <= 0) return [];
+    
+    var R = 6371000;
+    
+    var latR = lat * Math.PI / 180, lonR = lon * Math.PI / 180;
+    
+    var panR = panDeg * Math.PI / 180;
+    
+    var halfH = hfovDeg / 2 * Math.PI / 180;
+    
+    var corners = [];
+    
+    for (var i = -1; i <= 1; i += 2) {
+    
+        for (var j = -1; j <= 1; j += 2) {
+    
+            var brg = panR + i * halfH;
+    
+            var d = rangeM / R;
+    
+            var clat = Math.asin(Math.sin(latR) * Math.cos(d)
+    
+                       + Math.cos(latR) * Math.sin(d) * Math.cos(brg));
+    
+            var clon = lonR + Math.atan2(
+    
+                Math.sin(brg) * Math.sin(d) * Math.cos(latR),
+    
+                Math.cos(d) - Math.sin(latR) * Math.sin(clat));
+    
+            corners.push([clat * 180 / Math.PI, clon * 180 / Math.PI]);
+    
+        }
+    
+    }
+    
+    corners.push([lat, lon]);
+    
+    return corners;
 
 }
 
@@ -295,13 +296,13 @@ var bridge = null;
 
 new QWebChannel(qt.webChannelTransport, function(channel) {
 
-    bridge = channel.objects.bridge;
-    
-    if (bridge && bridge.onMapInitialized) {
-    
-        bridge.onMapInitialized();
-    
-    }
+    bridge = channel.objects.bridge;
+    
+    if (bridge && bridge.onMapInitialized) {
+    
+        bridge.onMapInitialized();
+    
+    }
 
 });
 
@@ -317,25 +318,25 @@ new QWebChannel(qt.webChannelTransport, function(channel) {
 
 function jsSetDevicePos(lat, lon) {
 
-    var ll = [lat, lon];
-    
-    deviceMarker.setLatLng(ll);
-    
-    visCircle.setLatLng(ll);
-    
-    irCircle.setLatLng(ll);
-    
-    if (!map.hasLayer(visCircle)) { visCircle.addTo(map); irCircle.addTo(map); }
-    
-    if (!firstCentered) {
-    
-        map.setView(ll, map.getZoom());
-    
-        firstCentered = true;
-    
-    }
-    
-    deviceMarker.bringToFront(); // 【优化】保证中心原点永远在最顶层
+    var ll = [lat, lon];
+    
+    deviceMarker.setLatLng(ll);
+    
+    visCircle.setLatLng(ll);
+    
+    irCircle.setLatLng(ll);
+    
+    if (!map.hasLayer(visCircle)) { visCircle.addTo(map); irCircle.addTo(map); }
+    
+    if (!firstCentered) {
+    
+        map.setView(ll, map.getZoom());
+    
+        firstCentered = true;
+    
+    }
+    
+    deviceMarker.bringToFront(); // 【优化】保证中心原点永远在最顶层
 
 }
 
@@ -343,19 +344,19 @@ function jsSetDevicePos(lat, lon) {
 
 function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
 
-    document.getElementById('infoLatLon').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
-    
-    document.getElementById('infoAlt').textContent = alt > 0 ? alt.toFixed(1) + ' m' : '--';
-    
-    document.getElementById('infoRange').textContent = range > 0 ? range.toFixed(0) + ' m' : '--';
-    
-    document.getElementById('infoPan').textContent = pan.toFixed(1) + '\u00B0';
-    
-    document.getElementById('infoTilt').textContent = tilt.toFixed(1) + '\u00B0';
-    
-    if (hfov > 0 && vfov > 0)
-    
-        document.getElementById('infoFov').textContent = hfov.toFixed(1) + '\u00B0 \u00D7 ' + vfov.toFixed(1) + '\u00B0';
+    document.getElementById('infoLatLon').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
+    
+    document.getElementById('infoAlt').textContent = alt > 0 ? alt.toFixed(1) + ' m' : '--';
+    
+    document.getElementById('infoRange').textContent = range > 0 ? range.toFixed(0) + ' m' : '--';
+    
+    document.getElementById('infoPan').textContent = pan.toFixed(1) + '\u00B0';
+    
+    document.getElementById('infoTilt').textContent = tilt.toFixed(1) + '\u00B0';
+    
+    if (hfov > 0 && vfov > 0)
+    
+        document.getElementById('infoFov').textContent = hfov.toFixed(1) + '\u00B0 \u00D7 ' + vfov.toFixed(1) + '\u00B0';
 
 }
 
@@ -363,19 +364,19 @@ function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
 
 function jsSetVisFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
-    var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
-    
-    if (pts.length > 0) {
-    
-        visFovLayer.setLatLngs(pts);
-    
-        if (!map.hasLayer(visFovLayer)) visFovLayer.addTo(map);
-    
-    } else {
-    
-        if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
-    
-    }
+    var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
+    
+    if (pts.length > 0) {
+    
+        visFovLayer.setLatLngs(pts);
+    
+        if (!map.hasLayer(visFovLayer)) visFovLayer.addTo(map);
+    
+    } else {
+    
+        if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+    
+    }
 
 }
 
@@ -383,19 +384,19 @@ function jsSetVisFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
 function jsSetIrFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
-    var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
-    
-    if (pts.length > 0) {
-    
-        irFovLayer.setLatLngs(pts);
-    
-        if (!map.hasLayer(irFovLayer)) irFovLayer.addTo(map);
-    
-    } else {
-    
-        if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
-    
-    }
+    var pts = computeFovCorners(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM);
+    
+    if (pts.length > 0) {
+    
+        irFovLayer.setLatLngs(pts);
+    
+        if (!map.hasLayer(irFovLayer)) irFovLayer.addTo(map);
+    
+    } else {
+    
+        if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
+    
+    }
 
 }
 
@@ -403,9 +404,9 @@ function jsSetIrFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
 function jsClearFov() {
 
-    if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
-    
-    if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
+    if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+    
+    if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
 
 }
 
@@ -413,33 +414,33 @@ function jsClearFov() {
 
 function jsAddTrackPoint(trackId, lat, lon) {
 
-    var ll = [lat, lon];
-    
-    if (!trackPolylines[trackId]) {
-    
-        trackPolylines[trackId] = L.polyline([], {
-    
-            color: '#ff4444',
-    
-            weight: 3,
-    
-            opacity: 0.8
-    
-        }).addTo(map);
-    
-        trackEndMarkers[trackId] = L.marker(ll, {
-    
-            icon: dotIcon,
-    
-            zIndexOffset: 500
-    
-        }).addTo(map);
-    
-    }
-    
-    trackPolylines[trackId].addLatLng(ll);
-    
-    trackEndMarkers[trackId].setLatLng(ll);
+    var ll = [lat, lon];
+    
+    if (!trackPolylines[trackId]) {
+    
+        trackPolylines[trackId] = L.polyline([], {
+    
+            color: '#ff4444',
+    
+            weight: 3,
+    
+            opacity: 0.8
+    
+        }).addTo(map);
+    
+        trackEndMarkers[trackId] = L.marker(ll, {
+    
+            icon: dotIcon,
+    
+            zIndexOffset: 500
+    
+        }).addTo(map);
+    
+    }
+    
+    trackPolylines[trackId].addLatLng(ll);
+    
+    trackEndMarkers[trackId].setLatLng(ll);
 
 }
 
@@ -447,9 +448,9 @@ function jsAddTrackPoint(trackId, lat, lon) {
 
 function jsClearTrack(trackId) {
 
-    if (trackPolylines[trackId]) { map.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
-    
-    if (trackEndMarkers[trackId]) { map.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
+    if (trackPolylines[trackId]) { map.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
+    
+    if (trackEndMarkers[trackId]) { map.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
 
 }
 
@@ -457,11 +458,11 @@ function jsClearTrack(trackId) {
 
 function jsClearAllTracks() {
 
-    Object.keys(trackPolylines).forEach(function(id) { map.removeLayer(trackPolylines[id]); });
-    
-    Object.keys(trackEndMarkers).forEach(function(id) { map.removeLayer(trackEndMarkers[id]); });
-    
-    trackPolylines = {}; trackEndMarkers = {};
+    Object.keys(trackPolylines).forEach(function(id) { map.removeLayer(trackPolylines[id]); });
+    
+    Object.keys(trackEndMarkers).forEach(function(id) { map.removeLayer(trackEndMarkers[id]); });
+    
+    trackPolylines = {}; trackEndMarkers = {};
 
 }
 
@@ -471,133 +472,133 @@ function jsClearAllTracks() {
 
 function jsUpdateTargets(jsonStr) {
 
-    var arr = JSON.parse(jsonStr);
-    
-    var currentIds = {}; // 记录本次上报的目标ID
+    var arr = JSON.parse(jsonStr);
+    
+    var currentIds = {}; // 记录本次上报的目标ID
 
 
 
-    arr.forEach(function(t) {
-    
-        var ll = [t.lat, t.lon];
-    
-        var color = t.locked ? '#00ff00' : '#ff4444';
-    
-        currentIds[t.id] = true;
+    arr.forEach(function(t) {
+    
+        var ll = [t.lat, t.lon];
+    
+        var color = t.locked ? '#00ff00' : '#ff4444';
+    
+        currentIds[t.id] = true;
 
 
 
-        // 1. 更新或创建中心点
-    
-        if (targetMarkers[t.id]) {
-    
-            targetMarkers[t.id].setLatLng(ll);
-    
-            targetMarkers[t.id].setStyle({ fillColor: color });
-    
-            targetMarkers[t.id]._targetDist = t.dist;
-    
-            targetMarkers[t.id]._targetCls = t.cls;
-    
-        } else {
-    
-            var m = L.circleMarker(ll, {
-    
-                radius: 6, fillColor: color, fillOpacity: 0.5, color: '#fff', weight: 1
-    
-            }).addTo(map);
-    
-            m._targetId = t.id;
-    
-            m._targetCls = t.cls;
-    
-            m._targetDist = t.dist;
+        // 1. 更新或创建中心点
+    
+        if (targetMarkers[t.id]) {
+    
+            targetMarkers[t.id].setLatLng(ll);
+    
+            targetMarkers[t.id].setStyle({ fillColor: color });
+    
+            targetMarkers[t.id]._targetDist = t.dist;
+    
+            targetMarkers[t.id]._targetCls = t.cls;
+    
+        } else {
+    
+            var m = L.circleMarker(ll, {
+    
+                radius: 6, fillColor: color, fillOpacity: 0.5, color: '#fff', weight: 1
+    
+            }).addTo(map);
+    
+            m._targetId = t.id;
+    
+            m._targetCls = t.cls;
+    
+            m._targetDist = t.dist;
 
 
 
-            m.on('click', function(e) {
-    
-                if (infoPopup) map.closePopup(infoPopup);
-    
-                var content = '<div><b>' + m._targetId + '</b></div>' +
-    
-                    '<div>Class: ' + m._targetCls + '</div>' +
-    
-                    '<div>Dist: ' + (m._targetDist || '-') + 'm</div>';
-    
-                if (t.bbox) {
-    
-                    content += '<div>BBox: ' + t.bbox.length + ' pts</div>';
-    
-                }
-    
-                infoPopup = L.popup({ offset: [0, -10] })
-    
-                    .setLatLng(e.latlng)
-    
-                    .setContent(content)
-    
-                    .openOn(map);
-    
-            });
-    
-            targetMarkers[t.id] = m;
-    
-        }
+            m.on('click', function(e) {
+    
+                if (infoPopup) map.closePopup(infoPopup);
+    
+                var content = '<div><b>' + m._targetId + '</b></div>' +
+    
+                    '<div>Class: ' + m._targetCls + '</div>' +
+    
+                    '<div>Dist: ' + (m._targetDist || '-') + 'm</div>';
+    
+                if (t.bbox) {
+    
+                    content += '<div>BBox: ' + t.bbox.length + ' pts</div>';
+    
+                }
+    
+                infoPopup = L.popup({ offset: [0, -10] })
+    
+                    .setLatLng(e.latlng)
+    
+                    .setContent(content)
+    
+                    .openOn(map);
+    
+            });
+    
+            targetMarkers[t.id] = m;
+    
+        }
 
 
 
-        // 2. 更新或创建 BBox 多边形
-    
-        if (t.bbox && t.bbox.length >= 4) {
-    
-            var valid = t.bbox.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
-    
-            if (valid.length >= 3) {
-    
-                if (targetBboxes[t.id]) {
-    
-                    targetBboxes[t.id].setLatLngs(valid);
-    
-                    targetBboxes[t.id].setStyle({ fillColor: color });
-    
-                } else {
-    
-                    targetBboxes[t.id] = L.polygon(valid, { fillColor: color, fillOpacity: 0.5, weight: 1 }).addTo(map);
-    
-                }
-    
-            }
-    
-        }
-    
-    });
+        // 2. 更新或创建 BBox 多边形
+    
+        if (t.bbox && t.bbox.length >= 4) {
+    
+            var valid = t.bbox.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
+    
+            if (valid.length >= 3) {
+    
+                if (targetBboxes[t.id]) {
+    
+                    targetBboxes[t.id].setLatLngs(valid);
+    
+                    targetBboxes[t.id].setStyle({ fillColor: color });
+    
+                } else {
+    
+                    targetBboxes[t.id] = L.polygon(valid, { fillColor: color, fillOpacity: 0.5, weight: 1 }).addTo(map);
+    
+                }
+    
+            }
+    
+        }
+    
+    });
 
 
 
-    // 3. 性能回收：清理掉那些在本次数据中消失的目标
-    
-    Object.keys(targetMarkers).forEach(function(id) {
-    
-        if (!currentIds[id]) {
-    
-            map.removeLayer(targetMarkers[id]);
-    
-            delete targetMarkers[id];
+    // 3. 性能回收：清理掉那些在本次数据中消失的目标
+    
+    Object.keys(targetMarkers).forEach(function(id) {
+    
+        if (!currentIds[id]) {
+    
+            map.removeLayer(targetMarkers[id]);
+    
+            delete targetMarkers[id];
 
 
 
-            if (targetBboxes[id]) {
-    
-                map.removeLayer(targetBboxes[id]);
-    
-                delete targetBboxes[id];
-    
-            }
-    
-        }
-    
-    });
+            if (targetBboxes[id]) {
+    
+                map.removeLayer(targetBboxes[id]);
+    
+                delete targetBboxes[id];
+    
+            }
+    
+        }
+    
+    });
 
 }
 
@@ -605,7 +606,7 @@ function jsUpdateTargets(jsonStr) {
 
 function jsSetZoom(level) {
 
-    map.setZoom(level);
+    map.setZoom(level);
 
 }
 
@@ -613,11 +614,11 @@ function jsSetZoom(level) {
 
 function jsSetSatelliteMap() {
 
-    if (currentLayer) map.removeLayer(currentLayer);
-    
-    satelliteLayer.addTo(map);
-    
-    currentLayer = satelliteLayer;
+    if (currentLayer) map.removeLayer(currentLayer);
+    
+    satelliteLayer.addTo(map);
+    
+    currentLayer = satelliteLayer;
 
 }
 
@@ -625,25 +626,25 @@ function jsSetSatelliteMap() {
 
 function jsSetStreetMap() {
 
-    if (currentLayer) map.removeLayer(currentLayer);
-    
-    streetLayer.addTo(map);
-    
-    currentLayer = streetLayer;
+    if (currentLayer) map.removeLayer(currentLayer);
+    
+    streetLayer.addTo(map);
+    
+    currentLayer = streetLayer;
 
 }
-
+    
 
 
 // ---- 地图单击事件 ----
 
 map.on('click', function(e) {
 
-    if (bridge && bridge.onMapClick) {
-    
-        bridge.onMapClick(e.latlng.lat, e.latlng.lng);
-    
-    }
+    if (bridge && bridge.onMapClick) {
+    
+        bridge.onMapClick(e.latlng.lat, e.latlng.lng);
+    
+    }
 
 });
 
@@ -652,6 +653,4 @@ map.on('click', function(e) {
 </body>
 
 </html>
-
-
 

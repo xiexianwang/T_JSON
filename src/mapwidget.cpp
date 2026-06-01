@@ -214,3 +214,10 @@ void MapWidget::setDeviceInfoVisible(bool visible)
 {
     emit m_bridge->jsToggleDeviceInfo(visible);
 }
+
+// 重新加载地图页面（用于地图异常时恢复）
+void MapWidget::reloadMap()
+{
+    qDebug() << "[Map] Reloading map page...";
+    ui->m_webView->reload();
+}

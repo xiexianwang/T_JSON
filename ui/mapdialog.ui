@@ -133,6 +133,27 @@
           <property name="styleSheet">
            <string>color:#ccc;</string>
           </property>
+          </widget>
+         </item>
+        <item>
+         <widget class="QPushButton" name="btnRefreshMap">
+          <property name="text">
+           <string>刷新</string>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>50</width>
+            <height>22</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string>color:#ccc;background:#3c3c3c;border:1px solid #555;padding:1px 6px;</string>
+          </property>
          </widget>
         </item>
        <item>

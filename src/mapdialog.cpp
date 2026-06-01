@@ -43,6 +43,12 @@ MapDialog::MapDialog(QWidget *parent)
         ui->spinZoom->setValue(zoom);
     });
 
+    // 刷新地图按钮
+    connect(ui->btnRefreshMap, &QPushButton::clicked,
+            this, [this]() {
+        ui->m_map->reloadMap();
+    });
+
     // 设备信息 OSD 开关
     connect(ui->chkDeviceInfo, &QCheckBox::toggled,
             this, [this](bool checked) {

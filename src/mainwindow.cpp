@@ -231,9 +231,14 @@ MainWindow::MainWindow(QWidget *parent)
 // 析构函数：释放 UI 资源
 // 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapDlg) 
 // 均以 MainWindow 为父对象，由 Qt 对象树自动析构
+// 析构前主动停止 RTSP 线程，避免其阻塞在 av_read_frame 时被强杀
 //============================================================================
 MainWindow::~MainWindow()
 {
+    // 先关闭 RTSP 线程，给 stop 信号让它有 5 秒退出机会
+    if (m_rtsp) {
+        m_rtsp->closeStream();
+    }
     delete ui;
 }
 

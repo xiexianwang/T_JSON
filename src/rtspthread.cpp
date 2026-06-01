@@ -15,7 +15,7 @@ extern "C" {
 RtspThread::RtspThread(QObject *parent)
     : QThread(parent)
 {
-    setObjectName("RtspThread");
+    setObjectName(QStringLiteral("RtspThread"));
 }
 
 // 析构函数：确保流被关闭、线程退出并等待其结?
@@ -24,11 +24,7 @@ RtspThread::~RtspThread()
     qDebug() << "RtspThread::~RtspThread() called!";
     closeStream();
     quit();
-    if (!wait(6000)) {
-        qDebug() << "RtspThread failed to finish within 6 seconds, forcibly terminating!";
-        terminate(); // 强行终止
-        wait(1000);
-    }
+    wait(5000);
 }
 
 // 打开 RTSP 流（非阻塞接口）
@@ -164,10 +160,10 @@ void RtspThread::run()
         }
         int w = static_cast<int>(w64);
         int h = static_cast<int>(h64);
-        size_t rgbLinesize = static_cast<size_t>(w) * 4;
-        size_t rgbBufSize = rgbLinesize * static_cast<size_t>(h);
-        if (rgbBufSize > 64u * 1024 * 1024) {
-            emit streamError("RGB 缓冲超过 64MB 上限");
+        // 用 FFmpeg 的对齐感知函数获取真实缓冲大小（w*4*h 可能因 SIMD 对齐而不足）
+        size_t rgbBufSize = av_image_get_buffer_size(AV_PIX_FMT_RGB32, w, h, 1);
+        if (rgbBufSize == 0 || rgbBufSize > 64u * 1024 * 1024) {
+            emit streamError(QString("RGB 缓冲大小异常: %1").arg(rgbBufSize));
             avcodec_free_context(&m_decCtx);
             avformat_close_input(&m_fmtCtx);
             continue;
@@ -226,8 +222,9 @@ void RtspThread::run()
                     if (scaleRet <= 0) continue;
 
                     // 构造 QImage（共享 m_rgbBuf 数据）后深拷贝一份发送出去
-                    if (w > 0 && h > 0 && m_rgbBuf && rgbLinesize > 0) {
-                        QImage img(m_rgbBuf, w, h, static_cast<int>(rgbLinesize), QImage::Format_RGB32);
+                    // 使用 rgb->linesize[0]（FFmpeg 实际 stride，含对齐）而非 w*4
+                    if (w > 0 && h > 0 && m_rgbBuf && rgb->linesize[0] > 0) {
+                        QImage img(m_rgbBuf, w, h, rgb->linesize[0], QImage::Format_RGB32);
                         emit frameReady(img.copy());
                     }
                 }

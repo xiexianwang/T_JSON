@@ -10,6 +10,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QMap>
 
 // PTZ（云台）配置结构体
 // 包含地址、Pan/Tilt 速度以及协议类型
@@ -77,12 +78,31 @@ struct CameraConfig {
     double visMinFocal = 6.1;     // 可见光最短焦距 (mm)
     double irMinFocal = 25.0;     // 红外最短焦距 (mm)
 
+    // 视觉法参考尺寸表，key = (modelLow << 8) | classCode
+    QMap<int, double> targetRefMap;
+
+    double targetRefSize(int modelLow, int classCode) const {
+        return targetRefMap.value((modelLow << 8) | classCode, -1.0);
+    }
+
     // 从 QSettings 中加载相机参数
     void load(QSettings& s) {
         visPixelSize = s.value("VisPixelSize", 2.92).toDouble();
         irPixelSize  = s.value("IrPixelSize", 12.0).toDouble();
         visMinFocal  = s.value("VisMinFocal", 6.1).toDouble();
         irMinFocal   = s.value("IrMinFocal", 25.0).toDouble();
+
+        targetRefMap.clear();
+        auto loadRef = [&](int ml, int cc, const char* sk, double def) {
+            targetRefMap[(ml << 8) | cc] = s.value(sk, def).toDouble();
+        };
+        loadRef(2, 0xA1, "TargetRef_2_161", 1.7);
+        loadRef(2, 0xA2, "TargetRef_2_162", 4.5);
+        loadRef(3, 0xA3, "TargetRef_3_163", 10.0);
+        loadRef(4, 0xA4, "TargetRef_4_164", 0.35);
+        loadRef(5, 0xA1, "TargetRef_5_161", 15.0);
+        loadRef(5, 0xA2, "TargetRef_5_162", 10.0);
+        loadRef(6, 0xA3, "TargetRef_6_163", 0.3);
 
         auto parseRes = [](const QString& str, int& x, int& y) {
             QStringList p = str.split('x');
@@ -99,6 +119,17 @@ struct CameraConfig {
         s.setValue("IrMinFocal",   irMinFocal);
         s.setValue("VisResolution", QString("%1x%2").arg(visResX).arg(visResY));
         s.setValue("IrResolution",  QString("%1x%2").arg(irResX).arg(irResY));
+
+        auto saveRef = [&](int ml, int cc, const char* sk) {
+            s.setValue(sk, targetRefMap.value((ml << 8) | cc));
+        };
+        saveRef(2, 0xA1, "TargetRef_2_161");
+        saveRef(2, 0xA2, "TargetRef_2_162");
+        saveRef(3, 0xA3, "TargetRef_3_163");
+        saveRef(4, 0xA4, "TargetRef_4_164");
+        saveRef(5, 0xA1, "TargetRef_5_161");
+        saveRef(5, 0xA2, "TargetRef_5_162");
+        saveRef(6, 0xA3, "TargetRef_6_163");
     }
 };
 

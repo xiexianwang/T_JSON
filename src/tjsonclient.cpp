@@ -44,7 +44,9 @@ TJsonClient::TJsonClient(QObject *parent)
 TJsonClient::~TJsonClient()
 {
     m_autoReconnectEnabled = false;
-    m_socket->disconnectFromHost();
+    m_heartbeatTimer->stop();
+    m_reconnectTimer->stop();
+    m_socket->abort();
 }
 
 // 检查当前 TCP 连接是否处于已连接状态

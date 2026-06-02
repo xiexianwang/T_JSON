@@ -18,13 +18,16 @@ RtspThread::RtspThread(QObject *parent)
     setObjectName(QStringLiteral("RtspThread"));
 }
 
-// 析构函数：确保流被关闭、线程退出并等待其结?
+// 析构函数：确保流被关闭、线程退出并等待其结束
 RtspThread::~RtspThread()
 {
     qDebug() << "RtspThread::~RtspThread() called!";
     closeStream();
-    quit();
-    wait(5000);
+    if (!wait(3000)) {
+        qDebug() << "RtspThread failed to finish within 3 seconds, forcibly terminating!";
+        terminate();
+        wait(1000);
+    }
 }
 
 // 打开 RTSP 流（非阻塞接口）
@@ -92,9 +95,9 @@ void RtspThread::run()
 
         QByteArray url8 = m_url.toUtf8();
         AVDictionary *opts = nullptr;
-        // 设置 RTSP 传输层为 TCP（更稳定），5 秒超时，1 MB 缓冲区
+        // 设置 RTSP 传输层为 TCP（更稳定），2 秒超时便于快速响应停止信号，1 MB 缓冲区
         av_dict_set(&opts, "rtsp_transport", "tcp", 0);
-        av_dict_set(&opts, "stimeout", "5000000", 0);  // 5 秒超时
+        av_dict_set(&opts, "stimeout", "2000000", 0);  // 2 秒超时
         av_dict_set(&opts, "buffer_size", "1048576", 0);
         av_dict_set(&opts, "max_delay", "500000", 0);
 

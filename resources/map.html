@@ -199,6 +199,8 @@ var visFovLayer = L.semiCircle([0, 0], {
 
     stopAngle: 0,
 
+    color: '#3388ff',
+
     fillColor: '#3388ff',
 
     fillOpacity: 0.4
@@ -214,6 +216,8 @@ var irFovLayer = L.semiCircle([0, 0], {
     startAngle: 0,
 
     stopAngle: 0,
+
+    color: '#ff4444',
 
     fillColor: '#ff4444',
 
@@ -372,7 +376,248 @@ function jsSetStreetMap() {
     currentLayer = streetLayer;
 
 }
-    
+
+
+function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
+
+    document.getElementById('infoLatLon').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
+
+    document.getElementById('infoAlt').textContent = alt > 0 ? alt.toFixed(1) + ' m' : '--';
+
+    document.getElementById('infoRange').textContent = range > 0 ? range.toFixed(0) + ' m' : '--';
+
+    document.getElementById('infoPan').textContent = pan.toFixed(1) + '\u00B0';
+
+    document.getElementById('infoTilt').textContent = tilt.toFixed(1) + '\u00B0';
+
+    if (hfov > 0 && vfov > 0)
+
+        document.getElementById('infoFov').textContent = hfov.toFixed(1) + '\u00B0 \u00D7 ' + vfov.toFixed(1) + '\u00B0';
+
+}
+
+
+function jsSetVisFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
+
+    if (rangeM > 0 && hfovDeg > 0) {
+
+        visFovLayer.setLatLng([lat, lon]);
+
+        visFovLayer.setRadius(rangeM);
+
+        visFovLayer.setDirection(panDeg, hfovDeg);
+
+        if (!map.hasLayer(visFovLayer)) visFovLayer.addTo(map);
+
+        reorderLayers();
+
+    } else {
+
+        if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+
+    }
+
+}
+
+
+function jsSetIrFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
+
+    if (rangeM > 0 && hfovDeg > 0) {
+
+        irFovLayer.setLatLng([lat, lon]);
+
+        irFovLayer.setRadius(rangeM);
+
+        irFovLayer.setDirection(panDeg, hfovDeg);
+
+        if (!map.hasLayer(irFovLayer)) irFovLayer.addTo(map);
+
+        reorderLayers();
+
+    } else {
+
+        if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
+
+    }
+
+}
+
+
+function jsClearFov() {
+
+    if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+
+    if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
+
+}
+
+
+function jsAddTrackPoint(trackId, lat, lon) {
+
+    var ll = [lat, lon];
+
+    if (!trackPolylines[trackId]) {
+
+        trackPolylines[trackId] = L.polyline([], {
+
+            color: '#ff4444',
+
+            weight: 3,
+
+            opacity: 0.8
+
+        }).addTo(map);
+
+        trackEndMarkers[trackId] = L.marker(ll, {
+
+            icon: dotIcon,
+
+            zIndexOffset: 500
+
+        }).addTo(map);
+
+    }
+
+    trackPolylines[trackId].addLatLng(ll);
+
+    trackEndMarkers[trackId].setLatLng(ll);
+
+}
+
+
+function jsClearTrack(trackId) {
+
+    if (trackPolylines[trackId]) { map.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
+
+    if (trackEndMarkers[trackId]) { map.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
+
+}
+
+
+function jsClearAllTracks() {
+
+    Object.keys(trackPolylines).forEach(function(id) { map.removeLayer(trackPolylines[id]); });
+
+    Object.keys(trackEndMarkers).forEach(function(id) { map.removeLayer(trackEndMarkers[id]); });
+
+    trackPolylines = {}; trackEndMarkers = {};
+
+}
+
+
+function jsUpdateTargets(jsonStr) {
+
+    var arr = JSON.parse(jsonStr);
+
+    var currentIds = {};
+
+    arr.forEach(function(t) {
+
+        var ll = [t.lat, t.lon];
+
+        var color = t.locked ? '#00ff00' : '#ff4444';
+
+        currentIds[t.id] = true;
+
+        if (targetMarkers[t.id]) {
+
+            targetMarkers[t.id].setLatLng(ll);
+
+            targetMarkers[t.id].setStyle({ fillColor: color });
+
+            targetMarkers[t.id]._targetDist = t.dist;
+
+            targetMarkers[t.id]._targetCls = t.cls;
+
+        } else {
+
+            var m = L.circleMarker(ll, {
+
+                radius: 6, fillColor: color, fillOpacity: 0.5, color: '#fff', weight: 1
+
+            }).addTo(map);
+
+            m._targetId = t.id;
+
+            m._targetCls = t.cls;
+
+            m._targetDist = t.dist;
+
+            m.on('click', function(e) {
+
+                if (infoPopup) map.closePopup(infoPopup);
+
+                var content = '<div><b>' + m._targetId + '</b></div>' +
+
+                    '<div>Class: ' + m._targetCls + '</div>' +
+
+                    '<div>Dist: ' + (m._targetDist || '-') + 'm</div>';
+
+                if (t.bbox) {
+
+                    content += '<div>BBox: ' + t.bbox.length + ' pts</div>';
+
+                }
+
+                infoPopup = L.popup({ offset: [0, -10] })
+
+                    .setLatLng(e.latlng)
+
+                    .setContent(content)
+
+                    .openOn(map);
+
+            });
+
+            targetMarkers[t.id] = m;
+
+        }
+
+        if (t.bbox && t.bbox.length >= 4) {
+
+            var valid = t.bbox.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
+
+            if (valid.length >= 3) {
+
+                if (targetBboxes[t.id]) {
+
+                    targetBboxes[t.id].setLatLngs(valid);
+
+                    targetBboxes[t.id].setStyle({ fillColor: color });
+
+                } else {
+
+                    targetBboxes[t.id] = L.polygon(valid, { fillColor: color, fillOpacity: 0.5, weight: 1 }).addTo(map);
+
+                }
+
+            }
+
+        }
+
+    });
+
+    Object.keys(targetMarkers).forEach(function(id) {
+
+        if (!currentIds[id]) {
+
+            map.removeLayer(targetMarkers[id]);
+
+            delete targetMarkers[id];
+
+            if (targetBboxes[id]) {
+
+                map.removeLayer(targetBboxes[id]);
+
+                delete targetBboxes[id];
+
+            }
+
+        }
+
+    });
+
+}
 
 
 // ---- 地图单击事件 ----

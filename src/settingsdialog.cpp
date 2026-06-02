@@ -22,6 +22,38 @@ SettingsDialog::~SettingsDialog()
     delete ui;
 }
 
+void SettingsDialog::buildTargetRefsForm()
+{
+    m_refSpins.clear();
+    auto *form = new QFormLayout;
+    form->setContentsMargins(0, 0, 0, 0);
+
+    static const struct { int ml; int cc; const char* label; } kInfo[] = {
+        {2, 0xA1, "人"},
+        {2, 0xA2, "车"},
+        {3, 0xA3, "船"},
+        {4, 0xA4, "无人机"},
+        {5, 0xA1, "飞机"},
+        {5, 0xA2, "直升机"},
+        {6, 0xA3, "鸟"},
+    };
+    for (auto& e : kInfo) {
+        int key = (e.ml << 8) | e.cc;
+        auto *spin = new QDoubleSpinBox;
+        spin->setDecimals(2);
+        spin->setRange(0.1, 100.0);
+        spin->setSingleStep(0.05);
+        spin->setSuffix(" m");
+        spin->setValue(m_cfg->cam().targetRefSize(e.ml, e.cc));
+        form->addRow(e.label, spin);
+        m_refSpins[key] = spin;
+    }
+
+    auto *old = ui->groupTargetRefs->findChild<QFormLayout*>();
+    if (old) delete old;
+    ui->groupTargetRefs->setLayout(form);
+}
+
 void SettingsDialog::loadSettings()
 {
     // ---- 云台参数 ----
@@ -50,6 +82,9 @@ void SettingsDialog::loadSettings()
     ui->spinIrPixelSize->setValue(cam.irPixelSize);
     ui->editIrResolution->setText(QString("%1x%2").arg(cam.irResX).arg(cam.irResY));
     ui->spinIrMinFocal->setValue(cam.irMinFocal);
+
+    // ---- 视觉测距参考尺寸 ----
+    buildTargetRefsForm();
 }
 
 void SettingsDialog::saveSettings()
@@ -88,6 +123,10 @@ void SettingsDialog::saveSettings()
         cam.irResX = irRes[0].toInt();
         cam.irResY = irRes[1].toInt();
     }
+
+    // ---- 视觉测距参考尺寸 ----
+    for (auto it = m_refSpins.constBegin(); it != m_refSpins.constEnd(); ++it)
+        cam.targetRefMap[it.key()] = it.value()->value();
 
     m_cfg->save();
 }

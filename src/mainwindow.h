@@ -104,15 +104,6 @@ private:
     };
     TrackState m_track;
 
-    // ── 轨迹节流（高频上报时缓冲，定时批量下发） ──
-    struct PendingTrackPt {
-        QString id;
-        double lat, lon, speed;
-    };
-    QVector<PendingTrackPt> m_pendingTracks;
-    QTimer *m_trackEmitTimer;
-    void flushPendingTrackPoints();
-
     // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
     QTimer *m_sysParamTimer;
 
@@ -131,6 +122,8 @@ private:
                     double& outLat, double& outLon);
     void pixelBboxToGps(double pixelX, double pixelY, double distance, // 像素框四角 → GPS（含俯仰校正）
                         double tiltDeg, double& outLat, double& outLon);
+    double estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize);
+    double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
 };
 
 #endif // MAINWINDOW_H

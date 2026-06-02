@@ -60,15 +60,9 @@ MainWindow::MainWindow(QWidget *parent)
         m_mapDlg->activateWindow();
     });
 
-    // 轨迹节流定时器：100ms 批量下发一次轨迹点
-    m_trackEmitTimer = new QTimer(this);
-    m_trackEmitTimer->setInterval(100);
-    m_trackEmitTimer->setSingleShot(true);
-    connect(m_trackEmitTimer, &QTimer::timeout, this, &MainWindow::flushPendingTrackPoints);
-
     // 系统参数轮询：200ms 周期查询设备 ImageSetting
     m_sysParamTimer = new QTimer(this);
-    m_sysParamTimer->setInterval(200);
+    m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
 
     //============================================================================
@@ -229,15 +223,18 @@ MainWindow::MainWindow(QWidget *parent)
 
 //============================================================================
 // 析构函数：释放 UI 资源
-// 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapDlg) 
+// 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapDlg)
 // 均以 MainWindow 为父对象，由 Qt 对象树自动析构
-// 析构前主动停止 RTSP 线程，避免其阻塞在 av_read_frame 时被强杀
+// 析构前主动停止 RTSP 线程并等待其退出，避免线程仍在运行时被销毁触发 QThread 告警
 //============================================================================
 MainWindow::~MainWindow()
 {
-    // 先关闭 RTSP 线程，给 stop 信号让它有 5 秒退出机会
+    if (m_sysParamTimer)
+        m_sysParamTimer->stop();
+    disconnect(m_client, nullptr, this, nullptr);
     if (m_rtsp) {
         m_rtsp->closeStream();
+        m_rtsp->wait(5000);
     }
     delete ui;
 }
@@ -1049,6 +1046,8 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             int cls = obj.value("Class").toInt();
             double tLat = 0, tLon = 0;
 
+            dist = calcVisualDistance(obj, cls, false);
+
             if (obj.contains("Points")) {
                 QJsonObject pts = obj.value("Points").toObject();
                 int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
@@ -1104,6 +1103,8 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             int cls = lockedObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
 
+            dist = calcVisualDistance(lockedObj, cls, true);
+
             if (lockedObj.contains("Points")) {
                 QJsonObject pts = lockedObj.value("Points").toObject();
                 int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
@@ -1127,12 +1128,8 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.prevLon = tLon;
                 m_track.prevTime = QDateTime::currentDateTime();
 
-                if (tLat != 0 && tLon != 0) {
-                    // 存入缓冲队列，定时批量下发
-                    m_pendingTracks.append({lockedId, tLat, tLon, speed});
-                    if (!m_trackEmitTimer->isActive())
-                        m_trackEmitTimer->start();
-                }
+                if (tLat != 0 && tLon != 0)
+                    m_mapDlg->mapWidget()->appendTrackPoint(lockedId, tLat, tLon, speed);
 
                 QJsonArray targetArr;
                 QJsonObject t;
@@ -1162,6 +1159,8 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             int cls = lostObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
             bool hasPts = false;
+
+            dist = calcVisualDistance(lostObj, cls, true);
 
             if (lostObj.contains("Points")) {
                 QJsonObject pts = lostObj.value("Points").toObject();
@@ -1212,15 +1211,47 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     }
 }
 
-// 定时刷新：将缓冲的轨迹点批量下发到地图
-void MainWindow::flushPendingTrackPoints()
+// calcVisualDistance - 封装了"无激光测距时用视觉法估算距离"的公共逻辑
+// obj: 目标 JSON 对象（已有 Distance 字段和 Points 字段）
+// cls: 目标 Class 编码
+// updateTrackLabel: 是否更新 trackDistance 状态栏文本（跟踪锁定/丢失时 true）
+// 返回值：已有激光距离则返回原值，否则返回估算值
+double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
 {
-    for (const auto& pt : m_pendingTracks) {
-        m_mapDlg->mapWidget()->appendTrackPoint(pt.id, pt.lat, pt.lon, pt.speed);
-    }
-    m_pendingTracks.clear();
+    double dist = obj.value("Distance").toDouble(0);
+    if (dist > 0 || !obj.contains("Points"))
+        return dist;
+
+    int low = ui->comboAlgoModel->currentIndex() % 10;
+    double ref = m_cfg->cam().targetRefSize(low, cls);
+    if (ref <= 0)
+        return dist;
+
+    QJsonObject pts = obj.value("Points").toObject();
+    int boxPx = qMax(pts.value("Right").toInt() - pts.value("Left").toInt(),
+                     pts.value("Bottom").toInt() - pts.value("Top").toInt());
+    if (boxPx <= 0)
+        return dist;
+
+    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    double pxSize = isVis ? m_cfg->cam().visPixelSize : m_cfg->cam().irPixelSize;
+    double focal = isVis ? m_cfg->cam().visMinFocal * m_currentVisZoom
+                          : m_cfg->cam().irMinFocal * m_currentIrZoom;
+
+    dist = estimateTargetDistance(boxPx, focal, pxSize, ref);
+    if (updateTrackLabel)
+        ui->trackDistance->setText(QString::number(dist, 'f', 1) + " (估算)");
+    return dist;
 }
 
+// 视觉法距离估算：已知目标参考尺寸，用像素大小反推距离
+// 公式：距离(m) = 参考尺寸(m) × 焦距(mm) × 1000 / (目标像素数 × 像元尺寸(μm))
+double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize)
+{
+    if (boxPixels <= 0 || focalMm < 0.1 || pixelSizeUm <= 0 || refSize <= 0)
+        return 0.0;
+    return qBound(1.0, refSize * focalMm * 1000.0 / (boxPixels * pixelSizeUm), 10000.0);
+}
 
 //============================================================================
 // syncLensTargetByDisplayMode - 根据显示模式自动同步镜头目标

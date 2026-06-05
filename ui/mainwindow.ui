@@ -74,9 +74,6 @@
           <property name="visible">
            <bool>false</bool>
           </property>
-          <property name="styleSheet">
-           <string>background-color: #cc4444; color: white;</string>
-          </property>
           <property name="text">
            <string>取消</string>
           </property>
@@ -154,16 +151,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <property name="styleSheet">
-         <string>background-color: #000000; border: 2px solid #333333;</string>
-        </property>
         <layout class="QVBoxLayout" name="verticalLayout_display">
          <item>
-          <widget class="VideoWidget" name="videoWidget" native="true">
-           <property name="styleSheet">
-            <string>border: none;</string>
-           </property>
-          </widget>
+          <widget class="VideoWidget" name="videoWidget" native="true"/>
          </item>
         </layout>
        </widget>
@@ -788,9 +778,6 @@
          </item>
          <item>
           <widget class="QPushButton" name="btnSettings">
-           <property name="styleSheet">
-            <string>background-color: #0e639c; color: white; font-weight: bold;</string>
-           </property>
            <property name="text">
             <string>参数设置</string>
            </property>
@@ -840,8 +827,11 @@
        </property>
        <item>
         <widget class="QGroupBox" name="dashGroupPTZ">
-         <property name="styleSheet">
-          <string>QGroupBox { border-color: #2d5a88; }</string>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
          <property name="title">
           <string>云台状态</string>
@@ -953,8 +943,11 @@
        </item>
        <item>
         <widget class="QGroupBox" name="dashGroupLens">
-         <property name="styleSheet">
-          <string>QGroupBox { border-color: #2d5a88; }</string>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
          <property name="title">
           <string>镜头状态</string>
@@ -966,12 +959,18 @@
           <item row="0" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>可见光镜头倍率:</string>
+             <string>可见倍率:</string>
             </property>
            </widget>
           </item>
           <item row="0" column="1">
            <widget class="QLineEdit" name="statZoomVis">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -980,12 +979,18 @@
           <item row="0" column="2">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>可见光镜头焦距:</string>
+             <string>可见焦距:</string>
             </property>
            </widget>
           </item>
           <item row="0" column="3">
            <widget class="QLineEdit" name="statFocalVis">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -994,12 +999,18 @@
           <item row="1" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>可见光镜头视场角:</string>
+             <string>可见视场:</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
            <widget class="QLineEdit" name="statFovVis">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1008,12 +1019,18 @@
           <item row="1" column="2">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>可见光镜头聚焦:</string>
+             <string>可见聚焦:</string>
             </property>
            </widget>
           </item>
           <item row="1" column="3">
            <widget class="QLineEdit" name="statFocusVis">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1022,12 +1039,18 @@
           <item row="2" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>红外镜头倍率:</string>
+             <string>红外倍率:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
            <widget class="QLineEdit" name="statZoomIR">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1036,12 +1059,18 @@
           <item row="2" column="2">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>红外镜头焦距:</string>
+             <string>红外焦距:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="3">
            <widget class="QLineEdit" name="statFocalIR">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1050,12 +1079,18 @@
           <item row="3" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>红外镜头视场角:</string>
+             <string>红外视场:</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
            <widget class="QLineEdit" name="statFovIR">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1064,12 +1099,18 @@
           <item row="3" column="2">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>红外镜头聚焦:</string>
+             <string>红外聚焦:</string>
             </property>
            </widget>
           </item>
           <item row="3" column="3">
            <widget class="QLineEdit" name="statFocusIR">
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1080,8 +1121,11 @@
        </item>
        <item>
         <widget class="QGroupBox" name="dashGroupIdentify">
-         <property name="styleSheet">
-          <string>QGroupBox { border-color: #2d5a88; }</string>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
          <property name="title">
           <string>识别上报</string>
@@ -1095,9 +1139,6 @@
           </property>
           <item>
            <widget class="QLabel" name="lblIdentifyCount">
-            <property name="styleSheet">
-             <string>color: #00aa00; font-weight: bold;</string>
-            </property>
             <property name="text">
              <string>目标总数: 0</string>
             </property>
@@ -1155,8 +1196,11 @@
        </item>
        <item>
         <widget class="QGroupBox" name="dashGroupTrack">
-         <property name="styleSheet">
-          <string>QGroupBox { border-color: #2d5a88; }</string>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
          <property name="title">
           <string>跟踪上报</string>
@@ -1165,11 +1209,8 @@
           <property name="spacing">
            <number>2</number>
           </property>
-          <item row="0" column="0" colspan="4">
+          <item row="0" column="0" colspan="2">
            <widget class="QLabel" name="lblTrackStatus">
-            <property name="styleSheet">
-             <string>color: #aaaaaa; font-weight: bold;</string>
-            </property>
             <property name="text">
              <string>状态: 未锁定</string>
             </property>
@@ -1178,26 +1219,12 @@
           <item row="1" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>ID:</string>
+             <string>坐标:</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QLineEdit" name="trackId">
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>类别:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="3">
-           <widget class="QLineEdit" name="trackClass">
+           <widget class="QLineEdit" name="trackPos">
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1206,26 +1233,12 @@
           <item row="2" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>坐标:</string>
+             <string>距离:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="trackPos">
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>脱靶:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="3">
-           <widget class="QLineEdit" name="trackMissDistance">
+           <widget class="QLineEdit" name="trackDistance">
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1234,26 +1247,12 @@
           <item row="3" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>距离:</string>
+             <string>脱靶:</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLineEdit" name="trackDistance">
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="2">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>偏角:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="3">
-           <widget class="QLineEdit" name="trackAngle">
+           <widget class="QLineEdit" name="trackMissDistance">
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1264,8 +1263,11 @@
        </item>
        <item>
         <widget class="QGroupBox" name="dashGroupSysParams">
-         <property name="styleSheet">
-          <string>QGroupBox { border-color: #2d5a88; }</string>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
          <property name="title">
           <string>系统参数</string>

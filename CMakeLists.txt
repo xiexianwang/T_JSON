@@ -41,7 +41,6 @@ qt_add_executable(T-JSON
     src/settingsdialog.cpp
     src/settingsdialog.h
     ui/settingsdialog.ui
-    ui/mapdialog.ui
     ui/mapwidget.ui
     src/videowidget.cpp
     src/videowidget.h
@@ -51,8 +50,6 @@ qt_add_executable(T-JSON
     src/mapwidget.h
     src/mapbridge.cpp
     src/mapbridge.h
-    src/mapdialog.cpp
-    src/mapdialog.h
     src/cmdlogdialog.cpp
     src/cmdlogdialog.h
     resources/resources.qrc

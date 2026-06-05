@@ -16,11 +16,13 @@ public slots:
     void onMapInitialized();
     void onMapClick(double lat, double lon);
     void onMapZoomChanged(int zoom);
+    void onRequestEnlarge();
 
 signals:
     void mapReadyChanged();
     void mapClicked(double lat, double lon);
     void mapZoomChanged(int zoom);
+    void requestEnlarge();
 
 private:
     bool m_ready = false;

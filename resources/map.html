@@ -15,9 +15,13 @@
 <style>
 
 
-* { margin:0; padding:0; }
+* { margin:0; padding:0; outline:0; }
 
-html, body, #map { width:100%; height:100%; font-family:"Microsoft YaHei",sans-serif; }
+html, body { width:100%; height:100%; background:transparent !important; font-family:"Microsoft YaHei",sans-serif; }
+
+#map { width:100%; height:100%; }
+
+.minimap-style { border-radius: 50%; overflow: hidden; }
 
 .deviceInfoContainer {
     background:rgba(0,0,0,0.55);
@@ -68,9 +72,13 @@ var map = L.map('map', {
 
     zoomControl: false,
 
+    attributionControl: false,
+
     preferCanvas: true,
 
-    zoomAnimation: true
+    zoomAnimation: true,
+
+    maxZoom: 18
 
 });
 
@@ -101,6 +109,18 @@ function jsToggleDeviceInfo(visible) {
     if (el) el.style.display = visible ? '' : 'none';
 }
 
+function jsSetMiniShape(lat, lon, zoom) {
+    var el = document.getElementById('map');
+    if (!el) return;
+    el.classList.add('minimap-style');
+    map.setView([lat, lon], zoom, {animate: false});
+}
+function jsSetFullShape() {
+    var el = document.getElementById('map');
+    if (!el) return;
+    el.classList.remove('minimap-style');
+}
+
 
 
 // ======================================================================
@@ -110,32 +130,52 @@ function jsToggleDeviceInfo(visible) {
 var TDT_KEY = 'cb5396445b2686712e74750ad56190aa';
 var tdtSubdomains = ['0', '1', '2', '3', '4', '5', '6', '7'];
 
-// 街道图层：矢量底图 + 矢量文字注记
+// 四个独立瓦片图层
 var vecTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
     maxZoom: 18, subdomains: tdtSubdomains, attribution: '© 天地图'
 });
 var cvaTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
     maxZoom: 18, subdomains: tdtSubdomains
 });
-var streetLayer = L.layerGroup([vecTile, cvaTile]);
-
-// 卫星图层：影像底图 + 影像文字注记
 var imgTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
     maxZoom: 18, subdomains: tdtSubdomains, attribution: '© 天地图'
 });
 var ciaTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=' + TDT_KEY, {
     maxZoom: 18, subdomains: tdtSubdomains
 });
-var satelliteLayer = L.layerGroup([imgTile, ciaTile]);
 
-// 默认加载卫星图
-var currentLayer = satelliteLayer.addTo(map);
+// 天地图渲染细节：0=仅底图, 1=+注记, 2=+路网
+var isSatellite = true;
+var tdtDetailLevel = 1;
+
+function applyTiles(level, sat) {
+    map.removeLayer(vecTile);
+    map.removeLayer(cvaTile);
+    map.removeLayer(imgTile);
+    map.removeLayer(ciaTile);
+    if (sat) {
+        map.addLayer(imgTile);
+        if (level >= 1) map.addLayer(ciaTile);
+        if (level >= 2) { map.addLayer(vecTile); map.addLayer(cvaTile); }
+    } else {
+        map.addLayer(vecTile);
+        if (level >= 1) map.addLayer(cvaTile);
+    }
+}
+applyTiles(tdtDetailLevel, true);
 
 
 
 // 首次定位标记
 
 var firstCentered = false;
+
+// ---- 图层分组（按类别显隐控制，从底到顶：track→target→fov→device） ----
+
+var trackLayers = L.featureGroup().addTo(map);
+var targetLayers = L.featureGroup().addTo(map);
+var fovLayers = L.featureGroup().addTo(map);
+var deviceLayers = L.featureGroup().addTo(map);
 
 
 
@@ -155,7 +195,7 @@ var deviceMarker = L.circleMarker([0, 0], {
     
     fillOpacity: 1
 
-}).addTo(map);
+}).addTo(deviceLayers);
 
 
 
@@ -284,11 +324,11 @@ function reorderLayers() {
 
         _reorderPending = false;
 
-        if (map.hasLayer(visCircle)) visCircle.bringToFront();
-        if (map.hasLayer(visFovLayer)) visFovLayer.bringToFront();
-        if (map.hasLayer(irCircle)) irCircle.bringToFront();
-        if (map.hasLayer(irFovLayer)) irFovLayer.bringToFront();
-        if (map.hasLayer(deviceMarker)) deviceMarker.bringToFront();
+        if (deviceLayers.hasLayer(visCircle)) visCircle.bringToFront();
+        if (fovLayers.hasLayer(visFovLayer)) visFovLayer.bringToFront();
+        if (deviceLayers.hasLayer(irCircle)) irCircle.bringToFront();
+        if (fovLayers.hasLayer(irFovLayer)) irFovLayer.bringToFront();
+        if (deviceLayers.hasLayer(deviceMarker)) deviceMarker.bringToFront();
 
     });
 
@@ -332,7 +372,7 @@ function jsSetDevicePos(lat, lon) {
     
     irCircle.setLatLng(ll);
     
-    if (!map.hasLayer(visCircle)) { visCircle.addTo(map); irCircle.addTo(map); }
+    if (!deviceLayers.hasLayer(visCircle)) { deviceLayers.addLayer(visCircle); deviceLayers.addLayer(irCircle); }
 
     if (!firstCentered) {
 
@@ -347,6 +387,12 @@ function jsSetDevicePos(lat, lon) {
 }
 
 
+function jsRecenterMap(lat, lon, zoom) {
+    var ll = [lat, lon];
+    map.setView(ll, zoom);
+}
+
+
 function jsSetZoom(level) {
 
     map.setZoom(level);
@@ -356,27 +402,20 @@ function jsSetZoom(level) {
 
 
 function jsSetSatelliteMap() {
-
-    if (currentLayer) map.removeLayer(currentLayer);
-    
-    satelliteLayer.addTo(map);
-    
-    currentLayer = satelliteLayer;
-
+    isSatellite = true;
+    applyTiles(tdtDetailLevel, true);
 }
-
-
 
 function jsSetStreetMap() {
-
-    if (currentLayer) map.removeLayer(currentLayer);
-    
-    streetLayer.addTo(map);
-    
-    currentLayer = streetLayer;
-
+    isSatellite = false;
+    applyTiles(tdtDetailLevel, false);
 }
 
+// 天地图细节渲染：0=仅底图, 1=+注记, 2=+路网
+function jsSetDetailLevel(level) {
+    tdtDetailLevel = level;
+    applyTiles(level, isSatellite);
+}
 
 function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
 
@@ -407,13 +446,13 @@ function jsSetVisFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
         visFovLayer.setDirection(panDeg, hfovDeg);
 
-        if (!map.hasLayer(visFovLayer)) visFovLayer.addTo(map);
+        if (!fovLayers.hasLayer(visFovLayer)) fovLayers.addLayer(visFovLayer);
 
         reorderLayers();
 
     } else {
 
-        if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+        if (fovLayers.hasLayer(visFovLayer)) fovLayers.removeLayer(visFovLayer);
 
     }
 
@@ -430,13 +469,13 @@ function jsSetIrFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
         irFovLayer.setDirection(panDeg, hfovDeg);
 
-        if (!map.hasLayer(irFovLayer)) irFovLayer.addTo(map);
+        if (!fovLayers.hasLayer(irFovLayer)) fovLayers.addLayer(irFovLayer);
 
         reorderLayers();
 
     } else {
 
-        if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
+        if (fovLayers.hasLayer(irFovLayer)) fovLayers.removeLayer(irFovLayer);
 
     }
 
@@ -445,9 +484,9 @@ function jsSetIrFov(lat, lon, panDeg, tiltDeg, hfovDeg, vfovDeg, rangeM) {
 
 function jsClearFov() {
 
-    if (map.hasLayer(visFovLayer)) map.removeLayer(visFovLayer);
+    if (fovLayers.hasLayer(visFovLayer)) fovLayers.removeLayer(visFovLayer);
 
-    if (map.hasLayer(irFovLayer)) map.removeLayer(irFovLayer);
+    if (fovLayers.hasLayer(irFovLayer)) fovLayers.removeLayer(irFovLayer);
 
 }
 
@@ -466,7 +505,7 @@ function jsAddTrackPoint(trackId, lat, lon) {
 
             opacity: 0.8
 
-        }).addTo(map);
+        }).addTo(trackLayers);
 
         trackEndMarkers[trackId] = L.marker(ll, {
 
@@ -474,7 +513,7 @@ function jsAddTrackPoint(trackId, lat, lon) {
 
             zIndexOffset: 500
 
-        }).addTo(map);
+        }).addTo(trackLayers);
 
     }
 
@@ -487,18 +526,18 @@ function jsAddTrackPoint(trackId, lat, lon) {
 
 function jsClearTrack(trackId) {
 
-    if (trackPolylines[trackId]) { map.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
+    if (trackPolylines[trackId]) { trackLayers.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
 
-    if (trackEndMarkers[trackId]) { map.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
+    if (trackEndMarkers[trackId]) { trackLayers.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
 
 }
 
 
 function jsClearAllTracks() {
 
-    Object.keys(trackPolylines).forEach(function(id) { map.removeLayer(trackPolylines[id]); });
+    Object.keys(trackPolylines).forEach(function(id) { trackLayers.removeLayer(trackPolylines[id]); });
 
-    Object.keys(trackEndMarkers).forEach(function(id) { map.removeLayer(trackEndMarkers[id]); });
+    Object.keys(trackEndMarkers).forEach(function(id) { trackLayers.removeLayer(trackEndMarkers[id]); });
 
     trackPolylines = {}; trackEndMarkers = {};
 
@@ -535,7 +574,7 @@ function jsUpdateTargets(jsonStr) {
 
                 radius: 6, fillColor: color, fillOpacity: 0.5, color: '#fff', weight: 1
 
-            }).addTo(map);
+            }).addTo(targetLayers);
 
             m._targetId = t.id;
 
@@ -587,7 +626,7 @@ function jsUpdateTargets(jsonStr) {
 
                 } else {
 
-                    targetBboxes[t.id] = L.polygon(valid, { fillColor: color, fillOpacity: 0.5, weight: 1 }).addTo(map);
+                    targetBboxes[t.id] = L.polygon(valid, { fillColor: color, fillOpacity: 0.5, weight: 1 }).addTo(targetLayers);
 
                 }
 
@@ -601,13 +640,13 @@ function jsUpdateTargets(jsonStr) {
 
         if (!currentIds[id]) {
 
-            map.removeLayer(targetMarkers[id]);
+            targetLayers.removeLayer(targetMarkers[id]);
 
             delete targetMarkers[id];
 
             if (targetBboxes[id]) {
 
-                map.removeLayer(targetBboxes[id]);
+                targetLayers.removeLayer(targetBboxes[id]);
 
                 delete targetBboxes[id];
 
@@ -620,7 +659,7 @@ function jsUpdateTargets(jsonStr) {
 }
 
 
-// ---- 地图单击事件 ----
+// ---- 地图点击事件 ----
 
 map.on('click', function(e) {
 
@@ -630,6 +669,15 @@ map.on('click', function(e) {
     
     }
 
+});
+
+// ---- 地图双击事件：请求放大 ----
+
+map.on('dblclick', function(e) {
+    L.DomEvent.stopPropagation(e);
+    if (bridge && bridge.onRequestEnlarge) {
+        bridge.onRequestEnlarge();
+    }
 });
 
 </script>

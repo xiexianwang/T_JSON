@@ -73,91 +73,85 @@
           <string>街道图</string>
          </property>
         </item>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="labelZoom">
-         <property name="text">
-          <string>缩放:</string>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>9</pointsize>
-          </font>
-         </property>
-        </widget>
-       </item>
-        <item>
-         <widget class="QSpinBox" name="spinZoom">
-          <property name="minimum">
-           <number>1</number>
-          </property>
-          <property name="maximum">
-           <number>20</number>
-          </property>
-          <property name="value">
-           <number>13</number>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>60</width>
-            <height>20</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="chkDeviceInfo">
-          <property name="text">
-           <string>设备信息</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>80</width>
-            <height>20</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string>color:#ccc;</string>
-          </property>
-          </widget>
-         </item>
-        <item>
-         <widget class="QPushButton" name="btnRefreshMap">
-          <property name="text">
-           <string>刷新</string>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>50</width>
-            <height>22</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string>color:#ccc;background:#3c3c3c;border:1px solid #555;padding:1px 6px;</string>
-          </property>
-         </widget>
-        </item>
-       <item>
-        <spacer name="horizontalSpacer">
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="labelZoom">
+        <property name="font">
+         <font>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>缩放:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="spinZoom">
+        <property name="maximumSize">
+         <size>
+          <width>60</width>
+          <height>20</height>
+         </size>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>20</number>
+        </property>
+        <property name="value">
+         <number>13</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="chkDeviceInfo">
+        <property name="maximumSize">
+         <size>
+          <width>80</width>
+          <height>20</height>
+         </size>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>设备信息</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnRefreshMap">
+        <property name="maximumSize">
+         <size>
+          <width>50</width>
+          <height>22</height>
+         </size>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>刷新</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
         </property>

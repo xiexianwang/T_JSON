@@ -19,9 +19,9 @@ CmdLogDialog::CmdLogDialog(QWidget *parent)
 
     // 日志文本控件：只读、等宽字体、VS Code 风格深色主题
     m_log = new QPlainTextEdit(this);
+    m_log->setObjectName(QStringLiteral("cmdLog"));
     m_log->setReadOnly(true);
     m_log->setFont(QFont("Consolas", 9));
-    m_log->setStyleSheet("QPlainTextEdit{background:#1e1e1e;color:#d4d4d4;}");
     lay->addWidget(m_log);
 
     // 清空按钮：点击后清除所有日志内容

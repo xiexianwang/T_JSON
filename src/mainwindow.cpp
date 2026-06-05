@@ -8,7 +8,6 @@
 #include "settingsdialog.h"
 #include "rtspthread.h"
 #include "videowidget.h"
-#include "mapdialog.h"
 #include "mapwidget.h"
 #include "cmdlogdialog.h"
 #include <QMessageBox>
@@ -17,7 +16,16 @@
 #include <QDir>
 #include <QDateTime>
 #include <QApplication>
+#include <QMouseEvent>
 #include <QtMath>
+
+//============================================================================
+// 辅助函数：刷新控件的 QSS 动态属性
+//============================================================================
+static void refreshStyle(QWidget *w) {
+    w->style()->unpolish(w);
+    w->style()->polish(w);
+}
 
 //============================================================================
 // 构造函数：初始化所有子模块、建立信号-槽连接、配置 UI
@@ -33,34 +41,47 @@ MainWindow::MainWindow(QWidget *parent)
     , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
     , m_currentIrZoom(1.0)                   // 默认红外倍率 1.0
     , m_currentPipShow(0)                    // 默认显示模式：大图可见光
+    , m_currentResX(m_cfg->cam().visResX)    // 默认可见光分辨率
+    , m_currentResY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
     setupUiStyles();
 
     //============================================================================
-    // 地图按钮：插入到顶部工具栏"断开视频"按钮之后
-    // 点击弹出 MapDialog，显示设备 GPS 位置、视场角扇形、目标标记等
+    // 地图按钮（开关）：插入到顶部工具栏"断开视频"按钮之后
     //============================================================================
-    m_btnMap = new QPushButton(QStringLiteral("🗺 地图"), this);
-    m_btnMap->setFixedSize(66, 26);
-    m_btnMap->setStyleSheet(
-        "QPushButton { background:#2d5a88; color:white; border:1px solid #3a7abf; border-radius:3px; font-size:12px; }"
-        "QPushButton:hover { background:#3a7abf; }");
-
+    m_btnMap = new QPushButton(QStringLiteral("🗺"), this);
+    m_btnMap->setFixedSize(36, 26);
+    m_btnMap->setObjectName(QStringLiteral("btnMapToggle"));
+    m_btnMap->setCheckable(true);
     auto *top2 = findChild<QHBoxLayout*>(QStringLiteral("horizontalLayout_top2"));
     if (top2) {
         int idx = top2->indexOf(ui->btnVideoDisconnect);
         top2->insertWidget(idx + 1, m_btnMap);
     }
 
-    m_mapDlg = new MapDialog(this);
-    connect(m_btnMap, &QPushButton::clicked, this, [this]() {
-        m_mapDlg->show();
-        m_mapDlg->raise();
-        m_mapDlg->activateWindow();
-    });
+    // 迷你地图：容器 → MapWidget → 覆盖层
+    m_mapContainer = new QWidget(ui->widgetDisplay);
+    m_mapContainer->setVisible(false);
+    m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
+    m_mapWidget = new MapWidget(m_mapContainer);
+    m_mapWidget->setGeometry(0, 0, 280, 280);
+    // 透明覆盖层：迷你模式拦截鼠标（拖拽移动，双击展开）
+    m_mapOverlay = new QWidget(m_mapContainer);
+    m_mapOverlay->setGeometry(0, 0, 280, 280);
+    m_mapOverlay->setCursor(Qt::OpenHandCursor);
+    m_mapOverlay->installEventFilter(this);
+    // MapWidget 工具栏信号 → MainWindow
+    connect(m_mapWidget, &MapWidget::miniRequested,
+            this, [this]() { toggleMapMode(); });
+    connect(m_mapWidget, &MapWidget::closeRequested,
+            this, [this]() { toggleMap(); });
+    connect(m_mapWidget, &MapWidget::enlargeRequested,
+            this, [this]() { toggleMapMode(); });
+    connect(m_btnMap, &QPushButton::clicked,
+            this, [this]() { toggleMap(); });
 
-    // 系统参数轮询：200ms 周期查询设备 ImageSetting
+    // 系统参数轮询：500ms 周期查询设备 ImageSetting
     m_sysParamTimer = new QTimer(this);
     m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
@@ -90,14 +111,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_client, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
         Q_UNUSED(maxRetries);
         ui->btnConnect->setText(QString::fromUtf8("重连中(次数:%1)").arg(attempt));
-        ui->btnConnect->setStyleSheet("background-color: #d68b00;");
+        ui->btnConnect->setProperty("state", "reconnecting");
+        refreshStyle(ui->btnConnect);
         ui->statusbar->showMessage(QString::fromUtf8("网络波动，正在进行第 %1 次自动探测重连...").arg(attempt));
     });
     // 重连失败：恢复按钮初始状态
     connect(m_client, &TJsonClient::reconnectFailed, this, [this]() {
         ui->btnConnect->setText(QString::fromUtf8("连接设备"));
         ui->btnConnect->setEnabled(true);
-        ui->btnConnect->setStyleSheet("");
+        ui->btnConnect->setProperty("state", QVariant());
+        refreshStyle(ui->btnConnect);
         ui->statusbar->showMessage(QString::fromUtf8("重连失败，已放弃连接"), 5000);
     });
 
@@ -223,7 +246,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 //============================================================================
 // 析构函数：释放 UI 资源
-// 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapDlg)
+// 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
 // 均以 MainWindow 为父对象，由 Qt 对象树自动析构
 // 析构前主动停止 RTSP 线程并等待其退出，避免线程仍在运行时被销毁触发 QThread 告警
 //============================================================================
@@ -240,11 +263,17 @@ MainWindow::~MainWindow()
 }
 
 //============================================================================
-// setupUiStyles - 初始化 UI 样式（QSS 已取消加载）
+// setupUiStyles - 加载并应用 QSS 样式表
 //============================================================================
 void MainWindow::setupUiStyles()
 {
     ui->tableIdentify->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    QFile file(QStringLiteral(":/style.qss"));
+    if (file.open(QFile::ReadOnly | QFile::Text)) {
+        qApp->setStyleSheet(QString::fromUtf8(file.readAll()));
+        file.close();
+    }
 }
 
 //============================================================================
@@ -362,7 +391,8 @@ void MainWindow::onDeviceConnected()
 {
     ui->btnConnect->setText(QString::fromUtf8("断开连接"));
     ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setStyleSheet("background-color: #c75450;");
+    ui->btnConnect->setProperty("state", "connected");
+    refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
 
@@ -381,7 +411,8 @@ void MainWindow::onDeviceDisconnected()
 {
     ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setStyleSheet("");
+    ui->btnConnect->setProperty("state", QVariant());
+    refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
 
@@ -403,7 +434,8 @@ void MainWindow::onErrorOccurred(const QString& errorMsg)
 {
     ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setStyleSheet("");
+    ui->btnConnect->setProperty("state", QVariant());
+    refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
     QMessageBox::warning(this, QString::fromUtf8("连接错误"), errorMsg);
 }
@@ -494,8 +526,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             double px = isVis ? cam.visPixelSize : cam.irPixelSize;
             double fl = isVis ? cam.visMinFocal * m_currentVisZoom
                               : cam.irMinFocal * m_currentIrZoom;
-            int halfW = (isVis ? cam.visResX : cam.irResX) / 2;
-            int halfH = (isVis ? cam.visResY : cam.irResY) / 2;
+            int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
+            int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
 
             // Object 字段是一个字典，key 为目标 ID，value 为目标属性
             if (doc.contains("Object") && doc.value("Object").isObject()) {
@@ -549,43 +581,35 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 QString statusText = locked ? QString::fromUtf8("锁定中") : QString::fromUtf8("丢失");
                 QString statusFull = QString::fromUtf8("状态: %1").arg(statusText);
                 ui->lblTrackStatus->setText(statusFull);
-                ui->lblTrackStatus->setStyleSheet(locked ? "color: #00cc00; font-weight: bold;"
-                                                         : "color: #cc0000; font-weight: bold;");
-
-                QString objId = objMap.begin().key();
-                ui->trackId->setText(objId);
-                ui->trackClass->setText(QString::number(cls));
+                ui->lblTrackStatus->setProperty("state", locked ? "locked" : "missed");
+                refreshStyle(ui->lblTrackStatus);
 
                 if (obj.contains("Distance"))
                     ui->trackDistance->setText(QString::number(obj.value("Distance").toDouble(), 'f', 1));
                 else
                     ui->trackDistance->clear();
 
-                if (obj.contains("Angle"))
-                    ui->trackAngle->setText(QString::number(obj.value("Angle").toDouble(), 'f', 1));
-
                 if (obj.contains("Points")) {
                     QJsonObject pts = obj.value("Points").toObject();
                     int l = pts.value("Left").toInt(), t = pts.value("Top").toInt();
                     int r2 = pts.value("Right").toInt(), b = pts.value("Bottom").toInt();
-                    ui->trackPos->setText(QString("(%1,%2)-(%3,%4)").arg(l).arg(t).arg(r2).arg(b));
+                    int cx = (l + r2) / 2, cy = (t + b) / 2;
+                    int pw = r2 - l, ph = b - t;
+                    ui->trackPos->setText(QString("(%1,%2) %3×%4").arg(cx).arg(cy).arg(pw).arg(ph));
 
-                    // 计算目标脱靶量：目标中心距画面中心的像素偏差→毫弧度
+                    // 计算脱靶量：像素偏移 × 像元尺寸 / 焦距 → 毫弧度
                     bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
                     double px = isVis ? cam.visPixelSize : cam.irPixelSize;
                     double fl = isVis ? cam.visMinFocal * m_currentVisZoom
                                       : cam.irMinFocal * m_currentIrZoom;
-                    int halfW = (isVis ? cam.visResX : cam.irResX) / 2;
-                    int halfH = (isVis ? cam.visResY : cam.irResY) / 2;
+                    int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
+                    int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
                     double objCx = (l + r2) / 2.0, objCy = (t + b) / 2.0;
                     double dx = objCx - halfW, dy = objCy - halfH;
-                    ui->trackMissDistance->setText(missMradStr(dx, dy, px, fl));
-
-                    // 如果设备未提供角度，根据像素偏移自行计算方位角
-                    if (!obj.contains("Angle")) {
-                        double angleDeg = qAtan2(dy, dx) * 180.0 / 3.14159265358979323846;
-                        ui->trackAngle->setText(QString::number(angleDeg, 'f', 1));
-                    }
+                    double dxMrad = dx * px / fl;
+                    double dyMrad = dy * px / fl;
+                    ui->trackMissDistance->setText(QString("H: %1  V: %2")
+                        .arg(dxMrad, 0, 'f', 2).arg(dyMrad, 0, 'f', 2));
                 } else {
                     ui->trackPos->clear();
                     ui->trackMissDistance->clear();
@@ -593,13 +617,11 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             } else {
                 // 无目标：显示"未锁定"并清空所有跟踪字段
                 ui->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
-                ui->lblTrackStatus->setStyleSheet("color: #aaaaaa; font-weight: bold;");
-                ui->trackId->clear();
-                ui->trackClass->clear();
+                ui->lblTrackStatus->setProperty("state", "nolock");
+                refreshStyle(ui->lblTrackStatus);
                 ui->trackPos->clear();
                 ui->trackMissDistance->clear();
                 ui->trackDistance->clear();
-                ui->trackAngle->clear();
             }
         }
 
@@ -634,6 +656,13 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
         int imgSize = doc.value("ImageSize").toInt();
         ui->paramResolution->setText(imgSize >= 0 && imgSize < 4 ? resMap[imgSize] : QString::number(imgSize));
+        {
+            static const int resTab[][2] = {{1920,1080},{1280,720},{704,576},{2566,1520}};
+            if (imgSize >= 0 && imgSize < 4) {
+                m_currentResX = resTab[imgSize][0];
+                m_currentResY = resTab[imgSize][1];
+            }
+        }
 
         // 图像码率
         ui->paramBitrate->setText(QString("%1 Kb/s").arg(doc.value("ImageBit").toInt()));
@@ -863,7 +892,7 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     qDebug() << "[MapPos] raw:" << latStr << lonStr << "parsed:" << lat << lon;
     if (lat == 0 && lon == 0) return;
 
-    m_mapDlg->mapWidget()->setDevicePosition(lat, lon);
+    m_mapWidget->setDevicePosition(lat, lon);
 
     // 计算可见光视场角
     CameraConfig& cam = m_cfg->cam();
@@ -879,9 +908,9 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     double irVfov = irHfov * cam.irResY / cam.irResX;
 
     // 可见光视场角 4km（蓝色），红外视场角 2km（红色）
-    m_mapDlg->mapWidget()->setVisFov(lat, lon, pan, tilt, visHfov, visVfov, 4000);
-    m_mapDlg->mapWidget()->setIrFov(lat, lon, pan, tilt, irHfov, irVfov, 2000);
-    m_mapDlg->mapWidget()->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range);
+    m_mapWidget->setVisFov(lat, lon, pan, tilt, visHfov, visVfov, 4000);
+    m_mapWidget->setIrFov(lat, lon, pan, tilt, irHfov, irVfov, 2000);
+    m_mapWidget->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range);
 }
 
 //============================================================================
@@ -1032,9 +1061,9 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     //==========================================================================
     if (workMode == 1) {
         if (!hasObject || objMap.isEmpty()) {
-            m_mapDlg->mapWidget()->clearAllTracks();
-            m_mapDlg->mapWidget()->clearFov();
-            m_mapDlg->mapWidget()->updateTargetMarkers(QJsonArray());
+            m_mapWidget->clearAllTracks();
+            m_mapWidget->clearFov();
+            m_mapWidget->updateTargetMarkers(QJsonArray());
             return;
         }
 
@@ -1073,7 +1102,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 targetArr.append(t);
             }
         }
-        m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
+        m_mapWidget->updateTargetMarkers(targetArr);
         return;
     }
 
@@ -1129,7 +1158,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.prevTime = QDateTime::currentDateTime();
 
                 if (tLat != 0 && tLon != 0)
-                    m_mapDlg->mapWidget()->appendTrackPoint(lockedId, tLat, tLon, speed);
+                    m_mapWidget->appendTrackPoint(lockedId, tLat, tLon, speed);
 
                 QJsonArray targetArr;
                 QJsonObject t;
@@ -1148,7 +1177,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
                 t[QStringLiteral("bbox")] = bbox;
                 targetArr.append(t);
-                m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
+                m_mapWidget->updateTargetMarkers(targetArr);
             }
             return;
         }
@@ -1184,8 +1213,8 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             qint64 elapsed = m_track.lostSince.msecsTo(QDateTime::currentDateTime());
             if (elapsed >= 5000) {
                 // 超过 5 秒，清除轨迹和目标
-                m_mapDlg->mapWidget()->clearAllTracks();
-                m_mapDlg->mapWidget()->updateTargetMarkers(QJsonArray());
+                m_mapWidget->clearAllTracks();
+                m_mapWidget->updateTargetMarkers(QJsonArray());
                 return;
             }
 
@@ -1200,14 +1229,14 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 t[QStringLiteral("lon")] = m_track.lon;
                 t[QStringLiteral("locked")] = false;
                 targetArr.append(t);
-                m_mapDlg->mapWidget()->updateTargetMarkers(targetArr);
+                m_mapWidget->updateTargetMarkers(targetArr);
             }
             return;
         }
 
         // ---- 有 Object 但无 0xB1/0xB2，清空 ----
-        m_mapDlg->mapWidget()->clearAllTracks();
-        m_mapDlg->mapWidget()->updateTargetMarkers(QJsonArray());
+        m_mapWidget->clearAllTracks();
+        m_mapWidget->updateTargetMarkers(QJsonArray());
     }
 }
 
@@ -1251,6 +1280,114 @@ double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double 
     if (boxPixels <= 0 || focalMm < 0.1 || pixelSizeUm <= 0 || refSize <= 0)
         return 0.0;
     return qBound(1.0, refSize * focalMm * 1000.0 / (boxPixels * pixelSizeUm), 10000.0);
+}
+
+//============================================================================
+// toggleMap - 切换地图显示/隐藏
+// 由 m_btnMap 触发
+//============================================================================
+void MainWindow::toggleMap()
+{
+    m_mapVisible = !m_mapVisible;
+    m_mapContainer->setVisible(m_mapVisible);
+    m_btnMap->setChecked(m_mapVisible);
+    if (m_mapVisible) {
+        m_mapExpanded = false;
+        updateMapLayout();
+    }
+}
+
+//============================================================================
+// toggleMapMode - 切换迷你/全屏模式
+// 迷你模式下单击地图触发展开；全屏模式下点 ✕ 收回
+//============================================================================
+void MainWindow::toggleMapMode()
+{
+    m_mapExpanded = !m_mapExpanded;
+    updateMapLayout();
+}
+
+//============================================================================
+// updateMapLayout - 根据当前模式更新地图位置和尺寸
+// 迷你：280×280 左上角圆形，覆盖层可见拦截鼠标
+// 全屏：展开覆盖 widgetDisplay 的 85%，工具栏可见，覆盖层隐藏
+//============================================================================
+void MainWindow::updateMapLayout()
+{
+    if (!m_mapVisible) return;
+    QSize ps = ui->widgetDisplay->size();
+    if (m_mapExpanded) {
+        // 全屏模式（工具栏内建在 MapWidget 布局中）
+        int w = ps.width() * 85 / 100;
+        int h = ps.height() * 85 / 100;
+        int x = (ps.width() - w) / 2;
+        int y = (ps.height() - h) / 2;
+        m_mapContainer->setGeometry(x, y, w, h);
+        m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, false);
+        m_mapContainer->clearMask();
+        m_mapWidget->setGeometry(0, 0, w, h);
+        m_mapWidget->setCircularClip(false);
+        m_mapOverlay->setVisible(false);
+    } else {
+        // 迷你模式：外层容器物理裁剪 + 透明度，内层 WebEngine 矩形透明背景
+        m_mapContainer->setGeometry(m_miniMapPos.x(), m_miniMapPos.y(), 280, 280);
+        m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
+        m_mapContainer->setMask(QRegion(0, 0, 280, 280, QRegion::Ellipse));
+        m_mapWidget->setGeometry(0, 0, 280, 280);
+        // 自动居中 + 缩放 12（合并到同一个 JS 调用中）
+        double lat = parseCoord(ui->statLatitude->text());
+        double lon = parseCoord(ui->statLongitude->text());
+        if (lat != 0 || lon != 0)
+            m_mapWidget->setCircularClip(true, lat, lon, 12);
+        else
+            m_mapWidget->setCircularClip(true);
+        m_mapOverlay->setGeometry(0, 0, 280, 280);
+        m_mapOverlay->setVisible(true);
+    }
+    m_mapContainer->raise();
+}
+
+//============================================================================
+// eventFilter - 迷你地图鼠标事件处理
+// 覆盖层：单击＝展开，拖拽＝移动位置，右击无操作
+//============================================================================
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_mapOverlay) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: {
+            auto *me = static_cast<QMouseEvent*>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_dragStart = me->pos();
+                m_dragging = false;
+            }
+            return true;
+        }
+        case QEvent::MouseMove: {
+            auto *me = static_cast<QMouseEvent*>(event);
+            if (me->buttons() & Qt::LeftButton) {
+                QPoint delta = me->pos() - m_dragStart;
+                if (delta.manhattanLength() > 5) {
+                    m_dragging = true;
+                    m_miniMapPos = m_mapContainer->pos() + delta;
+                    m_mapContainer->move(m_miniMapPos);
+                }
+            }
+            return true;
+        }
+        case QEvent::MouseButtonRelease: {
+            m_dragging = false;
+            return true;
+        }
+        case QEvent::MouseButtonDblClick: {
+            toggleMapMode();
+            return true;
+        }
+        default:
+            break;
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 //============================================================================

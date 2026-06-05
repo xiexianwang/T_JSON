@@ -41,7 +41,9 @@ MapWidget::MapWidget(QWidget *parent)
     m_aiFlushTimer->start();
 
     m_channel->registerObject(QStringLiteral("bridge"), m_bridge);
-    ui->m_webView->page()->setWebChannel(m_channel);
+    auto *page = ui->m_webView->page();
+    page->setWebChannel(m_channel);
+    page->setBackgroundColor(Qt::transparent);
 
     QFile htmlF(QStringLiteral(":/map.html"));
     if (htmlF.open(QFile::ReadOnly)) {
@@ -51,9 +53,13 @@ MapWidget::MapWidget(QWidget *parent)
         qWarning() << "Failed to load map resources";
     }
 
-    auto *page = ui->m_webView->page();
-    connect(page, &QWebEnginePage::loadFinished, this, [](bool ok) {
+    connect(page, &QWebEnginePage::loadFinished, this, [this](bool ok) {
         qDebug() << "[Map] Page load:" << (ok ? "OK" : "FAILED");
+        if (ok && m_pendingReload) {
+            m_pendingReload = false;
+            setZoom(m_pendingZoom);
+            setMapType(m_pendingMapType);
+        }
     });
     connect(page, &QWebEnginePage::loadProgress, this, [](int p) {
         qDebug() << "[Map] Load progress:" << p << "%";
@@ -61,6 +67,25 @@ MapWidget::MapWidget(QWidget *parent)
 
     connect(m_bridge, &MapBridge::mapClicked, this, &MapWidget::mapClicked);
     connect(m_bridge, &MapBridge::mapZoomChanged, this, &MapWidget::mapZoomChanged);
+    connect(m_bridge, &MapBridge::requestEnlarge, this, &MapWidget::enlargeRequested);
+
+    // 工具栏内部信号连接
+    connect(ui->comboMapType, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MapWidget::setMapType);
+    connect(ui->spinZoom, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &MapWidget::setZoom);
+    connect(this, &MapWidget::mapZoomChanged,
+            this, [this](int zoom) { QSignalBlocker _(ui->spinZoom); ui->spinZoom->setValue(zoom); });
+    connect(ui->chkDeviceInfo, &QCheckBox::toggled,
+            this, &MapWidget::setDeviceInfoVisible);
+    connect(ui->comboDetailLevel, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MapWidget::setDetailLevel);
+    connect(ui->btnRefresh, &QPushButton::clicked,
+            this, [this]() { reloadMap(); setPendingState(ui->spinZoom->value(), ui->comboMapType->currentIndex()); });
+    connect(ui->btnMini, &QPushButton::clicked,
+            this, &MapWidget::miniRequested);
+    connect(ui->btnClose, &QPushButton::clicked,
+            this, &MapWidget::closeRequested);
 }
 
 MapWidget::~MapWidget()
@@ -182,5 +207,45 @@ void MapWidget::setDeviceInfoVisible(bool visible)
 void MapWidget::reloadMap()
 {
     qDebug() << "[Map] Reloading map page...";
+    m_pendingReload = true;
     ui->m_webView->reload();
 }
+
+void MapWidget::setCircularClip(bool enabled, double lat, double lon, int zoom)
+{
+    if (enabled) {
+        runJS(QStringLiteral("jsSetMiniShape(%1,%2,%3)")
+              .arg(lat, 0, 'f', 8).arg(lon, 0, 'f', 8).arg(zoom));
+    } else {
+        runJS(QStringLiteral("jsSetFullShape()"));
+    }
+    ui->toolbar->setVisible(!enabled);
+    if (enabled) {
+        setDeviceInfoVisible(false);
+    } else if (ui->chkDeviceInfo->isChecked()) {
+        setDeviceInfoVisible(true);
+    }
+}
+
+void MapWidget::setPendingState(int zoom, int mapType)
+{
+    if (m_pendingReload) {
+        m_pendingZoom = zoom;
+        m_pendingMapType = mapType;
+    }
+}
+
+void MapWidget::recenterMap(double lat, double lon, int zoom)
+{
+    runJS(QStringLiteral("jsRecenterMap(%1,%2,%3)")
+          .arg(lat, 0, 'f', 8).arg(lon, 0, 'f', 8).arg(zoom));
+}
+
+void MapWidget::setDetailLevel(int level)
+{
+    runJS(QStringLiteral("jsSetDetailLevel(%1)").arg(level));
+}
+
+
+
+

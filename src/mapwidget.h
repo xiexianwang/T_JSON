@@ -36,10 +36,17 @@ public:
     void setMapType(int type);
     void setZoom(int level);
     void reloadMap();
+    void setCircularClip(bool enabled, double lat = 0, double lon = 0, int zoom = 12);
+    void recenterMap(double lat, double lon, int zoom);
+    void setPendingState(int zoom, int mapType);
+    void setDetailLevel(int level);
 
 signals:
     void mapClicked(double lat, double lon);
     void mapZoomChanged(int zoom);
+    void enlargeRequested();
+    void miniRequested();
+    void closeRequested();
 
 private:
     void runJS(const QString& js);
@@ -54,6 +61,10 @@ private:
     QJsonArray m_cacheTargets;
     struct TrackPt { QString id; double lat, lon, speed; };
     QVector<TrackPt> m_cacheTrackPts;
+
+    bool m_pendingReload = false;
+    int m_pendingZoom = 12;
+    int m_pendingMapType = 0;
 
     Ui::MapWidget *ui;
     QWebChannel *m_channel;

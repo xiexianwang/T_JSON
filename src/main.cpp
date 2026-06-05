@@ -7,6 +7,7 @@
 #include "mainwindow.h"
 
 #include <QApplication>
+#include <QStyleFactory>
 
 // 应用程序主入口点
 int main(int argc, char *argv[])
@@ -19,6 +20,7 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);                    // 创建 QApplication 实例
     a.setOrganizationName("TJSONClient");          // 设置组织名（用于 QSettings 路径）
     a.setApplicationName("T-JSON");                // 设置应用名
+    // a.setStyle(QStyleFactory::create("Fusion"));   // 注释掉 Fusion，让 QSS 完全接管控件绘制
     MainWindow w;                                  // 创建主窗口
     w.show();                                      // 显示主窗口
     return QApplication::exec();                   // 进入 Qt 事件循环

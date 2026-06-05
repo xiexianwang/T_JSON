@@ -19,7 +19,6 @@
 class RtspThread;
 class VideoWidget;
 class MapWidget;
-class MapDialog;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -41,6 +40,7 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 private slots:
     // ── 设备连接相关 ──
@@ -85,13 +85,23 @@ private:
     ConfigManager *m_cfg;           // 配置管理器（持久化设置）
     DeviceController *m_device;     // 设备指令控制器（封装协议细节）
     RtspThread *m_rtsp;            // RTSP 视频流拉取线程
-    MapDialog *m_mapDlg;           // 地图对话框（显示 GPS / 视场角 / 目标）
-    QPushButton *m_btnMap;         // 顶部工具栏上的地图按钮
+    QPushButton *m_btnMap;          // 顶部工具栏地图开关
+    MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
+    QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
+    QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
+
+    bool m_mapVisible = false;       // 地图显示/隐藏
+    bool m_mapExpanded = false;      // 迷你/全屏模式
+    QPoint m_miniMapPos{10, 10};    // 迷你地图位置
+    bool m_dragging = false;         // 拖拽中标记
+    QPoint m_dragStart;              // 拖拽起点
     bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
 
     double m_currentVisZoom;        // 当前可见光镜头倍率（从设备 ZoomInfo 更新）
     double m_currentIrZoom;         // 当前红外镜头倍率
     int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
+    int m_currentResX = 2688;       // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
+    int m_currentResY = 1520;       // 当前可见光实际垂直分辨率
     
     // ── 跟踪状态管理（地图目标/轨迹逻辑） ──
     struct TrackState {
@@ -106,6 +116,11 @@ private:
 
     // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
     QTimer *m_sysParamTimer;
+
+    // ── 迷你地图控制 ──
+    void toggleMap();                               // 切换地图显示/隐藏
+    void toggleMapMode();                           // 切换迷你/全屏模式
+    void updateMapLayout();                         // 更新地图尺寸和位置
 
     // ── 私有工具方法 ──
     void setupUiStyles();                           // 加载并应用 QSS 样式表

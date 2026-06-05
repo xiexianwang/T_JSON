@@ -19,3 +19,8 @@ void MapBridge::onMapZoomChanged(int zoom)
 {
     emit mapZoomChanged(zoom);
 }
+
+void MapBridge::onRequestEnlarge()
+{
+    emit requestEnlarge();
+}

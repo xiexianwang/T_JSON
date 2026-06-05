@@ -40,7 +40,7 @@
        <height>40</height>
       </size>
      </property>
-      <layout class="QHBoxLayout" name="toolbarLayout">
+     <layout class="QHBoxLayout" name="toolbarLayout">
       <property name="leftMargin">
        <number>8</number>
       </property>
@@ -104,54 +104,54 @@
         </property>
        </widget>
       </item>
-       <item>
-        <widget class="QCheckBox" name="chkDeviceInfo">
+      <item>
+       <widget class="QCheckBox" name="chkDeviceInfo">
+        <property name="text">
+         <string>设备信息</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="comboDetailLevel">
+        <property name="minimumSize">
+         <size>
+          <width>80</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>80</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <item>
          <property name="text">
-          <string>设备信息</string>
+          <string>底图</string>
          </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="comboDetailLevel">
-         <property name="minimumSize">
-          <size>
-           <width>80</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>80</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <item>
-          <property name="text">
-           <string>底图</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>注记</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>卫星+路网</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnRefresh">
+        </item>
+        <item>
          <property name="text">
-          <string>刷新</string>
+          <string>注记</string>
          </property>
-        </widget>
-       </item>
+        </item>
+        <item>
+         <property name="text">
+          <string>卫星+路网</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnRefresh">
+        <property name="text">
+         <string>刷新</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QPushButton" name="btnMini">
         <property name="minimumSize">

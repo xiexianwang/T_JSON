@@ -95,6 +95,11 @@ MapWidget::~MapWidget()
     delete ui;
 }
 
+QWebEngineView* MapWidget::webView() const
+{
+    return ui->m_webView;
+}
+
 void MapWidget::runJS(const QString& js)
 {
     ui->m_webView->page()->runJavaScript(js);

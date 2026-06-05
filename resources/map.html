@@ -56,7 +56,11 @@ html, body { width:100%; height:100%; background:transparent !important; font-fa
 
 <script>
 
+// ======================================================================
+// ---- 全局常量 ----
+// ======================================================================
 
+var MAX_TRACK_PTS = 2000;   // 每条轨迹最大点数，超出时 FIFO 淘汰最早点
 
 // ======================================================================
 
@@ -503,7 +507,9 @@ function jsAddTrackPoint(trackId, lat, lon) {
 
             weight: 3,
 
-            opacity: 0.8
+            opacity: 0.8,
+
+            smoothFactor: 1.5
 
         }).addTo(trackLayers);
 
@@ -518,6 +524,13 @@ function jsAddTrackPoint(trackId, lat, lon) {
     }
 
     trackPolylines[trackId].addLatLng(ll);
+
+    // FIFO 上限控制：超出 MAX_TRACK_PTS 时淘汰最早的点
+    var latlngs = trackPolylines[trackId].getLatLngs();
+    if (latlngs.length > MAX_TRACK_PTS) {
+        latlngs.splice(0, latlngs.length - MAX_TRACK_PTS);
+        trackPolylines[trackId].setLatLngs(latlngs);
+    }
 
     trackEndMarkers[trackId].setLatLng(ll);
 

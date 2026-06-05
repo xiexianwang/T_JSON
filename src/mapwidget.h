@@ -8,6 +8,7 @@
 
 class QWebChannel;
 class QTimer;
+class QWebEngineView;
 
 namespace Ui {
 class MapWidget;
@@ -40,6 +41,7 @@ public:
     void recenterMap(double lat, double lon, int zoom);
     void setPendingState(int zoom, int mapType);
     void setDetailLevel(int level);
+    QWebEngineView* webView() const;
 
 signals:
     void mapClicked(double lat, double lon);

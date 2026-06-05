@@ -12,6 +12,7 @@
 #include <QDateTime>
 #include <QTimer>
 #include <QVector>
+#include <QDialog>
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
@@ -41,6 +42,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     // ── 设备连接相关 ──
@@ -85,7 +87,6 @@ private:
     ConfigManager *m_cfg;           // 配置管理器（持久化设置）
     DeviceController *m_device;     // 设备指令控制器（封装协议细节）
     RtspThread *m_rtsp;            // RTSP 视频流拉取线程
-    QPushButton *m_btnMap;          // 顶部工具栏地图开关
     MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
@@ -96,6 +97,12 @@ private:
     bool m_dragging = false;         // 拖拽中标记
     QPoint m_dragStart;              // 拖拽起点
     bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
+
+    // ── PiP 视频窗口（大地图时独立无边框对话框） ──
+    QDialog *m_pipDialog;
+    QWidget *m_pipTitle;
+    QPoint m_pipPos{10, 10};
+    QPoint m_pipDragStart;
 
     double m_currentVisZoom;        // 当前可见光镜头倍率（从设备 ZoomInfo 更新）
     double m_currentIrZoom;         // 当前红外镜头倍率
@@ -111,6 +118,11 @@ private:
         QDateTime lostSince;    // 首次失锁时间（空 = 锁定中）
         double prevLat = 0, prevLon = 0; // 上一个轨迹点位置（速度计算用）
         QDateTime prevTime;     // 上一个轨迹点时间
+
+        // 抽稀状态：记录上次实际绘制到地图的点
+        double plotLat = 0, plotLon = 0;    // 上次绘制点 GPS
+        double plotHeading = 999;           // 上次绘制段航向角（度），999=未初始化
+        QDateTime plotTime;                 // 上次绘制时间（心跳用）
     };
     TrackState m_track;
 

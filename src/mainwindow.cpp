@@ -9,6 +9,7 @@
 #include "rtspthread.h"
 #include "videowidget.h"
 #include "mapwidget.h"
+#include <QScreen>
 #include "cmdlogdialog.h"
 #include <QMessageBox>
 #include <QDebug>
@@ -47,19 +48,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setupUiStyles();
 
-    //============================================================================
-    // 地图按钮（开关）：插入到顶部工具栏"断开视频"按钮之后
-    //============================================================================
-    m_btnMap = new QPushButton(QStringLiteral("🗺"), this);
-    m_btnMap->setFixedSize(36, 26);
-    m_btnMap->setObjectName(QStringLiteral("btnMapToggle"));
-    m_btnMap->setCheckable(true);
-    auto *top2 = findChild<QHBoxLayout*>(QStringLiteral("horizontalLayout_top2"));
-    if (top2) {
-        int idx = top2->indexOf(ui->btnVideoDisconnect);
-        top2->insertWidget(idx + 1, m_btnMap);
-    }
-
     // 迷你地图：容器 → MapWidget → 覆盖层
     m_mapContainer = new QWidget(ui->widgetDisplay);
     m_mapContainer->setVisible(false);
@@ -71,6 +59,20 @@ MainWindow::MainWindow(QWidget *parent)
     m_mapOverlay->setGeometry(0, 0, 280, 280);
     m_mapOverlay->setCursor(Qt::OpenHandCursor);
     m_mapOverlay->installEventFilter(this);
+
+    // PiP 独立对话框：大地图时视频显示于此
+    m_pipDialog = new QDialog(nullptr, Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
+    m_pipDialog->setAttribute(Qt::WA_ShowWithoutActivating);
+    m_pipDialog->setFixedSize(320, 200);
+    auto *pipLay = new QVBoxLayout(m_pipDialog);
+    pipLay->setSpacing(0);
+    pipLay->setContentsMargins(0, 0, 0, 0);
+    m_pipTitle = new QWidget(m_pipDialog);
+    m_pipTitle->setFixedHeight(20);
+    m_pipTitle->setCursor(Qt::OpenHandCursor);
+    m_pipTitle->installEventFilter(this);
+    pipLay->addWidget(m_pipTitle);
+
     // MapWidget 工具栏信号 → MainWindow
     connect(m_mapWidget, &MapWidget::miniRequested,
             this, [this]() { toggleMapMode(); });
@@ -78,8 +80,11 @@ MainWindow::MainWindow(QWidget *parent)
             this, [this]() { toggleMap(); });
     connect(m_mapWidget, &MapWidget::enlargeRequested,
             this, [this]() { toggleMapMode(); });
-    connect(m_btnMap, &QPushButton::clicked,
+    connect(ui->btnMapToggle, &QPushButton::clicked,
             this, [this]() { toggleMap(); });
+
+    // 首次布局
+    updateMapLayout();
 
     // 系统参数轮询：500ms 周期查询设备 ImageSetting
     m_sysParamTimer = new QTimer(this);
@@ -259,6 +264,7 @@ MainWindow::~MainWindow()
         m_rtsp->closeStream();
         m_rtsp->wait(5000);
     }
+    delete m_pipDialog;
     delete ui;
 }
 
@@ -1041,6 +1047,60 @@ static double haversineDistance(double lat1, double lon1, double lat2, double lo
     return R * c;
 }
 
+// ── 轨迹点抽稀阈值 ──
+static constexpr double TRK_MIN_DIST_M     = 3.0;    // 防抖死区：小于此距离直接丢弃
+static constexpr double TRK_MAX_DIST_M     = 20.0;   // 长距离抽稀：超出此距离强制打点
+static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // 航向角偏转阈值，超过则强制打点
+static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // 心跳间隔：超过此时间强制打点
+
+// bearing - 计算两点之间的航向角（度），正北为0°，顺时针
+static double bearing(double lat1, double lon1, double lat2, double lon2)
+{
+    double lat1R = qDegreesToRadians(lat1);
+    double lat2R = qDegreesToRadians(lat2);
+    double lon1R = qDegreesToRadians(lon1);
+    double lon2R = qDegreesToRadians(lon2);
+    double dLon = lon2R - lon1R;
+    double y = qSin(dLon) * qCos(lat2R);
+    double x = qCos(lat1R) * qSin(lat2R) - qSin(lat1R) * qCos(lat2R) * qCos(dLon);
+    double deg = qRadiansToDegrees(qAtan2(y, x));
+    return deg < 0 ? deg + 360.0 : deg;
+}
+
+// shouldPlotTrackPoint - 抽稀判定：是否应将当前GPS点绘制到地图
+// 距离 < TRK_MIN_DIST_M  → 丢弃（防抖）
+// 距离 > TRK_MAX_DIST_M  → 画点（长距离抽稀）
+// 航向角偏转 > TRK_HEADING_DIFF_DEG → 画点（转弯机动）
+// 距上次绘制 > TRK_HEARTBEAT_MS    → 画点（心跳保活）
+static bool shouldPlotTrackPoint(double newLat, double newLon,
+                                  double plotLat, double plotLon,
+                                  double plotHeading, const QDateTime& plotTime)
+{
+    if (plotHeading > 360) return true; // 首次绘制
+
+    double dist = haversineDistance(plotLat, plotLon, newLat, newLon);
+
+    // 防抖死区：漂移直接丢弃
+    if (dist < TRK_MIN_DIST_M) return false;
+
+    // 长距离抽稀
+    if (dist > TRK_MAX_DIST_M) return true;
+
+    // 心跳兜底
+    if (plotTime.isValid()) {
+        qint64 elapsed = plotTime.msecsTo(QDateTime::currentDateTime());
+        if (elapsed >= TRK_HEARTBEAT_MS) return true;
+    }
+
+    // 航向角变化
+    double head = bearing(plotLat, plotLon, newLat, newLon);
+    double diff = qAbs(head - plotHeading);
+    if (diff > 180.0) diff = 360.0 - diff; // 归一化到 [0, 180]
+    if (diff >= TRK_HEADING_DIFF_DEG) return true;
+
+    return false;
+}
+
 //============================================================================
 // updateMapTargets - 更新地图上的 AI 目标标记
 // 跟踪模式 (WorkMode 2~4)：
@@ -1141,7 +1201,6 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
                 pixelToGps(cx, cy, dist, tLat, tLon);
 
-                m_track.id = lockedId;
                 m_track.lat = tLat;
                 m_track.lon = tLon;
                 m_track.cls = cls;
@@ -1157,8 +1216,24 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.prevLon = tLon;
                 m_track.prevTime = QDateTime::currentDateTime();
 
-                if (tLat != 0 && tLon != 0)
-                    m_mapWidget->appendTrackPoint(lockedId, tLat, tLon, speed);
+                // 轨迹点抽稀判定
+                if (tLat != 0 && tLon != 0) {
+                    // 目标切换时重置抽稀状态，确保新目标首点必定绘制
+                    bool targetChanged = (m_track.id != lockedId);
+                    m_track.id = lockedId;
+                    if (targetChanged)
+                        m_track.plotHeading = 999;
+                    if (shouldPlotTrackPoint(tLat, tLon,
+                                             m_track.plotLat, m_track.plotLon,
+                                             m_track.plotHeading, m_track.plotTime)) {
+                        m_mapWidget->appendTrackPoint(lockedId, tLat, tLon, speed);
+                        double b = bearing(m_track.plotLat, m_track.plotLon, tLat, tLon);
+                        m_track.plotLat = tLat;
+                        m_track.plotLon = tLon;
+                        m_track.plotHeading = b;
+                        m_track.plotTime = QDateTime::currentDateTime();
+                    }
+                }
 
                 QJsonArray targetArr;
                 QJsonObject t;
@@ -1283,17 +1358,32 @@ double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double 
 }
 
 //============================================================================
+// resizeEvent - 窗口缩放时重新布局
+//============================================================================
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    updateMapLayout();
+}
+
+//============================================================================
 // toggleMap - 切换地图显示/隐藏
 // 由 m_btnMap 触发
 //============================================================================
 void MainWindow::toggleMap()
 {
     m_mapVisible = !m_mapVisible;
-    m_mapContainer->setVisible(m_mapVisible);
-    m_btnMap->setChecked(m_mapVisible);
+    ui->btnMapToggle->setChecked(m_mapVisible);
     if (m_mapVisible) {
         m_mapExpanded = false;
         updateMapLayout();
+    } else {
+        m_pipDialog->hide();
+        if (ui->videoWidget->parent() != ui->widgetDisplay) {
+            ui->videoWidget->setParent(ui->widgetDisplay);
+            ui->verticalLayout_display->addWidget(ui->videoWidget);
+        }
+        m_mapContainer->setVisible(false);
     }
 }
 
@@ -1308,33 +1398,57 @@ void MainWindow::toggleMapMode()
 }
 
 //============================================================================
-// updateMapLayout - 根据当前模式更新地图位置和尺寸
-// 迷你：280×280 左上角圆形，覆盖层可见拦截鼠标
-// 全屏：展开覆盖 widgetDisplay 的 85%，工具栏可见，覆盖层隐藏
+// updateMapLayout - 三模式布局
+//   地图隐藏    → videoWidget 填满 widgetDisplay
+//   迷你模式    → videoWidget 全屏 + 280 圆形浮层
+//   全屏/大地图  → mapWidget 填满 widgetDisplay + 独立 PiP 对话框
 //============================================================================
 void MainWindow::updateMapLayout()
 {
-    if (!m_mapVisible) return;
     QSize ps = ui->widgetDisplay->size();
+    if (ps.isEmpty()) return;
+
+    if (!m_mapVisible) {
+        if (ui->videoWidget->parent() != ui->widgetDisplay) {
+            ui->videoWidget->setParent(ui->widgetDisplay);
+            ui->verticalLayout_display->addWidget(ui->videoWidget);
+            ui->videoWidget->setVisible(true);
+        }
+        m_mapContainer->setVisible(false);
+        m_pipDialog->hide();
+        return;
+    }
+
+    m_mapContainer->setVisible(true);
+
     if (m_mapExpanded) {
-        // 全屏模式（工具栏内建在 MapWidget 布局中）
-        int w = ps.width() * 85 / 100;
-        int h = ps.height() * 85 / 100;
-        int x = (ps.width() - w) / 2;
-        int y = (ps.height() - h) / 2;
-        m_mapContainer->setGeometry(x, y, w, h);
+        // 大地图：地图填满显示区
+        m_mapContainer->setGeometry(0, 0, ps.width(), ps.height());
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, false);
         m_mapContainer->clearMask();
-        m_mapWidget->setGeometry(0, 0, w, h);
+        m_mapWidget->setGeometry(0, 0, ps.width(), ps.height());
         m_mapWidget->setCircularClip(false);
         m_mapOverlay->setVisible(false);
+
+        // 视频移至独立 PiP 对话框
+        ui->videoWidget->setParent(m_pipDialog);
+        m_pipDialog->layout()->addWidget(ui->videoWidget);
+        m_pipDialog->move(m_pipPos);
+        m_pipDialog->show();
+        ui->videoWidget->setVisible(true);
     } else {
-        // 迷你模式：外层容器物理裁剪 + 透明度，内层 WebEngine 矩形透明背景
+        // 迷你模式
+        if (ui->videoWidget->parent() != ui->widgetDisplay) {
+            ui->videoWidget->setParent(ui->widgetDisplay);
+            ui->verticalLayout_display->addWidget(ui->videoWidget);
+            ui->videoWidget->setVisible(true);
+        }
+        m_pipDialog->hide();
+
         m_mapContainer->setGeometry(m_miniMapPos.x(), m_miniMapPos.y(), 280, 280);
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
         m_mapContainer->setMask(QRegion(0, 0, 280, 280, QRegion::Ellipse));
         m_mapWidget->setGeometry(0, 0, 280, 280);
-        // 自动居中 + 缩放 12（合并到同一个 JS 调用中）
         double lat = parseCoord(ui->statLatitude->text());
         double lon = parseCoord(ui->statLongitude->text());
         if (lat != 0 || lon != 0)
@@ -1348,8 +1462,9 @@ void MainWindow::updateMapLayout()
 }
 
 //============================================================================
-// eventFilter - 迷你地图鼠标事件处理
-// 覆盖层：单击＝展开，拖拽＝移动位置，右击无操作
+// eventFilter - 迷你地图 / PiP 对话框鼠标事件处理
+//   m_mapOverlay：单击＝展开，拖拽＝移动位置
+//   m_pipTitle：拖拽移动 PiP 对话框位置
 //============================================================================
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
@@ -1387,6 +1502,35 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
             break;
         }
     }
+
+    if (obj == m_pipTitle) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: {
+            auto *me = static_cast<QMouseEvent*>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_pipDragStart = me->globalPosition().toPoint();
+                m_pipTitle->setCursor(Qt::ClosedHandCursor);
+            }
+            return true;
+        }
+        case QEvent::MouseMove: {
+            auto *me = static_cast<QMouseEvent*>(event);
+            if (me->buttons() & Qt::LeftButton) {
+                m_pipPos = m_pipDialog->pos() + (me->globalPosition().toPoint() - m_pipDragStart);
+                m_pipDialog->move(m_pipPos);
+                m_pipDragStart = me->globalPosition().toPoint();
+            }
+            return true;
+        }
+        case QEvent::MouseButtonRelease: {
+            m_pipTitle->setCursor(Qt::OpenHandCursor);
+            return true;
+        }
+        default:
+            break;
+        }
+    }
+
     return QMainWindow::eventFilter(obj, event);
 }
 

@@ -249,19 +249,19 @@ MainWindow::MainWindow(QWidget *parent)
     // 每个 CheckBox 直连对应的设备指令
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) return;
+        if (!requireConnected()) { ui->checkDigitalZoom->blockSignals(true); ui->checkDigitalZoom->setChecked(!checked); ui->checkDigitalZoom->blockSignals(false); return; }
         m_device->setDigitalZoom(checked);
     });
     connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) return;
+        if (!requireConnected()) { ui->checkAutoZoom->blockSignals(true); ui->checkAutoZoom->setChecked(!checked); ui->checkAutoZoom->blockSignals(false); return; }
         m_device->setAutoZoom(checked);
     });
     connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) return;
+        if (!requireConnected()) { ui->checkCaptureUpload->blockSignals(true); ui->checkCaptureUpload->setChecked(!checked); ui->checkCaptureUpload->blockSignals(false); return; }
         m_device->setCaptureUpload(checked);
     });
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) return;
+        if (!requireConnected()) { ui->checkPosReset->blockSignals(true); ui->checkPosReset->setChecked(!checked); ui->checkPosReset->blockSignals(false); return; }
         m_device->posReset(checked);
     });
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
@@ -730,6 +730,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         static const char* wmMap[] = {"关闭AI", "识别", "自动跟踪", "点选跟踪", "波门/框选跟踪"};
         int wm = doc.value("WorkMode").toInt();
         ui->paramWorkMode->setText(wm >= 0 && wm < 5 ? QString::fromUtf8(wmMap[wm]) : QString::number(wm));
+        m_previousWorkMode = wm;
 
         // 显示类型映射表 (PIP = Picture-in-Picture)
         static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
@@ -748,11 +749,13 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         if (low >= 2 && low <= 6)
             modelStr += QString(" / %1").arg(QString::fromUtf8(lowMap[low]));
         ui->paramAlgoModel->setText(modelStr.isEmpty() ? QString::number(model) : modelStr);
+        m_previousAlgoModel = model;
 
         ui->paramMaxVisFL->setText(doc.value("MaxVisFL").toString());
         ui->paramMaxIRFL->setText(doc.value("MaxIRFL").toString());
 
         m_currentPipShow = doc.value("PipShow").toInt();
+        m_previousDisplayMode = m_currentPipShow;
 
         // 同步 UI 下拉框到设备当前值，同时抑制信号递归
         m_updatingFromDevice = true;
@@ -817,16 +820,30 @@ QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double
 }
 
 //============================================================================
-// requireConnected - 未连接时在状态栏提示并返回 false
+// requireConnected - 未连接时弹出提示并返回 false
 // 所有需要连接设备才能执行的 UI 操作均应先调用此函数
 //============================================================================
 bool MainWindow::requireConnected()
 {
     if (!m_client->isConnected()) {
-        ui->statusbar->showMessage(QStringLiteral("请连接设备"), 3000);
+        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请连接设备"));
         return false;
     }
     return true;
+}
+
+// 将工作模式单选按钮还原到 m_previousWorkMode（仅用于 requireConnected 失败后回退）
+static void revertRadioMode(QRadioButton* off, QRadioButton* id, QRadioButton* track, int prevWm)
+{
+    off->blockSignals(true);
+    id->blockSignals(true);
+    track->blockSignals(true);
+    if (prevWm == 0)      off->setChecked(true);
+    else if (prevWm == 1) id->setChecked(true);
+    else                  track->setChecked(true);
+    off->blockSignals(false);
+    id->blockSignals(false);
+    track->blockSignals(false);
 }
 
 //============================================================================
@@ -835,9 +852,24 @@ bool MainWindow::requireConnected()
 //   0 = 关闭 AI, 1 = 识别, 2 = 自动跟踪
 // 点选跟踪(3)和框选跟踪(4)由视频框选操作触发
 //============================================================================
-void MainWindow::on_radioModeOff_clicked() { if (!requireConnected()) return; if (m_updatingFromDevice) return; m_device->setWorkMode(0); m_device->queryImageParams(); }
-void MainWindow::on_radioModeIdentify_clicked() { if (!requireConnected()) return; if (m_updatingFromDevice) return; m_device->setWorkMode(1); m_device->queryImageParams(); }
-void MainWindow::on_radioModeAutoTrack_clicked() { if (!requireConnected()) return; if (m_updatingFromDevice) return; m_device->setWorkMode(2); m_device->queryImageParams(); }
+void MainWindow::on_radioModeOff_clicked() {
+    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
+    if (m_updatingFromDevice) return;
+    m_device->setWorkMode(0);
+    m_device->queryImageParams();
+}
+void MainWindow::on_radioModeIdentify_clicked() {
+    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
+    if (m_updatingFromDevice) return;
+    m_device->setWorkMode(1);
+    m_device->queryImageParams();
+}
+void MainWindow::on_radioModeAutoTrack_clicked() {
+    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
+    if (m_updatingFromDevice) return;
+    m_device->setWorkMode(2);
+    m_device->queryImageParams();
+}
 
 //============================================================================
 // on_btnPtzMoveTo_clicked - 云台转到指定角度 (预留功能，暂未实现)
@@ -863,7 +895,7 @@ void MainWindow::on_btnSettings_clicked()
 //============================================================================
 void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 {
-    if (!requireConnected()) return;
+    if (!requireConnected()) { ui->comboAlgoModel->blockSignals(true); ui->comboAlgoModel->setCurrentIndex(m_previousAlgoModel); ui->comboAlgoModel->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
     m_device->setAlgoModel(index);
     m_device->queryImageParams();
@@ -876,7 +908,7 @@ void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
-    if (!requireConnected()) return;
+    if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
     syncLensTargetByDisplayMode(index);
     m_device->setDisplayMode(index);

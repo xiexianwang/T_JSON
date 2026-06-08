@@ -107,6 +107,9 @@ private:
     double m_currentVisZoom;        // 当前可见光镜头倍率（从设备 ZoomInfo 更新）
     double m_currentIrZoom;         // 当前红外镜头倍率
     int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
+    int m_previousWorkMode = 0;     // ZoomInfo 最后上报的 WorkMode
+    int m_previousAlgoModel = 0;    // ZoomInfo 最后上报的 Model
+    int m_previousDisplayMode = 0;  // ZoomInfo 最后上报的 PipShow
     int m_currentResX = 2688;       // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
     int m_currentResY = 1520;       // 当前可见光实际垂直分辨率
     

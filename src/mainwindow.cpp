@@ -1388,6 +1388,17 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
 
     int low = ui->comboAlgoModel->currentIndex() % 10;
     double ref = m_cfg->cam().targetRefSize(low, cls);
+
+    // 跟踪状态 (0xB1/0xB2) 无法通过 Class 查到参考尺寸
+    // → 用算法模型遍历已知 Class 做视觉估算
+    if (ref <= 0 && (cls == 0xB1 || cls == 0xB2)) {
+        static const int fallback[] = {0xA1, 0xA2, 0xA3, 0xA4};
+        for (int fc : fallback) {
+            ref = m_cfg->cam().targetRefSize(low, fc);
+            if (ref > 0) break;
+        }
+    }
+
     if (ref <= 0)
         return dist;
 

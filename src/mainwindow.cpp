@@ -68,9 +68,23 @@ MainWindow::MainWindow(QWidget *parent)
     pipLay->setSpacing(0);
     pipLay->setContentsMargins(0, 0, 0, 0);
     m_pipTitle = new QWidget(m_pipDialog);
-    m_pipTitle->setFixedHeight(20);
+    m_pipTitle->setFixedHeight(22);
     m_pipTitle->setCursor(Qt::OpenHandCursor);
     m_pipTitle->installEventFilter(this);
+    m_pipTitle->setStyleSheet(QStringLiteral(
+        "background-color:#1a1a2e; border-bottom:1px solid #16213e;"
+    ));
+    auto *titleLay = new QHBoxLayout(m_pipTitle);
+    titleLay->setContentsMargins(0, 0, 2, 0);
+    titleLay->addStretch();
+    auto *btnClose = new QPushButton(QStringLiteral("✕"), m_pipTitle);
+    btnClose->setFixedSize(20, 20);
+    btnClose->setCursor(Qt::ArrowCursor);
+    btnClose->setStyleSheet(QStringLiteral(
+        "QPushButton{background:transparent;color:#a0a0b0;border:none;font-size:13px;}"
+        "QPushButton:hover{background:#e74c3c;color:#fff;border-radius:2px;}"
+    ));
+    connect(btnClose, &QPushButton::clicked, this, [this]() { toggleMapMode(); });
     pipLay->addWidget(m_pipTitle);
 
     // MapWidget 工具栏信号 → MainWindow

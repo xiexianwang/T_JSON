@@ -116,6 +116,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_client, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
         Q_UNUSED(maxRetries);
         ui->btnConnect->setText(QString::fromUtf8("重连中(次数:%1)").arg(attempt));
+        ui->btnConnect->setEnabled(true);
         ui->btnConnect->setProperty("state", "reconnecting");
         refreshStyle(ui->btnConnect);
         ui->statusbar->showMessage(QString::fromUtf8("网络波动，正在进行第 %1 次自动探测重连...").arg(attempt));
@@ -288,6 +289,17 @@ void MainWindow::setupUiStyles()
 //============================================================================
 void MainWindow::on_btnConnect_clicked()
 {
+    // 重连中点击 = 取消重连
+    if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
+        m_client->disconnectDevice();
+        ui->btnConnect->setText(QString::fromUtf8("连接设备"));
+        ui->btnConnect->setEnabled(true);
+        ui->btnConnect->setProperty("state", QVariant());
+        refreshStyle(ui->btnConnect);
+        ui->statusbar->showMessage(QString::fromUtf8("已取消重连"), 3000);
+        return;
+    }
+
     if (m_client->isConnected()) {
         m_client->disconnectDevice();
     } else {
@@ -434,10 +446,15 @@ void MainWindow::onSysParamTimerTimeout()
 
 //============================================================================
 // onErrorOccurred - 连接错误处理
-// 弹出消息框显示具体错误，同时恢复按钮初始状态
+// 非重连时弹框显示错误；重连中只在状态栏提示，继续自动重连
 //============================================================================
 void MainWindow::onErrorOccurred(const QString& errorMsg)
 {
+    if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
+        ui->statusbar->showMessage(QString::fromUtf8("重连失败，%1").arg(errorMsg), 3000);
+        return;
+    }
+
     ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", QVariant());

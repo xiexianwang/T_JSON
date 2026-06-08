@@ -242,6 +242,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
         m_device->posReset(checked);
     });
+    connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
+        m_device->callPreset(0);
+    });
 
     //============================================================================
     // 指令日志窗口

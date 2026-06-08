@@ -121,7 +121,7 @@ private:
 
         // 抽稀状态：记录上次实际绘制到地图的点
         double plotLat = 0, plotLon = 0;    // 上次绘制点 GPS
-        double plotHeading = 999;           // 上次绘制段航向角（度），999=未初始化
+        double plotHeading = -1;            // 上次绘制段航向角（度），<0 = 未初始化
         QDateTime plotTime;                 // 上次绘制时间（心跳用）
     };
     TrackState m_track;

@@ -495,7 +495,9 @@ function jsClearFov() {
 }
 
 
-function jsAddTrackPoint(trackId, lat, lon) {
+var trackPtCounters = {}; // 每 trackId 的 FIFO 检查计数器
+
+function jsAddTrackPoint(trackId, lat, lon, speed) {
 
     var ll = [lat, lon];
 
@@ -521,18 +523,28 @@ function jsAddTrackPoint(trackId, lat, lon) {
 
         }).addTo(trackLayers);
 
+        trackPtCounters[trackId] = 0;
+
     }
 
     trackPolylines[trackId].addLatLng(ll);
 
-    // FIFO 上限控制：超出 MAX_TRACK_PTS 时淘汰最早的点
-    var latlngs = trackPolylines[trackId].getLatLngs();
-    if (latlngs.length > MAX_TRACK_PTS) {
-        latlngs.splice(0, latlngs.length - MAX_TRACK_PTS);
-        trackPolylines[trackId].setLatLngs(latlngs);
-    }
-
+    // 端点标记更新位置和 speed 提示
     trackEndMarkers[trackId].setLatLng(ll);
+    trackEndMarkers[trackId].bindTooltip((speed || 0).toFixed(1) + ' m/s', {
+        direction: 'top', offset: [0, -10], permanent: false
+    });
+
+    // FIFO 上限控制：每 50 次新增才做一次 O(n) 裁剪
+    trackPtCounters[trackId] = (trackPtCounters[trackId] || 0) + 1;
+    if (trackPtCounters[trackId] >= 50) {
+        trackPtCounters[trackId] = 0;
+        var latlngs = trackPolylines[trackId].getLatLngs();
+        if (latlngs.length > MAX_TRACK_PTS) {
+            latlngs.splice(0, latlngs.length - MAX_TRACK_PTS);
+            trackPolylines[trackId].setLatLngs(latlngs);
+        }
+    }
 
 }
 
@@ -543,6 +555,8 @@ function jsClearTrack(trackId) {
 
     if (trackEndMarkers[trackId]) { trackLayers.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
 
+    delete trackPtCounters[trackId];
+
 }
 
 
@@ -552,7 +566,7 @@ function jsClearAllTracks() {
 
     Object.keys(trackEndMarkers).forEach(function(id) { trackLayers.removeLayer(trackEndMarkers[id]); });
 
-    trackPolylines = {}; trackEndMarkers = {};
+    trackPolylines = {}; trackEndMarkers = {}; trackPtCounters = {};
 
 }
 

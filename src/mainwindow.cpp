@@ -1072,11 +1072,13 @@ static double bearing(double lat1, double lon1, double lat2, double lon2)
 // 距离 > TRK_MAX_DIST_M  → 画点（长距离抽稀）
 // 航向角偏转 > TRK_HEADING_DIFF_DEG → 画点（转弯机动）
 // 距上次绘制 > TRK_HEARTBEAT_MS    → 画点（心跳保活）
+// outBearing（可选）: 返回计算出的航向角，避免调用处重复计算 bearing()
 static bool shouldPlotTrackPoint(double newLat, double newLon,
                                   double plotLat, double plotLon,
-                                  double plotHeading, const QDateTime& plotTime)
+                                  double plotHeading, const QDateTime& plotTime,
+                                  double* outBearing = nullptr)
 {
-    if (plotHeading > 360) return true; // 首次绘制
+    if (plotHeading < 0) return true; // 首次绘制 / 目标切换
 
     double dist = haversineDistance(plotLat, plotLon, newLat, newLon);
 
@@ -1084,19 +1086,28 @@ static bool shouldPlotTrackPoint(double newLat, double newLon,
     if (dist < TRK_MIN_DIST_M) return false;
 
     // 长距离抽稀
-    if (dist > TRK_MAX_DIST_M) return true;
-
-    // 心跳兜底
-    if (plotTime.isValid()) {
-        qint64 elapsed = plotTime.msecsTo(QDateTime::currentDateTime());
-        if (elapsed >= TRK_HEARTBEAT_MS) return true;
+    if (dist > TRK_MAX_DIST_M) {
+        if (outBearing) *outBearing = bearing(plotLat, plotLon, newLat, newLon);
+        return true;
     }
 
     // 航向角变化
     double head = bearing(plotLat, plotLon, newLat, newLon);
     double diff = qAbs(head - plotHeading);
-    if (diff > 180.0) diff = 360.0 - diff; // 归一化到 [0, 180]
-    if (diff >= TRK_HEADING_DIFF_DEG) return true;
+    if (diff > 180.0) diff = 360.0 - diff;
+    if (diff >= TRK_HEADING_DIFF_DEG) {
+        if (outBearing) *outBearing = head;
+        return true;
+    }
+
+    // 心跳兜底（放在航向之后，避免慢速转向时打多余的心跳点）
+    if (plotTime.isValid()) {
+        qint64 elapsed = plotTime.msecsTo(QDateTime::currentDateTime());
+        if (elapsed >= TRK_HEARTBEAT_MS) {
+            if (outBearing) *outBearing = head;
+            return true;
+        }
+    }
 
     return false;
 }
@@ -1222,16 +1233,17 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                     bool targetChanged = (m_track.id != lockedId);
                     m_track.id = lockedId;
                     if (targetChanged)
-                        m_track.plotHeading = 999;
+                        m_track.plotHeading = -1;
+                    double outBearing = 0;
                     if (shouldPlotTrackPoint(tLat, tLon,
                                              m_track.plotLat, m_track.plotLon,
-                                             m_track.plotHeading, m_track.plotTime)) {
+                                             m_track.plotHeading, m_track.plotTime,
+                                             &outBearing)) {
                         m_mapWidget->appendTrackPoint(lockedId, tLat, tLon, speed);
-                        double b = bearing(m_track.plotLat, m_track.plotLon, tLat, tLon);
                         m_track.plotLat = tLat;
                         m_track.plotLon = tLon;
-                        m_track.plotHeading = b;
                         m_track.plotTime = QDateTime::currentDateTime();
+                        m_track.plotHeading = outBearing;
                     }
                 }
 

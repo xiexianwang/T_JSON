@@ -275,8 +275,6 @@ var irFovLayer = L.semiCircle([0, 0], {
 
 var trackPolylines = {};
 
-var trackEndMarkers = {};
-
 var trackLastTimes = {};
 
 
@@ -297,19 +295,7 @@ var infoPopup = null;
 
 
 
-// ---- 默认图标（用于轨迹端点） ----
 
-var dotIcon = L.divIcon({
-
-    className: '',
-    
-    html: '<div style="background:#44aaff;border:2px solid #fff;border-radius:50%;width:10px;height:10px;box-shadow:0 0 4px rgba(0,100,255,0.5);"></div>',
-    
-    iconSize: [14, 14],
-    
-    iconAnchor: [7, 7]
-
-});
 
 
 
@@ -515,25 +501,11 @@ function jsAddTrackPoint(trackId, lat, lon, speed) {
 
         }).addTo(trackLayers);
 
-        trackEndMarkers[trackId] = L.marker(ll, {
-
-            icon: dotIcon,
-
-            zIndexOffset: 500
-
-        }).addTo(trackLayers);
-
         trackPtCounters[trackId] = 0;
 
     }
 
     trackPolylines[trackId].addLatLng(ll);
-
-    // 端点标记更新位置和 speed 提示
-    trackEndMarkers[trackId].setLatLng(ll);
-    trackEndMarkers[trackId].bindTooltip((speed || 0).toFixed(1) + ' m/s', {
-        direction: 'top', offset: [0, -10], permanent: false
-    });
 
     // FIFO 上限控制：每 50 次新增才做一次 O(n) 裁剪
     trackPtCounters[trackId] = (trackPtCounters[trackId] || 0) + 1;
@@ -553,8 +525,6 @@ function jsClearTrack(trackId) {
 
     if (trackPolylines[trackId]) { trackLayers.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
 
-    if (trackEndMarkers[trackId]) { trackLayers.removeLayer(trackEndMarkers[trackId]); delete trackEndMarkers[trackId]; }
-
     delete trackPtCounters[trackId];
 
 }
@@ -564,9 +534,7 @@ function jsClearAllTracks() {
 
     Object.keys(trackPolylines).forEach(function(id) { trackLayers.removeLayer(trackPolylines[id]); });
 
-    Object.keys(trackEndMarkers).forEach(function(id) { trackLayers.removeLayer(trackEndMarkers[id]); });
-
-    trackPolylines = {}; trackEndMarkers = {}; trackPtCounters = {};
+    trackPolylines = {}; trackPtCounters = {};
 
 }
 
@@ -581,7 +549,8 @@ function jsUpdateTargets(jsonStr) {
 
         var ll = [t.lat, t.lon];
 
-        var color = t.locked ? '#00ff00' : '#ff4444';
+        var markerColor = '#44aaff';                // 跟踪点始终蓝色不透明
+        var color = t.locked ? '#00ff00' : '#ff4444'; // BBox 保持绿/红区分锁定
 
         currentIds[t.id] = true;
 
@@ -589,17 +558,19 @@ function jsUpdateTargets(jsonStr) {
 
             targetMarkers[t.id].setLatLng(ll);
 
-            targetMarkers[t.id].setStyle({ fillColor: color });
+            targetMarkers[t.id].setStyle({ fillColor: markerColor });
 
             targetMarkers[t.id]._targetDist = t.dist;
 
             targetMarkers[t.id]._targetCls = t.cls;
 
+            targetMarkers[t.id]._targetSpeed = t.speed || 0;
+
         } else {
 
             var m = L.circleMarker(ll, {
 
-                radius: 6, fillColor: color, fillOpacity: 0.5, color: '#fff', weight: 1
+                radius: 6, fillColor: markerColor, fillOpacity: 1.0, color: '#fff', weight: 1
 
             }).addTo(targetLayers);
 
@@ -609,6 +580,8 @@ function jsUpdateTargets(jsonStr) {
 
             m._targetDist = t.dist;
 
+            m._targetSpeed = t.speed || 0;
+
             m.on('click', function(e) {
 
                 if (infoPopup) map.closePopup(infoPopup);
@@ -617,7 +590,9 @@ function jsUpdateTargets(jsonStr) {
 
                     '<div>Class: ' + m._targetCls + '</div>' +
 
-                    '<div>Dist: ' + (m._targetDist || '-') + 'm</div>';
+                    '<div>Dist: ' + (m._targetDist || '-') + 'm</div>' +
+
+                    '<div>Speed: ' + (m._targetSpeed || 0).toFixed(1) + ' m/s</div>';
 
                 if (t.bbox) {
 

@@ -1255,6 +1255,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 t[QStringLiteral("lat")] = tLat;
                 t[QStringLiteral("lon")] = tLon;
                 t[QStringLiteral("locked")] = true;
+                t[QStringLiteral("speed")] = speed;
 
                 QJsonArray bbox;
                 double bLat, bLon;
@@ -1315,6 +1316,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 t[QStringLiteral("lat")] = m_track.lat;
                 t[QStringLiteral("lon")] = m_track.lon;
                 t[QStringLiteral("locked")] = false;
+                t[QStringLiteral("speed")] = 0;
                 targetArr.append(t);
                 m_mapWidget->updateTargetMarkers(targetArr);
             }

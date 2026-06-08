@@ -152,8 +152,8 @@ MainWindow::MainWindow(QWidget *parent)
     // 八个按钮分别对应 Up/Down/Left/Right 及四个对角线方向
     //============================================================================
     auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
-        connect(btn, &QPushButton::pressed, this, [this, dir]() { m_device->ptzMove(dir); });
-        connect(btn, &QPushButton::released, this, [this]() { m_device->ptzStop(); });
+        connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_device->ptzMove(dir); });
+        connect(btn, &QPushButton::released, this, [this]() { if (!m_client->isConnected()) return; m_device->ptzStop(); });
     };
 
     connectPtzBtn(ui->btnPtzUp, PtzDir::Up);
@@ -189,13 +189,14 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     auto connectLensBtn = [this](QPushButton* btn, int op) {
         connect(btn, &QPushButton::pressed, this, [this, op]() {
+            if (!requireConnected()) return;
             int t = ui->comboLensTarget->currentIndex();
             if (op == 0) m_device->lensZoomIn(t);
             else if (op == 1) m_device->lensZoomOut(t);
             else if (op == 2) m_device->lensFocusIn(t);
             else m_device->lensFocusOut(t);
         });
-        connect(btn, &QPushButton::released, this, [this]() { m_device->lensStop(); });
+        connect(btn, &QPushButton::released, this, [this]() { if (!m_client->isConnected()) return; m_device->lensStop(); });
     };
 
     connectLensBtn(ui->btnZoomIn, 0);
@@ -231,12 +232,15 @@ MainWindow::MainWindow(QWidget *parent)
     // 通过 spinPreset 选择预置位编号，调用 DeviceController 中的协议封装
     //============================================================================
     connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
+        if (!requireConnected()) return;
         m_device->callPreset(ui->spinPreset->value());
     });
     connect(ui->btnSetPreset, &QPushButton::clicked, this, [this]() {
+        if (!requireConnected()) return;
         m_device->setPreset(ui->spinPreset->value());
     });
     connect(ui->btnDelPreset, &QPushButton::clicked, this, [this]() {
+        if (!requireConnected()) return;
         m_device->delPreset(ui->spinPreset->value());
     });
 
@@ -245,18 +249,23 @@ MainWindow::MainWindow(QWidget *parent)
     // 每个 CheckBox 直连对应的设备指令
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!requireConnected()) return;
         m_device->setDigitalZoom(checked);
     });
     connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!requireConnected()) return;
         m_device->setAutoZoom(checked);
     });
     connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!requireConnected()) return;
         m_device->setCaptureUpload(checked);
     });
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!requireConnected()) return;
         m_device->posReset(checked);
     });
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
+        if (!requireConnected()) return;
         m_device->callPreset(0);
     });
 
@@ -406,6 +415,7 @@ void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
         QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
             .arg(cx).arg(cy).arg(pw).arg(ph));
 
+    if (!requireConnected()) return;
     m_device->setBoxTrack(cx, cy, pw, ph);
 }
 
@@ -807,14 +817,27 @@ QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double
 }
 
 //============================================================================
+// requireConnected - 未连接时在状态栏提示并返回 false
+// 所有需要连接设备才能执行的 UI 操作均应先调用此函数
+//============================================================================
+bool MainWindow::requireConnected()
+{
+    if (!m_client->isConnected()) {
+        ui->statusbar->showMessage(QStringLiteral("请连接设备"), 3000);
+        return false;
+    }
+    return true;
+}
+
+//============================================================================
 // on_radioModeOff_clicked / on_radioModeIdentify_clicked / on_radioModeAutoTrack_clicked
 // 工作模式单选按钮：直接调用 DeviceController 切换设备工作模式
 //   0 = 关闭 AI, 1 = 识别, 2 = 自动跟踪
 // 点选跟踪(3)和框选跟踪(4)由视频框选操作触发
 //============================================================================
-void MainWindow::on_radioModeOff_clicked() { if (m_updatingFromDevice) return; m_device->setWorkMode(0); m_device->queryImageParams(); }
-void MainWindow::on_radioModeIdentify_clicked() { if (m_updatingFromDevice) return; m_device->setWorkMode(1); m_device->queryImageParams(); }
-void MainWindow::on_radioModeAutoTrack_clicked() { if (m_updatingFromDevice) return; m_device->setWorkMode(2); m_device->queryImageParams(); }
+void MainWindow::on_radioModeOff_clicked() { if (!requireConnected()) return; if (m_updatingFromDevice) return; m_device->setWorkMode(0); m_device->queryImageParams(); }
+void MainWindow::on_radioModeIdentify_clicked() { if (!requireConnected()) return; if (m_updatingFromDevice) return; m_device->setWorkMode(1); m_device->queryImageParams(); }
+void MainWindow::on_radioModeAutoTrack_clicked() { if (!requireConnected()) return; if (m_updatingFromDevice) return; m_device->setWorkMode(2); m_device->queryImageParams(); }
 
 //============================================================================
 // on_btnPtzMoveTo_clicked - 云台转到指定角度 (预留功能，暂未实现)
@@ -840,6 +863,7 @@ void MainWindow::on_btnSettings_clicked()
 //============================================================================
 void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 {
+    if (!requireConnected()) return;
     if (m_updatingFromDevice) return;
     m_device->setAlgoModel(index);
     m_device->queryImageParams();
@@ -852,6 +876,7 @@ void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
+    if (!requireConnected()) return;
     if (m_updatingFromDevice) return;
     syncLensTargetByDisplayMode(index);
     m_device->setDisplayMode(index);
@@ -881,6 +906,7 @@ void MainWindow::on_btnSetLocation_clicked()
         return;
     }
 
+    if (!requireConnected()) return;
     m_device->setLocation(lat, lon);
     ui->statusbar->showMessage(QString::fromUtf8("已下发经纬度"), 3000);
 }
@@ -891,6 +917,7 @@ void MainWindow::on_btnSetLocation_clicked()
 //============================================================================
 void MainWindow::on_btnGetImageParams_clicked()
 {
+    if (!requireConnected()) return;
     m_device->queryImageParams();
     ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }

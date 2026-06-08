@@ -139,6 +139,7 @@ private:
     void updateMapLayout();                         // 更新地图尺寸和位置
 
     // ── 私有工具方法 ──
+    bool requireConnected();                        // 未连接时弹出状态栏提示并返回 false
     void setupUiStyles();                           // 加载并应用 QSS 样式表
     void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI
     void syncLensTargetByDisplayMode(int pipShow);  // 根据显示模式同步镜头目标选择

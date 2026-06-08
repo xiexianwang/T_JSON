@@ -319,6 +319,7 @@ function reorderLayers() {
         if (deviceLayers.hasLayer(irCircle)) irCircle.bringToFront();
         if (fovLayers.hasLayer(irFovLayer)) irFovLayer.bringToFront();
         if (deviceLayers.hasLayer(deviceMarker)) deviceMarker.bringToFront();
+        targetLayers.bringToFront();
 
     });
 
@@ -577,7 +578,7 @@ function jsUpdateTargets(jsonStr) {
 
                 radius: 10, fillColor: markerColor, fillOpacity: 1.0, color: '#fff', weight: 1
 
-            }).addTo(targetLayers);
+            }).addTo(targetLayers).bringToFront();
 
             m._targetId = t.id;
 

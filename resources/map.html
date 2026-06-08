@@ -60,7 +60,9 @@ html, body { width:100%; height:100%; background:transparent !important; font-fa
 // ---- 全局常量 ----
 // ======================================================================
 
-var MAX_TRACK_PTS = 2000;   // 每条轨迹最大点数，超出时 FIFO 淘汰最早点
+var MAX_SEGMENTS = 500;     // 最大色段数，超出后裁剪旧段
+var ARROW_INTERVAL = 5;     // 每 N 段加一个方向箭头
+var VECTOR_FACTOR = 0.00015; // 速度矢量系数 (度/m/s)，长度 = speed × 系数
 
 // ======================================================================
 
@@ -271,11 +273,9 @@ var irFovLayer = L.semiCircle([0, 0], {
 
 
 
-// ---- 轨迹容器 ----
+// ---- 轨迹数据（每 trackId 独立存储色段、箭头、矢量线） ----
 
-var trackPolylines = {};
-
-var trackLastTimes = {};
+var trackData = {};
 
 
 
@@ -488,60 +488,107 @@ function jsClearFov() {
 }
 
 
-var trackPtCounters = {}; // 每 trackId 的 FIFO 检查计数器
+// ── 辅助函数 ──────────────────────────────────────────
+
+function speedToColor(speed) {
+    var t = Math.min(Math.max(speed / 5.0, 0), 1.0);
+    var r, g, b;
+    if (t < 0.5) {
+        var s = t * 2;      // 0→1
+        r = Math.round(255 * s);
+        g = 255;
+    } else {
+        var s = (t - 0.5) * 2;
+        r = 255;
+        g = Math.round(255 * (1 - s));
+    }
+    return 'rgb(' + r + ',' + g + ',0)';
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+    var x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// ── 轨迹点 ──────────────────────────────────────────
 
 function jsAddTrackPoint(trackId, lat, lon, speed) {
 
-    var ll = [lat, lon];
+    if (!trackData[trackId]) {
+        trackData[trackId] = { prevLat: null, prevLon: null, segments: [], arrows: [], arrowCount: 0, vectorLine: null, updateLat: null, updateLon: null };
+    }
 
-    if (!trackPolylines[trackId]) {
+    var td = trackData[trackId];
 
-        trackPolylines[trackId] = L.polyline([], {
+    // 第一点：只存不画
+    if (td.prevLat === null) {
+        td.prevLat = lat;
+        td.prevLon = lon;
+        return;
+    }
 
-            color: '#ff4444',
+    // 色段：相邻两点连线，颜色按速度渐变
+    var color = speedToColor(speed);
+    var opacity = Math.max(0.25, 0.9 - td.segments.length * 0.0015);
 
-            weight: 3,
+    var seg = L.polyline([[td.prevLat, td.prevLon], [lat, lon]], {
+        color: color, weight: 3, opacity: opacity,
+        smoothFactor: 1.5, interactive: false
+    }).addTo(trackLayers);
 
-            opacity: 0.8,
+    td.segments.push(seg);
 
-            smoothFactor: 1.5
-
+    // 方向箭头（每 ARROW_INTERVAL 段画一个三角形）
+    td.arrowCount++;
+    if (td.arrowCount % ARROW_INTERVAL === 0) {
+        var midLat = (td.prevLat + lat) / 2;
+        var midLon = (td.prevLon + lon) / 2;
+        var brng = bearing(td.prevLat, td.prevLon, lat, lon);
+        var aSize = 0.00015;
+        var br = brng * Math.PI / 180;
+        var tip = [midLat + aSize * 2 * Math.cos(br), midLon + aSize * 2 * Math.sin(br) / Math.cos(midLat * Math.PI / 180)];
+        var bl = [midLat + aSize * Math.cos(br + 2.5), midLon + aSize * Math.sin(br + 2.5) / Math.cos(midLat * Math.PI / 180)];
+        var br2 = [midLat + aSize * Math.cos(br - 2.5), midLon + aSize * Math.sin(br - 2.5) / Math.cos(midLat * Math.PI / 180)];
+        var arrow = L.polygon([tip, bl, br2], {
+            color: color, fillColor: color, fillOpacity: 0.8, weight: 1, interactive: false
         }).addTo(trackLayers);
-
-        trackPtCounters[trackId] = 0;
-
+        td.arrows.push(arrow);
     }
 
-    trackPolylines[trackId].addLatLng(ll);
+    td.prevLat = lat;
+    td.prevLon = lon;
 
-    // FIFO 上限控制：每 50 次新增才做一次 O(n) 裁剪
-    trackPtCounters[trackId] = (trackPtCounters[trackId] || 0) + 1;
-    if (trackPtCounters[trackId] >= 50) {
-        trackPtCounters[trackId] = 0;
-        var latlngs = trackPolylines[trackId].getLatLngs();
-        if (latlngs.length > MAX_TRACK_PTS) {
-            latlngs.splice(0, latlngs.length - MAX_TRACK_PTS);
-            trackPolylines[trackId].setLatLngs(latlngs);
-        }
+    // FIFO 裁剪
+    while (td.segments.length > MAX_SEGMENTS) {
+        trackLayers.removeLayer(td.segments.shift());
     }
-
+    var maxArrows = Math.floor(MAX_SEGMENTS / ARROW_INTERVAL) + 5;
+    while (td.arrows.length > maxArrows) {
+        trackLayers.removeLayer(td.arrows.shift());
+    }
 }
 
 
 function jsClearTrack(trackId) {
 
-    if (trackPolylines[trackId]) { trackLayers.removeLayer(trackPolylines[trackId]); delete trackPolylines[trackId]; }
-
-    delete trackPtCounters[trackId];
+    if (trackData[trackId]) {
+        trackData[trackId].segments.forEach(function(s) { trackLayers.removeLayer(s); });
+        trackData[trackId].arrows.forEach(function(a) { trackLayers.removeLayer(a); });
+        if (trackData[trackId].vectorLine) trackLayers.removeLayer(trackData[trackId].vectorLine);
+        delete trackData[trackId];
+    }
 
 }
 
 
 function jsClearAllTracks() {
 
-    Object.keys(trackPolylines).forEach(function(id) { trackLayers.removeLayer(trackPolylines[id]); });
+    Object.keys(trackData).forEach(function(id) { jsClearTrack(id); });
 
-    trackPolylines = {}; trackPtCounters = {};
+    trackData = {};
 
 }
 
@@ -621,6 +668,33 @@ function jsUpdateTargets(jsonStr) {
 
         }
 
+        // 速度矢量线（从当前位置沿运动方向延伸，长度 ∝ 速度）
+        if (!trackData[t.id]) trackData[t.id] = { prevLat: null, prevLon: null, segments: [], arrows: [], arrowCount: 0, vectorLine: null, updateLat: null, updateLon: null };
+        var td = trackData[t.id];
+        if (td.updateLat !== null && td.updateLon !== null) {
+            var brng = bearing(td.updateLat, td.updateLon, t.lat, t.lon);
+            var speed = t.speed || 0;
+            var vecLen = speed * VECTOR_FACTOR;
+            if (vecLen > 0.00001) {
+                var br = brng * Math.PI / 180;
+                var endLat = t.lat + vecLen * Math.cos(br);
+                var endLon = t.lon + vecLen * Math.sin(br) / Math.cos(t.lat * Math.PI / 180);
+                if (td.vectorLine) {
+                    td.vectorLine.setLatLngs([[t.lat, t.lon], [endLat, endLon]]);
+                } else {
+                    td.vectorLine = L.polyline([[t.lat, t.lon], [endLat, endLon]], {
+                        color: '#ffff00', weight: 2, opacity: 0.8,
+                        dashArray: '4, 4', interactive: false
+                    }).addTo(trackLayers);
+                }
+            } else if (td.vectorLine) {
+                trackLayers.removeLayer(td.vectorLine);
+                td.vectorLine = null;
+            }
+        }
+        td.updateLat = t.lat;
+        td.updateLon = t.lon;
+
         if (t.bbox && t.bbox.length >= 4) {
 
             var valid = t.bbox.filter(function(p) { return p[0] !== 0 && p[1] !== 0; });
@@ -660,6 +734,8 @@ function jsUpdateTargets(jsonStr) {
                 delete targetBboxes[id];
 
             }
+
+            if (trackData[id]) jsClearTrack(id);
 
         }
 

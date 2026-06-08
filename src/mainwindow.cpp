@@ -752,6 +752,10 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         if (pipShow >= 0 && pipShow < ui->comboDisplayMode->count())
             ui->comboDisplayMode->setCurrentIndex(pipShow);
         syncLensTargetByDisplayMode(pipShow);
+        // 同步工作模式单选按钮
+        if (wm == 0)      ui->radioModeOff->setChecked(true);
+        else if (wm == 1) ui->radioModeIdentify->setChecked(true);
+        else if (wm >= 2) ui->radioModeAutoTrack->setChecked(true);
         m_updatingFromDevice = false;
     }
 }
@@ -808,9 +812,9 @@ QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double
 //   0 = 关闭 AI, 1 = 识别, 2 = 自动跟踪
 // 点选跟踪(3)和框选跟踪(4)由视频框选操作触发
 //============================================================================
-void MainWindow::on_radioModeOff_clicked() { m_device->setWorkMode(0); m_device->queryImageParams(); }
-void MainWindow::on_radioModeIdentify_clicked() { m_device->setWorkMode(1); m_device->queryImageParams(); }
-void MainWindow::on_radioModeAutoTrack_clicked() { m_device->setWorkMode(2); m_device->queryImageParams(); }
+void MainWindow::on_radioModeOff_clicked() { if (m_updatingFromDevice) return; m_device->setWorkMode(0); m_device->queryImageParams(); }
+void MainWindow::on_radioModeIdentify_clicked() { if (m_updatingFromDevice) return; m_device->setWorkMode(1); m_device->queryImageParams(); }
+void MainWindow::on_radioModeAutoTrack_clicked() { if (m_updatingFromDevice) return; m_device->setWorkMode(2); m_device->queryImageParams(); }
 
 //============================================================================
 // on_btnPtzMoveTo_clicked - 云台转到指定角度 (预留功能，暂未实现)

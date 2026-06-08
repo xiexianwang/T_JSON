@@ -1493,6 +1493,7 @@ void MainWindow::updateMapLayout()
         // 视频移至独立 PiP 对话框
         ui->videoWidget->setParent(m_pipDialog);
         m_pipDialog->layout()->addWidget(ui->videoWidget);
+        m_pipPos = QPoint(8, ps.height() - 200 - 8);
         m_pipDialog->move(m_pipPos);
         m_pipDialog->show();
         ui->videoWidget->setVisible(true);

@@ -547,7 +547,7 @@ function jsAddTrackPoint(trackId, lat, lon, speed) {
         var midLat = (td.prevLat + lat) / 2;
         var midLon = (td.prevLon + lon) / 2;
         var brng = bearing(td.prevLat, td.prevLon, lat, lon);
-        var aSize = 0.00015;
+        var aSize = 0.000075;
         var br = brng * Math.PI / 180;
         var tip = [midLat + aSize * 2 * Math.cos(br), midLon + aSize * 2 * Math.sin(br) / Math.cos(midLat * Math.PI / 180)];
         var bl = [midLat + aSize * Math.cos(br + 2.5), midLon + aSize * Math.sin(br + 2.5) / Math.cos(midLat * Math.PI / 180)];

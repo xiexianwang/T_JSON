@@ -590,9 +590,12 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 ui->lblTrackStatus->setProperty("state", locked ? "locked" : "missed");
                 refreshStyle(ui->lblTrackStatus);
 
-                if (obj.contains("Distance"))
-                    ui->trackDistance->setText(QString::number(obj.value("Distance").toDouble(), 'f', 1));
-                else
+                if (obj.contains("Distance")) {
+                    double rawDist = obj.value("Distance").toDouble(0);
+                    if (rawDist > 0)
+                        ui->trackDistance->setText(QString::number(rawDist, 'f', 1));
+                    // rawDist==0: 保留 calcVisualDistance 设置的估算值
+                } else
                     ui->trackDistance->clear();
 
                 if (obj.contains("Points")) {
@@ -644,7 +647,17 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         ui->statLatitude->setText(doc.value("Latitude").toString());
         ui->statLongitude->setText(doc.value("Longitude").toString());
         ui->statHeight->setText(QString::number(doc.value("Height").toDouble(), 'f', 1));
-        ui->statDistance->setText(QString::number(doc.value("LaserRange").toDouble(), 'f', 1));
+        {
+            double laserRange = doc.value("LaserRange").toDouble(0);
+            if (laserRange > 0) {
+                ui->statDistance->setText(QString::number(laserRange, 'f', 1));
+            } else if (m_lastAiDist > 0) {
+                QString est = m_lastAiDistEstimated ? QStringLiteral(" (估算)") : QString();
+                ui->statDistance->setText(QString::number(m_lastAiDist, 'f', 1) + est);
+            } else {
+                ui->statDistance->setText(QStringLiteral("--"));
+            }
+        }
         ui->statPanAngle->setText(QString::number(doc.value("PTZInfoH").toDouble(), 'f', 1));
         ui->statTiltAngle->setText(QString::number(doc.value("PTZInfoV").toDouble(), 'f', 1));
 
@@ -893,7 +906,11 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     double pan = doc.value("PTZInfoH").toDouble(0);
     double tilt = doc.value("PTZInfoV").toDouble(0);
     double range = doc.value("LaserRange").toDouble(0);
-    if (range <= 0) range = 4000;
+    bool rangeEstimated = false;
+    if (range <= 0) {
+        range = m_lastAiDist;
+        rangeEstimated = m_lastAiDistEstimated;
+    }
 
     qDebug() << "[MapPos] raw:" << latStr << lonStr << "parsed:" << lat << lon;
     if (lat == 0 && lon == 0) return;
@@ -916,7 +933,7 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     // 可见光视场角 4km（蓝色），红外视场角 2km（红色）
     m_mapWidget->setVisFov(lat, lon, pan, tilt, visHfov, visVfov, 4000);
     m_mapWidget->setIrFov(lat, lon, pan, tilt, irHfov, irVfov, 2000);
-    m_mapWidget->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range);
+    m_mapWidget->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range, rangeEstimated);
 }
 
 //============================================================================
@@ -1204,6 +1221,10 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             double tLat = 0, tLon = 0;
 
             dist = calcVisualDistance(lockedObj, cls, true);
+
+            // 缓存 AI 目标距离（用于 ZoomInfo 无激光测距时回退）
+            m_lastAiDist = dist;
+            m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
 
             if (lockedObj.contains("Points")) {
                 QJsonObject pts = lockedObj.value("Points").toObject();

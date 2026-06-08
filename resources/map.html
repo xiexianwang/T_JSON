@@ -174,12 +174,12 @@ applyTiles(tdtDetailLevel, true);
 
 var firstCentered = false;
 
-// ---- 图层分组（按类别显隐控制，从底到顶：track→target→fov→device） ----
+// ---- 图层分组（从底到顶：track→fov→device→target） ----
 
 var trackLayers = L.featureGroup().addTo(map);
-var targetLayers = L.featureGroup().addTo(map);
 var fovLayers = L.featureGroup().addTo(map);
 var deviceLayers = L.featureGroup().addTo(map);
+var targetLayers = L.featureGroup().addTo(map);
 
 
 
@@ -407,13 +407,18 @@ function jsSetDetailLevel(level) {
     applyTiles(level, isSatellite);
 }
 
-function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range) {
+function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range, estimated) {
 
     document.getElementById('infoLatLon').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
 
     document.getElementById('infoAlt').textContent = alt > 0 ? alt.toFixed(1) + ' m' : '--';
 
-    document.getElementById('infoRange').textContent = range > 0 ? range.toFixed(0) + ' m' : '--';
+    var rangeText = '--';
+    if (range > 0) {
+        rangeText = range.toFixed(0) + ' m';
+        if (estimated) rangeText += ' (估算)';
+    }
+    document.getElementById('infoRange').textContent = rangeText;
 
     document.getElementById('infoPan').textContent = pan.toFixed(1) + '\u00B0';
 
@@ -570,7 +575,7 @@ function jsUpdateTargets(jsonStr) {
 
             var m = L.circleMarker(ll, {
 
-                radius: 6, fillColor: markerColor, fillOpacity: 1.0, color: '#fff', weight: 1
+                radius: 10, fillColor: markerColor, fillOpacity: 1.0, color: '#fff', weight: 1
 
             }).addTo(targetLayers);
 

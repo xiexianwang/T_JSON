@@ -28,7 +28,8 @@ public:
                   double hfovDeg, double vfovDeg, double rangeM);
     void clearFov();
     void setDeviceInfo(double lat, double lon, double alt, double pan,
-                       double tilt, double hfov, double vfov, double range);
+                        double tilt, double hfov, double vfov, double range,
+                        bool estimated = false);
     void setDeviceInfoVisible(bool visible);
     void appendTrackPoint(const QString& trackId, double lat, double lon, double speed = 0);
     void clearTrack(const QString& trackId);

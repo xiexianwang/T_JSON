@@ -113,13 +113,15 @@ void MapWidget::setDevicePosition(double lat, double lon)
 }
 
 void MapWidget::setDeviceInfo(double lat, double lon, double alt, double pan,
-                               double tilt, double hfov, double vfov, double range)
+                               double tilt, double hfov, double vfov, double range,
+                               bool estimated)
 {
-    runJS(QStringLiteral("jsSetDeviceInfo(%1,%2,%3,%4,%5,%6,%7,%8)")
+    runJS(QStringLiteral("jsSetDeviceInfo(%1,%2,%3,%4,%5,%6,%7,%8,%9)")
           .arg(lat, 0, 'f', 6).arg(lon, 0, 'f', 6)
           .arg(alt, 0, 'f', 1).arg(pan, 0, 'f', 1)
           .arg(tilt, 0, 'f', 1).arg(hfov, 0, 'f', 1)
-          .arg(vfov, 0, 'f', 1).arg(range, 0, 'f', 0));
+          .arg(vfov, 0, 'f', 1).arg(range, 0, 'f', 0)
+          .arg(estimated ? QStringLiteral("true") : QStringLiteral("false")));
 }
 
 void MapWidget::setVisFov(double lat, double lon, double panDeg, double tiltDeg,

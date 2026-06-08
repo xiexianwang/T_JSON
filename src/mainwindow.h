@@ -126,6 +126,10 @@ private:
     };
     TrackState m_track;
 
+    // ── AI 目标距离缓存（用于 ZoomInfo 无激光测距时回退显示） ──
+    double m_lastAiDist = 0;            // 最近一次 AIInfo 目标距离（估算或激光）
+    bool m_lastAiDistEstimated = false; // true 表示该距离来自视觉估算
+
     // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
     QTimer *m_sysParamTimer;
 

@@ -590,6 +590,14 @@ function jsClearAllTracks() {
 
 }
 
+function buildContent(t) {
+    var h = '<div><b>' + (t.id || '') + '</b></div>' +
+            '<div>Dist: ' + (t.dist > 0 ? t.dist.toFixed(1) + 'm' : '-') + '</div>' +
+            '<div>Speed: ' + (t.speed || 0).toFixed(1) + ' m/s</div>';
+    if (t.bbox) h += '<div>BBox: ' + t.bbox.length + ' pts</div>';
+    return h;
+}
+
 
 function jsUpdateTargets(jsonStr) {
 
@@ -618,6 +626,10 @@ function jsUpdateTargets(jsonStr) {
 
             targetMarkers[t.id]._targetSpeed = t.speed || 0;
 
+            if (targetMarkers[t.id].isPopupOpen()) {
+                targetMarkers[t.id].setPopupContent(buildContent(t));
+            }
+
         } else {
 
             var m = L.circleMarker(ll, {
@@ -634,33 +646,7 @@ function jsUpdateTargets(jsonStr) {
 
             m._targetSpeed = t.speed || 0;
 
-            m.on('click', function(e) {
-
-                if (infoPopup) map.closePopup(infoPopup);
-
-                var content = '<div><b>' + m._targetId + '</b></div>' +
-
-                    '<div>Class: ' + m._targetCls + '</div>' +
-
-                    '<div>Dist: ' + (m._targetDist || '-') + 'm</div>' +
-
-                    '<div>Speed: ' + (m._targetSpeed || 0).toFixed(1) + ' m/s</div>';
-
-                if (t.bbox) {
-
-                    content += '<div>BBox: ' + t.bbox.length + ' pts</div>';
-
-                }
-
-                infoPopup = L.popup({ offset: [0, -10] })
-
-                    .setLatLng(e.latlng)
-
-                    .setContent(content)
-
-                    .openOn(map);
-
-            });
+            m.bindPopup(buildContent(t), { offset: [0, -10] });
 
             targetMarkers[t.id] = m;
 

@@ -61,7 +61,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_mapOverlay->installEventFilter(this);
 
     // PiP 独立对话框：大地图时视频显示于此
-    m_pipDialog = new QDialog(nullptr, Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
+    m_pipDialog = new QDialog(this, Qt::FramelessWindowHint | Qt::Tool);
     m_pipDialog->setAttribute(Qt::WA_ShowWithoutActivating);
     m_pipDialog->setFixedSize(320, 200);
     auto *pipLay = new QVBoxLayout(m_pipDialog);

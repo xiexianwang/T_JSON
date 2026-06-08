@@ -84,7 +84,7 @@ MainWindow::MainWindow(QWidget *parent)
         "QPushButton{background:transparent;color:#a0a0b0;border:none;font-size:13px;}"
         "QPushButton:hover{background:#e74c3c;color:#fff;border-radius:2px;}"
     ));
-    connect(btnClose, &QPushButton::clicked, this, [this]() { toggleMapMode(); });
+    connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
 
     // MapWidget 工具栏信号 → MainWindow

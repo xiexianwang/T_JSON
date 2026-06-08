@@ -60,9 +60,8 @@ html, body { width:100%; height:100%; background:transparent !important; font-fa
 // ---- 全局常量 ----
 // ======================================================================
 
-var MAX_SEGMENTS = 500;     // 最大色段数，超出后裁剪旧段
-var ARROW_INTERVAL = 5;     // 每 N 段加一个方向箭头
-var VECTOR_FACTOR = 0.00015; // 速度矢量系数 (度/m/s)，长度 = speed × 系数
+var MAX_SEGMENTS = 200;     // 最大色段数，超出后裁剪旧段
+var ARROW_INTERVAL = 10;    // 每 N 段加一个方向箭头
 
 // ======================================================================
 
@@ -518,7 +517,7 @@ function bearing(lat1, lon1, lat2, lon2) {
 function jsAddTrackPoint(trackId, lat, lon, speed) {
 
     if (!trackData[trackId]) {
-        trackData[trackId] = { prevLat: null, prevLon: null, segments: [], arrows: [], arrowCount: 0, vectorLine: null, updateLat: null, updateLon: null };
+        trackData[trackId] = { prevLat: null, prevLon: null, segments: [], arrows: [], arrowCount: 0 };
     }
 
     var td = trackData[trackId];
@@ -577,7 +576,6 @@ function jsClearTrack(trackId) {
     if (trackData[trackId]) {
         trackData[trackId].segments.forEach(function(s) { trackLayers.removeLayer(s); });
         trackData[trackId].arrows.forEach(function(a) { trackLayers.removeLayer(a); });
-        if (trackData[trackId].vectorLine) trackLayers.removeLayer(trackData[trackId].vectorLine);
         delete trackData[trackId];
     }
 
@@ -667,33 +665,6 @@ function jsUpdateTargets(jsonStr) {
             targetMarkers[t.id] = m;
 
         }
-
-        // 速度矢量线（从当前位置沿运动方向延伸，长度 ∝ 速度）
-        if (!trackData[t.id]) trackData[t.id] = { prevLat: null, prevLon: null, segments: [], arrows: [], arrowCount: 0, vectorLine: null, updateLat: null, updateLon: null };
-        var td = trackData[t.id];
-        if (td.updateLat !== null && td.updateLon !== null) {
-            var brng = bearing(td.updateLat, td.updateLon, t.lat, t.lon);
-            var speed = t.speed || 0;
-            var vecLen = speed * VECTOR_FACTOR;
-            if (vecLen > 0.00001) {
-                var br = brng * Math.PI / 180;
-                var endLat = t.lat + vecLen * Math.cos(br);
-                var endLon = t.lon + vecLen * Math.sin(br) / Math.cos(t.lat * Math.PI / 180);
-                if (td.vectorLine) {
-                    td.vectorLine.setLatLngs([[t.lat, t.lon], [endLat, endLon]]);
-                } else {
-                    td.vectorLine = L.polyline([[t.lat, t.lon], [endLat, endLon]], {
-                        color: '#ffff00', weight: 2, opacity: 0.8,
-                        dashArray: '4, 4', interactive: false
-                    }).addTo(trackLayers);
-                }
-            } else if (td.vectorLine) {
-                trackLayers.removeLayer(td.vectorLine);
-                td.vectorLine = null;
-            }
-        }
-        td.updateLat = t.lat;
-        td.updateLon = t.lon;
 
         if (t.bbox && t.bbox.length >= 4) {
 

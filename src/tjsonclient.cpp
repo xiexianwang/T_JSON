@@ -192,12 +192,15 @@ void TJsonClient::onSocketDisconnected()
 }
 
 // Socket 错误处理
-// 如果 Socket 已断开则触发自动重连
+// 自动重连启用时静默重试（不弹窗）；否则转发错误通知 UI
 void TJsonClient::onSocketError(QAbstractSocket::SocketError)
 {
-    emit errorOccurred(m_socket->errorString());  // 转发错误信息
-    if (m_socket->state() == QAbstractSocket::UnconnectedState) {
-        handleReconnect();                      // Socket 已断开，尝试重连
+    if (m_autoReconnectEnabled) {
+        if (m_socket->state() == QAbstractSocket::UnconnectedState) {
+            handleReconnect();
+        }
+    } else {
+        emit errorOccurred(m_socket->errorString());
     }
 }
 

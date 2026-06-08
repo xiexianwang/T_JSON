@@ -116,9 +116,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_client, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
         Q_UNUSED(maxRetries);
         ui->btnConnect->setText(QString::fromUtf8("重连中(次数:%1)").arg(attempt));
-        ui->btnConnect->setEnabled(true);
+        ui->btnConnect->setEnabled(false);
         ui->btnConnect->setProperty("state", "reconnecting");
         refreshStyle(ui->btnConnect);
+        ui->btnCancelConnect->setVisible(true);
         ui->statusbar->showMessage(QString::fromUtf8("网络波动，正在进行第 %1 次自动探测重连...").arg(attempt));
     });
     // 重连失败：恢复按钮初始状态
@@ -127,6 +128,7 @@ MainWindow::MainWindow(QWidget *parent)
         ui->btnConnect->setEnabled(true);
         ui->btnConnect->setProperty("state", QVariant());
         refreshStyle(ui->btnConnect);
+        ui->btnCancelConnect->setVisible(false);
         ui->statusbar->showMessage(QString::fromUtf8("重连失败，已放弃连接"), 5000);
     });
 
@@ -289,17 +291,6 @@ void MainWindow::setupUiStyles()
 //============================================================================
 void MainWindow::on_btnConnect_clicked()
 {
-    // 重连中点击 = 取消重连
-    if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
-        m_client->disconnectDevice();
-        ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-        ui->btnConnect->setEnabled(true);
-        ui->btnConnect->setProperty("state", QVariant());
-        refreshStyle(ui->btnConnect);
-        ui->statusbar->showMessage(QString::fromUtf8("已取消重连"), 3000);
-        return;
-    }
-
     if (m_client->isConnected()) {
         m_client->disconnectDevice();
     } else {

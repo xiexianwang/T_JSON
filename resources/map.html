@@ -149,25 +149,27 @@ var ciaTile = L.tileLayer('https://t{s}.tianditu.gov.cn/DataServer?T=cia_w&x={x}
     maxZoom: 18, subdomains: tdtSubdomains
 });
 
-// 天地图渲染细节：0=仅底图, 1=+注记, 2=+路网
-var isSatellite = true;
-var tdtDetailLevel = 1;
+// 渲染模式：0=卫星, 1=卫星+批注, 2=路网, 3=路网+批注
+var tdtMapMode = 1;
 
-function applyTiles(level, sat) {
+function applyTiles(mode) {
     map.removeLayer(vecTile);
     map.removeLayer(cvaTile);
     map.removeLayer(imgTile);
     map.removeLayer(ciaTile);
-    if (sat) {
+    if (mode == 0) {
         map.addLayer(imgTile);
-        if (level >= 1) map.addLayer(ciaTile);
-        if (level >= 2) { map.addLayer(vecTile); map.addLayer(cvaTile); }
-    } else {
+    } else if (mode == 1) {
+        map.addLayer(imgTile);
+        map.addLayer(ciaTile);
+    } else if (mode == 2) {
         map.addLayer(vecTile);
-        if (level >= 1) map.addLayer(cvaTile);
+    } else if (mode == 3) {
+        map.addLayer(vecTile);
+        map.addLayer(cvaTile);
     }
 }
-applyTiles(tdtDetailLevel, true);
+applyTiles(tdtMapMode);
 
 
 
@@ -393,19 +395,18 @@ function jsSetZoom(level) {
 
 
 function jsSetSatelliteMap() {
-    isSatellite = true;
-    applyTiles(tdtDetailLevel, true);
+    tdtMapMode = 1;
+    applyTiles(1);
 }
 
 function jsSetStreetMap() {
-    isSatellite = false;
-    applyTiles(tdtDetailLevel, false);
+    tdtMapMode = 3;
+    applyTiles(3);
 }
 
-// 天地图细节渲染：0=仅底图, 1=+注记, 2=+路网
-function jsSetDetailLevel(level) {
-    tdtDetailLevel = level;
-    applyTiles(level, isSatellite);
+function jsSetDetailLevel(mode) {
+    tdtMapMode = mode;
+    applyTiles(mode);
 }
 
 function jsSetDeviceInfo(lat, lon, alt, pan, tilt, hfov, vfov, range, estimated) {

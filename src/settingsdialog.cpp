@@ -22,38 +22,6 @@ SettingsDialog::~SettingsDialog()
     delete ui;
 }
 
-void SettingsDialog::buildTargetRefsForm()
-{
-    m_refSpins.clear();
-    auto *form = new QFormLayout;
-    form->setContentsMargins(0, 0, 0, 0);
-
-    static const struct { int ml; int cc; const char* label; } kInfo[] = {
-        {2, 0xA1, "人"},
-        {2, 0xA2, "车"},
-        {3, 0xA3, "船"},
-        {4, 0xA4, "无人机"},
-        {5, 0xA1, "飞机"},
-        {5, 0xA2, "直升机"},
-        {6, 0xA3, "鸟"},
-    };
-    for (auto& e : kInfo) {
-        int key = (e.ml << 8) | e.cc;
-        auto *spin = new QDoubleSpinBox;
-        spin->setDecimals(2);
-        spin->setRange(0.1, 100.0);
-        spin->setSingleStep(0.05);
-        spin->setSuffix(" m");
-        spin->setValue(m_cfg->cam().targetRefSize(e.ml, e.cc));
-        form->addRow(e.label, spin);
-        m_refSpins[key] = spin;
-    }
-
-    auto *old = ui->groupTargetRefs->findChild<QFormLayout*>();
-    if (old) delete old;
-    ui->groupTargetRefs->setLayout(form);
-}
-
 void SettingsDialog::loadSettings()
 {
     // ---- 云台参数 ----
@@ -84,7 +52,17 @@ void SettingsDialog::loadSettings()
     ui->spinIrMinFocal->setValue(cam.irMinFocal);
 
     // ---- 视觉测距参考尺寸 ----
-    buildTargetRefsForm();
+    auto loadRef = [&](const char* name, int ml, int cc) {
+        auto *s = findChild<QDoubleSpinBox*>(name);
+        if (s) s->setValue(cam.targetRefSize(ml, cc));
+    };
+    loadRef("spinRef_2_161", 2, 0xA1);
+    loadRef("spinRef_2_162", 2, 0xA2);
+    loadRef("spinRef_3_163", 3, 0xA3);
+    loadRef("spinRef_4_164", 4, 0xA4);
+    loadRef("spinRef_5_161", 5, 0xA1);
+    loadRef("spinRef_5_162", 5, 0xA2);
+    loadRef("spinRef_6_163", 6, 0xA3);
 }
 
 void SettingsDialog::saveSettings()
@@ -125,8 +103,17 @@ void SettingsDialog::saveSettings()
     }
 
     // ---- 视觉测距参考尺寸 ----
-    for (auto it = m_refSpins.constBegin(); it != m_refSpins.constEnd(); ++it)
-        cam.targetRefMap[it.key()] = it.value()->value();
+    auto saveRef = [&](const char* name, int ml, int cc) {
+        auto *s = findChild<QDoubleSpinBox*>(name);
+        if (s) cam.targetRefMap[(ml << 8) | cc] = s->value();
+    };
+    saveRef("spinRef_2_161", 2, 0xA1);
+    saveRef("spinRef_2_162", 2, 0xA2);
+    saveRef("spinRef_3_163", 3, 0xA3);
+    saveRef("spinRef_4_164", 4, 0xA4);
+    saveRef("spinRef_5_161", 5, 0xA1);
+    saveRef("spinRef_5_162", 5, 0xA2);
+    saveRef("spinRef_6_163", 6, 0xA3);
 
     m_cfg->save();
 }

@@ -160,8 +160,11 @@ void DeviceController::lensStop()
         else
             sendTransparentData("VISCA", ProtocolBuilder::buildViscaStop(l.visAddress, false));
     } else {
-        // 红外：Pelco-D 全停止（变倍/变焦停止均用 Cmd2=0x00, Data=0x00）
-        sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x00, 0x00, 0x00));
+        // 红外：Pelco-D 停止（区分变倍停止和变焦停止）
+        if (m_lastLensIsZoom)
+            sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x60, 0x00, 0x00));
+        else
+            sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x01, 0x80, 0x00, 0x00));
     }
 }
 

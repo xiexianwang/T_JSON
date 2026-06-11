@@ -758,3 +758,54 @@ QPlainTextEdit#cmdLog {
     background: #1e1e1e;
     color: #d4d4d4;
 }
+
+/* 导航按钮（标题栏中） */
+QToolButton#btnNavMonitor,
+QToolButton#btnNavPlayback,
+QToolButton#btnNavLog,
+QToolButton#btnNavSettings {
+    border: none;
+    border-radius: 0px;
+    padding: 2px 0px;
+    background: transparent;
+    color: #a0a0b0;
+    font-size: 11px;
+}
+
+QToolButton#btnNavMonitor:hover,
+QToolButton#btnNavPlayback:hover,
+QToolButton#btnNavLog:hover,
+QToolButton#btnNavSettings:hover {
+    color: #ffffff;
+    background: rgba(255,255,255,0.08);
+}
+
+QToolButton#btnNavMonitor:checked,
+QToolButton#btnNavPlayback:checked,
+QToolButton#btnNavLog:checked,
+QToolButton#btnNavSettings:checked {
+    color: #ffffff;
+    border-bottom: 2px solid #3A8BFF;
+    background: rgba(58,139,255,0.12);
+}
+
+/* 标题栏 logo 和标题 */
+QLabel#labelAppIcon {
+    margin-left: 0px;
+    margin-right: 0px;
+}
+
+QLabel#labelAppTitle {
+    color: #e0e0e0;
+    font-size: 13px;
+    font-weight: bold;
+    margin-right: 12px;
+}
+
+/* 标题栏背景 */
+QWidget#titleBar {
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1,
+        stop:0 #3d3d3d, stop:1 #2d2d2d);
+    border-bottom: 1px solid #1a1a1a;
+}
+

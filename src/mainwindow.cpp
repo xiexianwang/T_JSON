@@ -18,6 +18,8 @@
 #include <QDateTime>
 #include <QApplication>
 #include <QMouseEvent>
+#include <QButtonGroup>
+#include <QToolButton>
 #include <QtMath>
 
 //============================================================================
@@ -46,7 +48,38 @@ MainWindow::MainWindow(QWidget *parent)
     , m_currentResY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
+    setMinimumSize(1500, 1020);
+    QTimer::singleShot(0, this, [this]() { resize(1500, 1020); });
     setupUiStyles();
+
+    ui->titleBar->installEventFilter(this);
+    ui->titleBar->setProperty("form", "title");
+    ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.jpg")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    ui->btnMenu_Min->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/minimize.png")));
+    ui->btnMenu_Max->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/maximize.png")));
+    ui->btnMenu_Close->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/close.png")));
+    for (auto *b : {ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close})
+        b->setIconSize(QSize(18, 18));
+
+    // 为导航栏按钮设置 SVG 图标（图片在上，文字在下）
+    auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
+        btn->setIcon(QIcon(svgPath));
+        btn->setIconSize(QSize(18, 18));
+        btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    };
+    setupNavBtn(ui->btnNavMonitor, QStringLiteral(":/monitor.svg"));
+    setupNavBtn(ui->btnNavPlayback, QStringLiteral(":/playback.svg"));
+    setupNavBtn(ui->btnNavLog, QStringLiteral(":/log.svg"));
+    setupNavBtn(ui->btnNavSettings, QStringLiteral(":/gear.svg"));
+
+    // 导航按钮互斥组
+    auto *navGroup = new QButtonGroup(this);
+    navGroup->setExclusive(true);
+    navGroup->addButton(ui->btnNavMonitor, 0);
+    navGroup->addButton(ui->btnNavPlayback, 1);
+    navGroup->addButton(ui->btnNavLog, 2);
+    navGroup->addButton(ui->btnNavSettings, 3);
+    ui->btnNavMonitor->setChecked(true);
 
     // 迷你地图：容器 → MapWidget → 覆盖层
     m_mapContainer = new QWidget(ui->widgetDisplay);
@@ -72,7 +105,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_pipTitle->setCursor(Qt::OpenHandCursor);
     m_pipTitle->installEventFilter(this);
     m_pipTitle->setStyleSheet(QStringLiteral(
-        "background-color:#1a1a2e; border-bottom:1px solid #16213e;"
+        "background-color:#2d2d2d; border-bottom:1px solid #1a1a1a;"
     ));
     auto *titleLay = new QHBoxLayout(m_pipTitle);
     titleLay->setContentsMargins(0, 0, 2, 0);
@@ -298,6 +331,147 @@ MainWindow::~MainWindow()
 }
 
 //============================================================================
+// 标题栏按钮
+//============================================================================
+
+void MainWindow::on_btnMenu_Min_clicked()
+{
+    showMinimized();
+}
+
+void MainWindow::on_btnMenu_Max_clicked()
+{
+    if (isMaximized())
+        showNormal();
+    else
+        showMaximized();
+}
+
+void MainWindow::on_btnMenu_Close_clicked()
+{
+    close();
+}
+
+//============================================================================
+// 导航按钮
+//============================================================================
+
+void MainWindow::on_btnNavMonitor_clicked()  { /* 当前页面 */ }
+void MainWindow::on_btnNavPlayback_clicked() { /* 预留 */ }
+void MainWindow::on_btnNavLog_clicked()      { /* 预留 */ }
+void MainWindow::on_btnNavSettings_clicked() { on_btnSettings_clicked(); }
+
+//============================================================================
+// changeEvent - 窗口状态变化时更新最大化按钮图标
+//============================================================================
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::WindowStateChange) {
+        ui->btnMenu_Max->setIcon(QIcon(isMaximized()
+            ? QStringLiteral(":/qss/blacksoft/restore.png")
+            : QStringLiteral(":/qss/blacksoft/maximize.png")));
+    }
+    QMainWindow::changeEvent(event);
+}
+
+//============================================================================
+// nativeEvent - 拦截 Windows 消息实现自定义标题栏
+//============================================================================
+
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+#ifdef Q_OS_WIN
+    if (eventType == "windows_generic_MSG") {
+        MSG *msg = static_cast<MSG *>(message);
+        switch (msg->message) {
+
+        case WM_NCCALCSIZE: {
+            RECT *rc;
+            if (msg->wParam) {
+                NCCALCSIZE_PARAMS *p = reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);
+                rc = &p->rgrc[0];
+            } else {
+                rc = reinterpret_cast<RECT*>(msg->lParam);
+            }
+            if (IsZoomed(msg->hwnd)) {
+                // 最大化时 Windows 会在四边添加不可见边框导致内容偏移
+                // 补偿边框宽度使客户区填满工作区
+                int border = GetSystemMetrics(SM_CXSIZEFRAME)
+                           + GetSystemMetrics(SM_CXPADDEDBORDER);
+                rc->left   += border;
+                rc->top    += border;
+                rc->right  -= border;
+                rc->bottom -= border;
+            }
+            *result = 0;
+            return true;
+        }
+
+        case WM_NCHITTEST: {
+            POINT pt = { GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam) };
+            QPoint local = mapFromGlobal(QPoint(pt.x, pt.y));
+
+            if (!isMaximized()) {
+                int b = 8;
+                if (local.y() <= b && local.x() <= b) { *result = HTTOPLEFT; return true; }
+                if (local.y() <= b && local.x() >= width() - b) { *result = HTTOPRIGHT; return true; }
+                if (local.y() >= height() - b && local.x() <= b) { *result = HTBOTTOMLEFT; return true; }
+                if (local.y() >= height() - b && local.x() >= width() - b) { *result = HTBOTTOMRIGHT; return true; }
+                if (local.y() <= b) { *result = HTTOP; return true; }
+                if (local.y() >= height() - b) { *result = HTBOTTOM; return true; }
+                if (local.x() <= b) { *result = HTLEFT; return true; }
+                if (local.x() >= width() - b) { *result = HTRIGHT; return true; }
+            }
+
+            if (ui->titleBar && ui->titleBar->isVisible()) {
+                QPoint tl = ui->titleBar->mapFromGlobal(QPoint(pt.x, pt.y));
+                if (ui->titleBar->rect().contains(tl)) {
+                    QWidget *child = ui->titleBar->childAt(tl);
+                    if (child == ui->btnMenu_Min || child == ui->btnMenu_Max || child == ui->btnMenu_Close
+                        || child == ui->btnNavMonitor || child == ui->btnNavPlayback
+                        || child == ui->btnNavLog || child == ui->btnNavSettings
+                        || child == ui->lineEditIp || child == ui->btnConnect
+                        || child == ui->btnCancelConnect || child == ui->lineEditRtsp
+                        || child == ui->btnVideoConnect || child == ui->btnVideoDisconnect
+                        || child == ui->btnMapToggle)
+                        { *result = HTCLIENT; return true; }
+                    *result = HTCAPTION;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        case WM_GETMINMAXINFO: {
+            MINMAXINFO *mmi = reinterpret_cast<MINMAXINFO*>(msg->lParam);
+            RECT wa;
+            SystemParametersInfo(SPI_GETWORKAREA, 0, &wa, 0);
+            int border = GetSystemMetrics(SM_CXSIZEFRAME)
+                       + GetSystemMetrics(SM_CXPADDEDBORDER);
+            mmi->ptMaxPosition.x = wa.left - border;
+            mmi->ptMaxPosition.y = wa.top - border;
+            mmi->ptMaxSize.x = (wa.right - wa.left) + border * 2;
+            mmi->ptMaxSize.y = (wa.bottom - wa.top) + border * 2;
+            mmi->ptMinTrackSize.x = minimumWidth();
+            mmi->ptMinTrackSize.y = minimumHeight();
+            return true;
+        }
+
+        case WM_NCACTIVATE:
+            *result = 1;
+            return true;
+        }
+    }
+#else
+    Q_UNUSED(eventType)
+    Q_UNUSED(message)
+    Q_UNUSED(result)
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+
+//============================================================================
 // setupUiStyles - 加载并应用 QSS 样式表
 //============================================================================
 void MainWindow::setupUiStyles()
@@ -321,8 +495,7 @@ void MainWindow::on_btnConnect_clicked()
         m_client->disconnectDevice();
     } else {
         QString ip = ui->lineEditIp->text();
-        quint16 port = ui->spinBoxPort->value();
-        m_client->connectToDevice(ip, port);
+        m_client->connectToDevice(ip, 8089);
         ui->btnConnect->setText(QString::fromUtf8("连接中..."));
         ui->btnConnect->setEnabled(false);
         ui->btnCancelConnect->setVisible(true);

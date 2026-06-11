@@ -70,8 +70,6 @@ MapWidget::MapWidget(QWidget *parent)
     connect(m_bridge, &MapBridge::requestEnlarge, this, &MapWidget::enlargeRequested);
 
     // 工具栏内部信号连接
-    connect(ui->comboMapType, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &MapWidget::setMapType);
     connect(ui->spinZoom, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &MapWidget::setZoom);
     connect(this, &MapWidget::mapZoomChanged,
@@ -81,7 +79,7 @@ MapWidget::MapWidget(QWidget *parent)
     connect(ui->comboDetailLevel, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MapWidget::setDetailLevel);
     connect(ui->btnRefresh, &QPushButton::clicked,
-            this, [this]() { reloadMap(); setPendingState(ui->spinZoom->value(), ui->comboMapType->currentIndex()); });
+            this, [this]() { reloadMap(); setPendingState(ui->spinZoom->value(), 0); });
     connect(ui->btnMini, &QPushButton::clicked,
             this, &MapWidget::miniRequested);
     connect(ui->btnClose, &QPushButton::clicked,
@@ -199,6 +197,8 @@ void MapWidget::setMapType(int type)
         runJS(QStringLiteral("jsSetSatelliteMap()"));
     else
         runJS(QStringLiteral("jsSetStreetMap()"));
+    QSignalBlocker _(ui->comboDetailLevel);
+    ui->comboDetailLevel->setCurrentIndex(type == 0 ? 1 : 3);
 }
 
 void MapWidget::setZoom(int level)

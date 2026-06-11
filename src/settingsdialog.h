@@ -9,8 +9,6 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
-#include <QMap>
-#include <QDoubleSpinBox>
 
 class ConfigManager;
 
@@ -33,11 +31,8 @@ private:
     Ui::SettingsDialog *ui;
     ConfigManager *m_cfg;
 
-    QMap<int, QDoubleSpinBox*> m_refSpins; // key = (modelLow << 8) | classCode
-
     void loadSettings();
     void saveSettings();
-    void buildTargetRefsForm();
 };
 
 #endif // SETTINGSDIALOG_H

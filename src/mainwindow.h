@@ -16,6 +16,10 @@
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <windowsx.h>
+#endif
 
 class RtspThread;
 class VideoWidget;
@@ -43,6 +47,8 @@ public:
     ~MainWindow() override;
     bool eventFilter(QObject *obj, QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+    void changeEvent(QEvent *event) override;
 
 private slots:
     // ── 设备连接相关 ──
@@ -62,6 +68,17 @@ private slots:
     void on_radioModeOff_clicked();          // 关闭 AI
     void on_radioModeIdentify_clicked();     // 识别模式
     void on_radioModeAutoTrack_clicked();    // 自动跟踪模式
+
+    // ── 标题栏按钮 ──
+    void on_btnMenu_Min_clicked();
+    void on_btnMenu_Max_clicked();
+    void on_btnMenu_Close_clicked();
+
+    // ── 导航栏页面切换 ──
+    void on_btnNavMonitor_clicked();
+    void on_btnNavPlayback_clicked();
+    void on_btnNavLog_clicked();
+    void on_btnNavSettings_clicked();
 
     // ── 界面交互 ──
     void on_btnPtzMoveTo_clicked();                     // 云台转动到指定角度

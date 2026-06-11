@@ -53,34 +53,8 @@
       <property name="bottomMargin">
        <number>2</number>
       </property>
-      <item>
-       <widget class="QComboBox" name="comboMapType">
-        <property name="minimumSize">
-         <size>
-          <width>90</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>90</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <item>
-         <property name="text">
-          <string>卫星图</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>街道图</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item>
-       <widget class="QSpinBox" name="spinZoom">
+       <item>
+        <widget class="QSpinBox" name="spinZoom">
         <property name="minimumSize">
          <size>
           <width>64</width>
@@ -115,10 +89,13 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="comboDetailLevel">
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
+        <widget class="QComboBox" name="comboDetailLevel">
+         <property name="currentIndex">
+          <number>1</number>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>80</width>
           <height>0</height>
          </size>
         </property>
@@ -130,17 +107,22 @@
         </property>
         <item>
          <property name="text">
-          <string>底图</string>
+          <string>卫星</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>注记</string>
+          <string>卫星+批注</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>卫星+路网</string>
+          <string>路网</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>路网+批注</string>
          </property>
         </item>
        </widget>

@@ -50,32 +50,7 @@
       <property name="bottomMargin">
        <number>1</number>
       </property>
-      <item>
-       <widget class="QComboBox" name="comboMapType">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>20</height>
-         </size>
-        </property>
-        <property name="font">
-         <font>
-          <pointsize>9</pointsize>
-         </font>
-        </property>
-        <item>
-         <property name="text">
-          <string>卫星图</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>街道图</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item>
+       <item>
        <widget class="QLabel" name="labelZoom">
         <property name="font">
          <font>

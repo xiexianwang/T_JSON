@@ -8,12 +8,14 @@
 #include "ui_settingsdialog.h"
 #include "configmanager.h"
 
-SettingsDialog::SettingsDialog(ConfigManager *cfg, QWidget *parent)
+SettingsDialog::SettingsDialog(ConfigManager *cfg, const QString &deviceIp, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::SettingsDialog)
     , m_cfg(cfg)
 {
     ui->setupUi(this);
+    if (!deviceIp.isEmpty())
+        setWindowTitle(QString::fromUtf8("设备设置 - %1").arg(deviceIp));
     loadSettings();
 }
 

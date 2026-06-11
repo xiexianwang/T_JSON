@@ -87,6 +87,8 @@ void DeviceController::lensZoomIn(int target)
         // 可见光：VISCA Zoom Tele
         QByteArray pkt = ProtocolBuilder::buildViscaZoom(l.visAddress, true, speed);
         sendTransparentData("VISCA", pkt);
+    } else if (l.irProtocol == "IRAY") {
+        sendTransparentData("VISCAIR", ProtocolBuilder::buildIray(0x01, ProtocolBuilder::IrayContPos));
     } else {
         // 红外：Pelco-D 变倍放大 Cmd2=0x20
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x20, 0x00, speed);
@@ -105,6 +107,8 @@ void DeviceController::lensZoomOut(int target)
         // 可见光：VISCA Zoom Wide
         QByteArray pkt = ProtocolBuilder::buildViscaZoom(l.visAddress, false, speed);
         sendTransparentData("VISCA", pkt);
+    } else if (l.irProtocol == "IRAY") {
+        sendTransparentData("VISCAIR", ProtocolBuilder::buildIray(0x01, ProtocolBuilder::IrayContNeg));
     } else {
         // 红外：Pelco-D 变倍缩小 Cmd2=0x40
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x40, 0x00, speed);
@@ -123,6 +127,8 @@ void DeviceController::lensFocusIn(int target)
         // 可见光：VISCA Focus Far
         QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, true, speed);
         sendTransparentData("VISCA", pkt);
+    } else if (l.irProtocol == "IRAY") {
+        sendTransparentData("VISCAIR", ProtocolBuilder::buildIray(0x00, ProtocolBuilder::IrayContPos));
     } else {
         // 红外：Pelco-D 变焦拉近 Cmd1=0x01, Cmd2=0x00
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x01, 0x00, 0x00, 0x00);
@@ -141,6 +147,8 @@ void DeviceController::lensFocusOut(int target)
         // 可见光：VISCA Focus Near
         QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, false, speed);
         sendTransparentData("VISCA", pkt);
+    } else if (l.irProtocol == "IRAY") {
+        sendTransparentData("VISCAIR", ProtocolBuilder::buildIray(0x00, ProtocolBuilder::IrayContNeg));
     } else {
         // 红外：Pelco-D 变焦拉远 Cmd2=0x80
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x80, 0x00, 0x00);
@@ -159,12 +167,15 @@ void DeviceController::lensStop()
             sendTransparentData("VISCA", ProtocolBuilder::buildViscaStop(l.visAddress, true));
         else
             sendTransparentData("VISCA", ProtocolBuilder::buildViscaStop(l.visAddress, false));
+    } else if (l.irProtocol == "IRAY") {
+        quint8 motor = m_lastLensIsZoom ? 0x01 : 0x00;
+        sendTransparentData("VISCAIR", ProtocolBuilder::buildIray(motor, ProtocolBuilder::IrayStop));
     } else {
-        // 红外：Pelco-D 停止（区分变倍停止和变焦停止）
+        // 红外：Pelco-D 停止（根据上次操作区分变倍/聚焦）
         if (m_lastLensIsZoom)
-            sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x60, 0x00, 0x00));
+            sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x60, 0x00, 0x00));  // 变倍停止
         else
-            sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x01, 0x80, 0x00, 0x00));
+            sendTransparentData("VISCAIR", ProtocolBuilder::buildPelcoD(l.irAddress, 0x01, 0x80, 0x00, 0x00));  // 聚焦停止
     }
 }
 

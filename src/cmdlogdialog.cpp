@@ -31,7 +31,7 @@ CmdLogDialog::CmdLogDialog(QWidget *parent)
     lay->addWidget(btnClear, 0, Qt::AlignRight);
 }
 
-// 追加日志条目
+// 追加日志条目 
 // 格式：[HH:mm:ss.zzz] [通道类型] HEX_DATA
 // data 以空格分隔的大写十六进制形式显示
 void CmdLogDialog::appendLog(const QString& serialType, const QByteArray& data)

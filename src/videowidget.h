@@ -24,6 +24,13 @@ public:
     // 返回当前选中的矩形区域（若未在选中状态则返回空矩形）
     QRect selectionRect() const;
 
+    // ── 网格分屏支持 ──
+    void setChannelLabel(const QString &text) { m_channelLabel = text; update(); }
+    QString channelLabel() const { return m_channelLabel; }
+    void setSelected(bool sel) { m_selected = sel; update(); }
+    bool isSelected() const { return m_selected; }
+    QImage frame() const { QMutexLocker lock(&m_frameMutex); return m_frame; }
+
 signals:
     // 选区完成信号：返回选中区域中心坐标及宽高（原始帧像素单位）
     void selectionFinished(int centerX, int centerY, int width, int height);
@@ -45,6 +52,10 @@ private:
     QImage m_frame;              // 当前帧图像（原始尺寸）
     mutable QMutex m_frameMutex; // 保证帧数据的线程安全访问
     bool m_hasFrame = false;     // 是否已有有效帧数据
+
+    // ── 网格分屏状态 ──
+    QString m_channelLabel;
+    bool m_selected = false;
 
     // 选区状态
     bool m_selecting = false;    // 是否正在拖拽选择中

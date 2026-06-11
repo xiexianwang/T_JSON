@@ -149,9 +149,9 @@ background-color:rgba(51,127,209,230);
 }
 
 QPushButton#btnMenu_Close:hover{
-color:#FFFFFF;
-margin:1px 1px 2px 1px;
-background-color:rgba(238,0,0,128);
+    color:#FFFFFF;
+    margin:1px 1px 2px 1px;
+    background-color:rgba(238,0,0,128);
 }
 
 QRadioButton::indicator{
@@ -710,6 +710,37 @@ VideoWidget#videoWidget {
     border: none;
 }
 
+QWidget#titleBar {
+    border-bottom: 1px solid #242424;
+}
+
+QPushButton#btnNavMonitor,
+QPushButton#btnNavPlayback,
+QPushButton#btnNavLog,
+QPushButton#btnNavSettings {
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0px;
+    padding: 4px 12px;
+    background: transparent;
+    color: #DCDCDC;
+    font-size: 13px;
+}
+QPushButton#btnNavMonitor:hover,
+QPushButton#btnNavPlayback:hover,
+QPushButton#btnNavLog:hover,
+QPushButton#btnNavSettings:hover {
+    color: #FFFFFF;
+    background: rgba(51,127,209,80);
+}
+QPushButton#btnNavMonitor:checked,
+QPushButton#btnNavPlayback:checked,
+QPushButton#btnNavLog:checked,
+QPushButton#btnNavSettings:checked {
+    border-bottom: 2px solid #3A8BFF;
+    color: #FFFFFF;
+}
+
 QPushButton#btnSettings {
     font-weight: bold;
 }
@@ -727,15 +758,6 @@ QPushButton#btnMapToggle:checked {
     background-color: #c75450;
     border-color: #e06060;
 }
-
-QPushButton#btnConnect[state="connected"] {
-    background-color: #c75450;
-}
-
-QPushButton#btnConnect[state="reconnecting"] {
-    background-color: #d68b00;
-}
-
 QLabel#lblTrackStatus {
     color: #aaaaaa;
     font-weight: bold;
@@ -759,53 +781,91 @@ QPlainTextEdit#cmdLog {
     color: #d4d4d4;
 }
 
-/* 导航按钮（标题栏中） */
-QToolButton#btnNavMonitor,
-QToolButton#btnNavPlayback,
-QToolButton#btnNavLog,
-QToolButton#btnNavSettings {
+/*============================================================================*/
+/* 设备资源树与分屏网格样式                                                    */
+/*============================================================================*/
+
+QWidget#drawerPanel {
+    background-color: #383838;
+    border-right: 1px solid #242424;
+}
+
+QWidget#drawerPanel QTreeView {
     border: none;
-    border-radius: 0px;
-    padding: 2px 0px;
-    background: transparent;
-    color: #a0a0b0;
-    font-size: 11px;
+    background: #383838;
+    color: #DCDCDC;
+    font-size: 12px;
 }
 
-QToolButton#btnNavMonitor:hover,
-QToolButton#btnNavPlayback:hover,
-QToolButton#btnNavLog:hover,
-QToolButton#btnNavSettings:hover {
-    color: #ffffff;
-    background: rgba(255,255,255,0.08);
+QWidget#drawerPanel QTreeView::item {
+    padding: 4px 6px;
+    min-height: 22px;
 }
 
-QToolButton#btnNavMonitor:checked,
-QToolButton#btnNavPlayback:checked,
-QToolButton#btnNavLog:checked,
-QToolButton#btnNavSettings:checked {
-    color: #ffffff;
-    border-bottom: 2px solid #3A8BFF;
-    background: rgba(58,139,255,0.12);
+QWidget#drawerPanel QTreeView::item:selected {
+    background: #2d5a8a;
+    color: #FFFFFF;
 }
 
-/* 标题栏 logo 和标题 */
-QLabel#labelAppIcon {
-    margin-left: 0px;
-    margin-right: 0px;
+QWidget#drawerPanel QTreeView::item:hover {
+    background: #525252;
 }
 
-QLabel#labelAppTitle {
-    color: #e0e0e0;
-    font-size: 13px;
+QWidget#drawerPanel QHeaderView::section {
+    background: #484848;
+    color: #DCDCDC;
+    padding: 4px;
+    border: none;
+    border-bottom: 1px solid #242424;
     font-weight: bold;
-    margin-right: 12px;
+    font-size: 12px;
 }
 
-/* 标题栏背景 */
-QWidget#titleBar {
-    background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1,
-        stop:0 #3d3d3d, stop:1 #2d2d2d);
-    border-bottom: 1px solid #1a1a1a;
+QWidget#splitBar {
+    background: #333333;
+    border-top: 1px solid #242424;
 }
 
+QPushButton#splitBtn0,
+QPushButton#splitBtn1,
+QPushButton#splitBtn2,
+QPushButton#splitBtn3 {
+    border: 1px solid #242424;
+    border-radius: 3px;
+    background: #484848;
+    color: #DCDCDC;
+    font-size: 11px;
+    padding: 2px 6px;
+    min-width: 20px;
+}
+
+QPushButton#splitBtn0:hover,
+QPushButton#splitBtn1:hover,
+QPushButton#splitBtn2:hover,
+QPushButton#splitBtn3:hover {
+    background: #646464;
+}
+
+QPushButton#splitBtn0:checked,
+QPushButton#splitBtn1:checked,
+QPushButton#splitBtn2:checked,
+QPushButton#splitBtn3:checked {
+    background: #2d5a8a;
+    border-color: #3A8BFF;
+    color: #FFFFFF;
+}
+
+QPushButton#drawerToggleBtn {
+    background: #2d2d2d;
+    border: 1px solid #242424;
+    border-left: none;
+    border-radius: 0px 3px 3px 0px;
+    color: #888888;
+    font-size: 10px;
+    padding: 0px;
+}
+
+QPushButton#drawerToggleBtn:hover {
+    background: #525252;
+    color: #DCDCDC;
+}

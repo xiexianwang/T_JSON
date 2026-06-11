@@ -6,8 +6,11 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "settingsdialog.h"
+#include "devicecontext.h"
 #include "rtspthread.h"
 #include "videowidget.h"
+#include "videogridwidget.h"
+#include "devicetreewidget.h"
 #include "mapwidget.h"
 #include <QScreen>
 #include "cmdlogdialog.h"
@@ -18,9 +21,17 @@
 #include <QDateTime>
 #include <QApplication>
 #include <QMouseEvent>
-#include <QButtonGroup>
-#include <QToolButton>
 #include <QtMath>
+#include <QButtonGroup>
+#include <QJsonArray>
+#include <QFile>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QSplitter>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <windowsx.h>
+#endif
 
 //============================================================================
 // 辅助函数：刷新控件的 QSS 动态属性
@@ -36,10 +47,7 @@ static void refreshStyle(QWidget *w) {
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , m_client(new TJsonClient(this))        // TCP JSON 协议客户端
     , m_cfg(new ConfigManager(this))         // 持久化配置管理
-    , m_device(new DeviceController(m_client, m_cfg, this))  // 设备指令控制器
-    , m_rtsp(new RtspThread(this))           // RTSP 视频拉流线程
     , m_updatingFromDevice(false)            // 防递归更新初始关闭
     , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
     , m_currentIrZoom(1.0)                   // 默认红外倍率 1.0
@@ -48,29 +56,16 @@ MainWindow::MainWindow(QWidget *parent)
     , m_currentResY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
-    setMinimumSize(1500, 1020);
-    QTimer::singleShot(0, this, [this]() { resize(1500, 1020); });
     setupUiStyles();
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");
-    ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.jpg")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.jpg")).scaled(20, 20, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     ui->btnMenu_Min->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/minimize.png")));
     ui->btnMenu_Max->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/maximize.png")));
     ui->btnMenu_Close->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/close.png")));
     for (auto *b : {ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close})
-        b->setIconSize(QSize(18, 18));
-
-    // 为导航栏按钮设置 SVG 图标（图片在上，文字在下）
-    auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
-        btn->setIcon(QIcon(svgPath));
-        btn->setIconSize(QSize(18, 18));
-        btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    };
-    setupNavBtn(ui->btnNavMonitor, QStringLiteral(":/monitor.svg"));
-    setupNavBtn(ui->btnNavPlayback, QStringLiteral(":/playback.svg"));
-    setupNavBtn(ui->btnNavLog, QStringLiteral(":/log.svg"));
-    setupNavBtn(ui->btnNavSettings, QStringLiteral(":/gear.svg"));
+        b->setIconSize(QSize(22, 22));
 
     // 导航按钮互斥组
     auto *navGroup = new QButtonGroup(this);
@@ -105,7 +100,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_pipTitle->setCursor(Qt::OpenHandCursor);
     m_pipTitle->installEventFilter(this);
     m_pipTitle->setStyleSheet(QStringLiteral(
-        "background-color:#2d2d2d; border-bottom:1px solid #1a1a1a;"
+        "background-color:#1a1a2e; border-bottom:1px solid #16213e;"
     ));
     auto *titleLay = new QHBoxLayout(m_pipTitle);
     titleLay->setContentsMargins(0, 0, 2, 0);
@@ -120,6 +115,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
 
+    // PiP 视频显示控件
+    m_pipVideo = new VideoWidget(m_pipDialog);
+    pipLay->addWidget(m_pipVideo);
+
     // MapWidget 工具栏信号 → MainWindow
     connect(m_mapWidget, &MapWidget::miniRequested,
             this, [this]() { toggleMapMode(); });
@@ -130,54 +129,305 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnMapToggle, &QPushButton::clicked,
             this, [this]() { toggleMap(); });
 
-    // 首次布局
-    updateMapLayout();
-
     // 系统参数轮询：500ms 周期查询设备 ImageSetting
     m_sysParamTimer = new QTimer(this);
     m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
 
     //============================================================================
-    // RTSP 视频流信号连接
-    // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
-    // VideoWidget 的 selectionFinished 信号用于框选跟踪
+    // 视频网格 + 设备树 + 左侧抽屉
     //============================================================================
-    connect(m_rtsp, &RtspThread::frameReady, this, &MainWindow::onRtspFrame);
-    connect(m_rtsp, &RtspThread::streamOpened, this, &MainWindow::onRtspOpened);
-    connect(m_rtsp, &RtspThread::streamError, this, &MainWindow::onRtspError);
-    connect(ui->videoWidget, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
+    {
+        // videoGridContainer 内放 QHBoxLayout：[左侧抽屉 | 视频网格]
+        m_videoGrid = new VideoGridWidget(ui->videoGridContainer);
+
+        // 左侧抽屉面板
+        m_drawerPanel = new QWidget(ui->videoGridContainer);
+        m_drawerPanel->setObjectName("drawerPanel");
+        m_drawerPanel->setFixedWidth(240);
+
+        auto *drawerLay = new QVBoxLayout(m_drawerPanel);
+        drawerLay->setContentsMargins(0, 0, 0, 0);
+        drawerLay->setSpacing(2);
+
+        m_deviceTree = new DeviceTreeWidget(m_drawerPanel);
+        drawerLay->addWidget(m_deviceTree, 1);
+
+        // 分屏切换按钮
+        auto *splitBar = new QWidget(m_drawerPanel);
+        splitBar->setObjectName("splitBar");
+        auto *splitLay = new QHBoxLayout(splitBar);
+        splitLay->setContentsMargins(4, 0, 4, 4);
+        splitLay->setSpacing(2);
+
+        m_splitGroup = new QButtonGroup(this);
+        auto makeSplitBtn = [&](const QString &text, int id) {
+            auto *btn = new QPushButton(text, splitBar);
+            btn->setCheckable(true);
+            btn->setFixedHeight(24);
+            btn->setObjectName(QString("splitBtn%1").arg(id));
+            m_splitGroup->addButton(btn, id);
+            splitLay->addWidget(btn);
+        };
+        makeSplitBtn("1", 0); makeSplitBtn("4", 1);
+        makeSplitBtn("9", 2); makeSplitBtn("16", 3);
+        m_splitGroup->button(0)->setChecked(true);
+        drawerLay->addWidget(splitBar);
+
+        // videoGridContainer 水平布局：抽屉 + 视频网格
+        auto *bodyLay = new QHBoxLayout(ui->videoGridContainer);
+        bodyLay->setContentsMargins(0, 0, 0, 0);
+        bodyLay->setSpacing(0);
+        bodyLay->addWidget(m_drawerPanel);
+        bodyLay->addWidget(m_videoGrid, 1);
+
+        // 抽屉开关按钮（浮动在 videoGridContainer 左上角）
+        m_drawerToggleBtn = new QPushButton(ui->videoGridContainer);
+        m_drawerToggleBtn->setObjectName("drawerToggleBtn");
+        m_drawerToggleBtn->setFixedSize(20, 40);
+        m_drawerToggleBtn->setText("◀");
+        m_drawerToggleBtn->raise();
+        m_drawerToggleBtn->move(240, 0);
+
+        connect(m_splitGroup, &QButtonGroup::idClicked, this, [this](int id) {
+            m_videoGrid->setSplitMode(static_cast<VideoGridWidget::SplitMode>(id));
+        });
+        connect(m_deviceTree, &DeviceTreeWidget::channelDoubleClicked,
+                this, &MainWindow::onDeviceTreeDoubleClicked);
+        connect(m_videoGrid, &VideoGridWidget::cellSelected,
+                this, &MainWindow::onGridCellSelected);
+        connect(m_videoGrid, &VideoGridWidget::cellSelectionFinished,
+                this, [this](int, int cx, int cy, int pw, int ph) {
+            onVideoSelection(cx, cy, pw, ph);
+        });
+        connect(m_drawerToggleBtn, &QPushButton::clicked,
+                this, &MainWindow::onDrawerToggled);
+
+        // 树节点变更时自动存盘
+        connect(m_deviceTree, &DeviceTreeWidget::treeModified,
+                this, [this]() {
+            m_deviceTree->saveToDisk(QStringLiteral("config/device_tree.json"));
+        });
+
+        // 加载上次保存的设备树
+        m_deviceTree->loadFromDisk(QStringLiteral("config/device_tree.json"));
+
+        m_drawerVisible = true;
+        m_drawerPanel->setVisible(true);
+        m_drawerToggleBtn->setText(QStringLiteral("◀"));
+        m_drawerToggleBtn->move(240, 0);
+    }
+
+    // 首次布局（必须在网格/抽屉创建之后）
+    updateMapLayout();
 
     //============================================================================
-    // T-JSON 协议信号连接
-    // TJsonClient 管理 TCP 长连接、心跳保活、JSON 帧收发与自动重连
+    // 设备自动连接：遍历设备树，为每个设备创建设备上下文
+    //（已存在于树中的设备在加载时自动连接 TCP）
     //============================================================================
-    connect(m_client, &TJsonClient::deviceConnected, this, &MainWindow::onDeviceConnected);
-    connect(m_client, &TJsonClient::deviceDisconnected, this, &MainWindow::onDeviceDisconnected);
-    connect(m_client, &TJsonClient::errorOccurred, this, &MainWindow::onErrorOccurred);
-    connect(m_client, &TJsonClient::jsonReceived, this, &MainWindow::onJsonReceived);
-    connect(m_client, &TJsonClient::imageSnapped, this, &MainWindow::onImageSnapped);
-    connect(m_client, &TJsonClient::ackReceived, this, &MainWindow::onAckReceived);
-    
-    // 自动重连信号：每次重连尝试时更新按钮文本与状态栏提示
-    connect(m_client, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
-        Q_UNUSED(maxRetries);
-        ui->btnConnect->setText(QString::fromUtf8("重连中(次数:%1)").arg(attempt));
-        ui->btnConnect->setEnabled(false);
-        ui->btnConnect->setProperty("state", "reconnecting");
-        refreshStyle(ui->btnConnect);
-        ui->btnCancelConnect->setVisible(true);
-        ui->statusbar->showMessage(QString::fromUtf8("网络波动，正在进行第 %1 次自动探测重连...").arg(attempt));
+    // 指令日志窗口：实时显示所有下发给设备的指令
+    auto *cmdLog = new CmdLogDialog(this);
+    cmdLog->show();
+
+    auto connectAllDevices = [this, cmdLog]() {
+        const int port = 8089;
+        // 递归遍历树模型，为每个叶节点（有 IP 的节点）创建 DeviceContext
+        std::function<void(QStandardItem*)> walk = [&](QStandardItem *parent) {
+            for (int i = 0; i < parent->rowCount(); ++i) {
+                auto *item = parent->child(i);
+                if (!item) continue;
+                QString ip = item->data(Qt::UserRole + 2).toString();
+                if (!ip.isEmpty() && !m_devices.contains(ip)) {
+                    auto *ctx = new DeviceContext(ip, m_cfg, this);
+                    ctx->state.deviceName = item->text().section(' ', 0, 0);
+                    m_devices[ip] = ctx;
+
+                    // ── 每个设备的 TCP 信号连接 ──
+                    connect(ctx->tcpClient, &TJsonClient::deviceConnected, this, [this, ip]() {
+                        auto *dc = m_devices.value(ip);
+                        if (!dc) return;
+                        dc->tcpConnected = true;
+                        m_deviceTree->setDeviceConnected(ip, true);
+                        if (ip == m_activeDeviceIp) {
+                            ui->statusbar->showMessage(
+                                QString::fromUtf8("%1 已连接").arg(ip), 3000);
+                            dc->ctrl->queryImageParams();
+                            m_sysParamTimer->start();
+                        }
+                        // 自动分配首个通道到网格并拉 RTSP
+                        auto *root = m_deviceTree->model()->invisibleRootItem();
+                        for (int i = 0; i < root->rowCount(); ++i) {
+                            auto *devItem = root->child(i);
+                            if (!devItem || devItem->data(DeviceTreeWidget::RoleIp).toString() != ip) continue;
+                            for (int j = 0; j < devItem->rowCount(); ++j) {
+                                auto *chItem = devItem->child(j);
+                                if (!chItem) continue;
+                                QString rtspUrl = chItem->data(DeviceTreeWidget::RoleRtspUrl).toString();
+                                if (rtspUrl.isEmpty()) continue;
+                                QString chName = chItem->text();
+                                // 找空闲单元格（基于 m_gridCellMap，而非 frame 判断）
+                                int idx = -1;
+                                for (int k = 0; k < m_videoGrid->cellCount(); ++k) {
+                                    if (m_gridCellMap.contains(k)) continue;
+                                    idx = k;
+                                    break;
+                                }
+                                if (idx < 0) return;
+                                m_gridCellMap[idx] = ip;
+                                m_videoGrid->assignChannel(idx, chName, rtspUrl);
+                                disconnect(dc, &DeviceContext::frameReady, nullptr, nullptr);
+                                connect(dc, &DeviceContext::frameReady, this, [this, idx, ip](const QImage &frame) {
+                                    auto *vw = m_videoGrid->cellAt(idx);
+                                    if (vw) vw->setFrame(frame);
+                                    if (m_pipDialog->isVisible())
+                                        m_pipVideo->setFrame(frame);
+                                });
+                                dc->startRtsp(rtspUrl);
+                                return;
+                            }
+                        }
+                    });
+                    connect(ctx->tcpClient, &TJsonClient::deviceDisconnected, this, [this, ip]() {
+                        auto *dc = m_devices.value(ip);
+                        if (!dc) return;
+                        dc->stopRtsp();
+                        dc->tcpConnected = false;
+                        m_deviceTree->setDeviceConnected(ip, false);
+                        if (ip == m_activeDeviceIp) {
+                            m_sysParamTimer->stop();
+                            ui->statusbar->showMessage(
+                                QString::fromUtf8("%1 已断开").arg(ip), 3000);
+                        }
+                    });
+                    connect(ctx->tcpClient, &TJsonClient::jsonReceived, this,
+                        [this, ip](const QJsonObject &doc) {
+                            onDeviceJsonReceived(ip, doc);
+                        });
+                    connect(ctx->tcpClient, &TJsonClient::ackReceived, this,
+                        [this, ip](quint8 code) {
+                            QString msg;
+                            switch (code) {
+                            case 0: msg = QString::fromUtf8("指令执行成功"); break;
+                            case 1: msg = QString::fromUtf8("指令不完整");   break;
+                            case 2: msg = QString::fromUtf8("指令内容错误");  break;
+                            default: msg = QString::fromUtf8("未知状态码: %1").arg(code);
+                            }
+                            ui->statusbar->showMessage(
+                                QString("[%1] %2").arg(ip, msg), 3000);
+                        });
+                    connect(ctx->tcpClient, &TJsonClient::imageSnapped, this,
+                        [this](const QByteArray &data, const QRect &rect) {
+                            onImageSnapped(data, rect);
+                        });
+                    connect(ctx->tcpClient, &TJsonClient::reconnecting, this,
+                        [this, ip](int attempt, int) {
+                            if (ip != m_activeDeviceIp) return;
+                            ui->statusbar->showMessage(
+                                QString::fromUtf8("%1 网络波动，第 %2 次自动重连...")
+                                    .arg(ip).arg(attempt));
+                        });
+                    connect(ctx->tcpClient, &TJsonClient::reconnectFailed, this,
+                        [this, ip]() {
+                            if (ip != m_activeDeviceIp) return;
+                            ui->statusbar->showMessage(
+                                QString::fromUtf8("%1 重连失败").arg(ip), 5000);
+                        });
+                    connect(ctx->tcpClient, &TJsonClient::errorOccurred, this,
+                        [this, ip](const QString &err) {
+                            if (ip != m_activeDeviceIp) return;
+                            ui->statusbar->showMessage(
+                                QString("[%1] %2").arg(ip, err), 3000);
+                        });
+
+                    // 指令日志
+                    connect(ctx->ctrl, &DeviceController::commandSent,
+                            cmdLog, &CmdLogDialog::appendLog);
+
+                    // 启动时自动连 TCP
+                    ctx->tcpClient->connectToDevice(ip, port);
+                }
+                if (item->hasChildren())
+                    walk(item);
+            }
+        };
+        walk(m_deviceTree->model()->invisibleRootItem());
+    };
+    connectAllDevices();
+
+    // 设备树右键 → 连接/断开
+    connect(m_deviceTree, &DeviceTreeWidget::deviceToggleConnect, this, [this](const QString &ip) {
+        auto *dc = m_devices.value(ip);
+        if (!dc) {
+            ui->statusbar->showMessage(QString::fromUtf8("设备 %1 不存在").arg(ip), 3000);
+            return;
+        }
+        if (dc->tcpConnected) {
+            dc->stopRtsp();
+            dc->tcpClient->disconnectDevice();
+            ui->statusbar->showMessage(QString::fromUtf8("已断开 %1").arg(ip), 3000);
+        } else {
+            dc->tcpClient->connectToDevice(ip, 8089);
+            m_activeDeviceIp = ip;
+            ui->statusbar->showMessage(QString::fromUtf8("正在连接 %1...").arg(ip), 3000);
+        }
     });
-    // 重连失败：恢复按钮初始状态
-    connect(m_client, &TJsonClient::reconnectFailed, this, [this]() {
-        ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-        ui->btnConnect->setEnabled(true);
-        ui->btnConnect->setProperty("state", QVariant());
-        refreshStyle(ui->btnConnect);
-        ui->btnCancelConnect->setVisible(false);
-        ui->statusbar->showMessage(QString::fromUtf8("重连失败，已放弃连接"), 5000);
-    });
+
+    // 新建设备时自动创建设备上下文
+    connect(m_deviceTree, &DeviceTreeWidget::deviceAdded, this,
+        [this, connectAllDevices](const QString &ip, const QString &name) {
+            if (m_devices.contains(ip)) return;
+            auto *ctx = new DeviceContext(ip, m_cfg, this);
+            ctx->state.deviceName = name;
+            m_devices[ip] = ctx;
+
+            // TCP 信号连接（同上逻辑，复用 connectAllDevices 模式）
+            const int port = 8089;
+            connect(ctx->tcpClient, &TJsonClient::deviceConnected, this, [this, ip]() {
+                auto *dc = m_devices.value(ip);
+                if (!dc) return;
+                dc->tcpConnected = true;
+                m_deviceTree->setDeviceConnected(ip, true);
+                if (ip == m_activeDeviceIp) {
+                    dc->ctrl->queryImageParams();
+                    m_sysParamTimer->start();
+                }
+            });
+            connect(ctx->tcpClient, &TJsonClient::deviceDisconnected, this, [this, ip]() {
+                auto *dc = m_devices.value(ip);
+                if (!dc) return;
+                dc->tcpConnected = false;
+                m_deviceTree->setDeviceConnected(ip, false);
+                if (ip == m_activeDeviceIp) {
+                    m_sysParamTimer->stop();
+                }
+            });
+            connect(ctx->tcpClient, &TJsonClient::jsonReceived, this,
+                [this, ip](const QJsonObject &doc) {
+                    onDeviceJsonReceived(ip, doc);
+                });
+            connect(ctx->tcpClient, &TJsonClient::ackReceived, this,
+                [this, ip](quint8 code) {
+                    QString msg;
+                    switch (code) {
+                    case 0: msg = QString::fromUtf8("指令执行成功"); break;
+                    case 1: msg = QString::fromUtf8("指令不完整");   break;
+                    case 2: msg = QString::fromUtf8("指令内容错误");  break;
+                    default: msg = QString::fromUtf8("未知状态码: %1").arg(code);
+                    }
+                    ui->statusbar->showMessage(QString("[%1] %2").arg(ip, msg), 3000);
+                });
+            connect(ctx->tcpClient, &TJsonClient::imageSnapped, this,
+                [this](const QByteArray &data, const QRect &rect) {
+                    onImageSnapped(data, rect);
+                });
+            connect(ctx->tcpClient, &TJsonClient::errorOccurred, this,
+                [this, ip](const QString &err) {
+                    if (ip != m_activeDeviceIp) return;
+                    ui->statusbar->showMessage(QString("[%1] %2").arg(ip, err), 3000);
+                });
+
+            ctx->tcpClient->connectToDevice(ip, port);
+        });
 
     //============================================================================
     // 云台八方向控制 (基于 Pelco-D 协议)
@@ -185,8 +435,8 @@ MainWindow::MainWindow(QWidget *parent)
     // 八个按钮分别对应 Up/Down/Left/Right 及四个对角线方向
     //============================================================================
     auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
-        connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_device->ptzMove(dir); });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_client->isConnected()) return; m_device->ptzStop(); });
+        connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; activeCtrl()->ptzMove(dir); });
+        connect(btn, &QPushButton::released, this, [this]() { auto *c = activeClient(); if (!c || !c->isConnected()) return; activeCtrl()->ptzStop(); });
     };
 
     connectPtzBtn(ui->btnPtzUp, PtzDir::Up);
@@ -224,12 +474,12 @@ MainWindow::MainWindow(QWidget *parent)
         connect(btn, &QPushButton::pressed, this, [this, op]() {
             if (!requireConnected()) return;
             int t = ui->comboLensTarget->currentIndex();
-            if (op == 0) m_device->lensZoomIn(t);
-            else if (op == 1) m_device->lensZoomOut(t);
-            else if (op == 2) m_device->lensFocusIn(t);
-            else m_device->lensFocusOut(t);
+            if (op == 0) activeCtrl()->lensZoomIn(t);
+            else if (op == 1) activeCtrl()->lensZoomOut(t);
+            else if (op == 2) activeCtrl()->lensFocusIn(t);
+            else activeCtrl()->lensFocusOut(t);
         });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_client->isConnected()) return; m_device->lensStop(); });
+        connect(btn, &QPushButton::released, this, [this]() { auto *c = activeClient(); if (!c || !c->isConnected()) return; activeCtrl()->lensStop(); });
     };
 
     connectLensBtn(ui->btnZoomIn, 0);
@@ -266,15 +516,15 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
-        m_device->callPreset(ui->spinPreset->value());
+        activeCtrl()->callPreset(ui->spinPreset->value());
     });
     connect(ui->btnSetPreset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
-        m_device->setPreset(ui->spinPreset->value());
+        activeCtrl()->setPreset(ui->spinPreset->value());
     });
     connect(ui->btnDelPreset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
-        m_device->delPreset(ui->spinPreset->value());
+        activeCtrl()->delPreset(ui->spinPreset->value());
     });
 
     //============================================================================
@@ -283,51 +533,57 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkDigitalZoom->blockSignals(true); ui->checkDigitalZoom->setChecked(!checked); ui->checkDigitalZoom->blockSignals(false); return; }
-        m_device->setDigitalZoom(checked);
+        activeCtrl()->setDigitalZoom(checked);
     });
     connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkAutoZoom->blockSignals(true); ui->checkAutoZoom->setChecked(!checked); ui->checkAutoZoom->blockSignals(false); return; }
-        m_device->setAutoZoom(checked);
+        activeCtrl()->setAutoZoom(checked);
     });
     connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkCaptureUpload->blockSignals(true); ui->checkCaptureUpload->setChecked(!checked); ui->checkCaptureUpload->blockSignals(false); return; }
-        m_device->setCaptureUpload(checked);
+        activeCtrl()->setCaptureUpload(checked);
     });
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkPosReset->blockSignals(true); ui->checkPosReset->setChecked(!checked); ui->checkPosReset->blockSignals(false); return; }
-        m_device->posReset(checked);
+        activeCtrl()->posReset(checked);
     });
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
-        m_device->callPreset(0);
+        activeCtrl()->callPreset(0);
     });
 
-    //============================================================================
-    // 指令日志窗口
-    // 实时显示所有下发给设备的指令内容，方便调试与协议分析
-    //============================================================================
-    auto *cmdLog = new CmdLogDialog(this);
-    connect(m_device, &DeviceController::commandSent, cmdLog, &CmdLogDialog::appendLog);
-    cmdLog->show();
 }
 
 //============================================================================
 // 析构函数：释放 UI 资源
-// 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
-// 均以 MainWindow 为父对象，由 Qt 对象树自动析构
-// 析构前主动停止 RTSP 线程并等待其退出，避免线程仍在运行时被销毁触发 QThread 告警
+// 所有设备上下文均以 MainWindow 为父对象，由 Qt 对象树自动析构
+// 析构前主动断开 TCP 连接并停止 RTSP 线程，避免线程仍在运行时被销毁触发 QThread 告警
 //============================================================================
 MainWindow::~MainWindow()
 {
     if (m_sysParamTimer)
         m_sysParamTimer->stop();
-    disconnect(m_client, nullptr, this, nullptr);
-    if (m_rtsp) {
-        m_rtsp->closeStream();
-        m_rtsp->wait(5000);
+    for (auto it = m_devices.begin(); it != m_devices.end(); ++it) {
+        auto *dc = it.value();
+        dc->tcpClient->disconnectDevice();
+        dc->stopRtsp();
     }
     delete m_pipDialog;
     delete ui;
+}
+
+//============================================================================
+// setupUiStyles - 加载并应用 QSS 样式表
+//============================================================================
+void MainWindow::setupUiStyles()
+{
+    ui->tableIdentify->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    QFile file(QStringLiteral(":/style.qss"));
+    if (file.open(QFile::ReadOnly | QFile::Text)) {
+        qApp->setStyleSheet(QString::fromUtf8(file.readAll()));
+        file.close();
+    }
 }
 
 //============================================================================
@@ -353,13 +609,13 @@ void MainWindow::on_btnMenu_Close_clicked()
 }
 
 //============================================================================
-// 导航按钮
+// 导航按钮 - 切换 QStackedWidget 页面
 //============================================================================
 
-void MainWindow::on_btnNavMonitor_clicked()  { /* 当前页面 */ }
-void MainWindow::on_btnNavPlayback_clicked() { /* 预留 */ }
-void MainWindow::on_btnNavLog_clicked()      { /* 预留 */ }
-void MainWindow::on_btnNavSettings_clicked() { on_btnSettings_clicked(); }
+void MainWindow::on_btnNavMonitor_clicked()  { ui->contentStack->setCurrentIndex(0); }
+void MainWindow::on_btnNavPlayback_clicked() { ui->contentStack->setCurrentIndex(1); }
+void MainWindow::on_btnNavLog_clicked()      { ui->contentStack->setCurrentIndex(2); }
+void MainWindow::on_btnNavSettings_clicked() { ui->contentStack->setCurrentIndex(3); }
 
 //============================================================================
 // changeEvent - 窗口状态变化时更新最大化按钮图标
@@ -377,6 +633,9 @@ void MainWindow::changeEvent(QEvent *event)
 
 //============================================================================
 // nativeEvent - 拦截 Windows 消息实现自定义标题栏
+// WM_NCCALCSIZE: 去掉原生标题栏非客户区
+// WM_NCHITTEST: 标题栏可拖拽 + 按钮识别 + 边缘缩放
+// WM_GETMINMAXINFO: 最大化时覆盖任务栏
 //============================================================================
 
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
@@ -386,27 +645,9 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         MSG *msg = static_cast<MSG *>(message);
         switch (msg->message) {
 
-        case WM_NCCALCSIZE: {
-            RECT *rc;
-            if (msg->wParam) {
-                NCCALCSIZE_PARAMS *p = reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);
-                rc = &p->rgrc[0];
-            } else {
-                rc = reinterpret_cast<RECT*>(msg->lParam);
-            }
-            if (IsZoomed(msg->hwnd)) {
-                // 最大化时 Windows 会在四边添加不可见边框导致内容偏移
-                // 补偿边框宽度使客户区填满工作区
-                int border = GetSystemMetrics(SM_CXSIZEFRAME)
-                           + GetSystemMetrics(SM_CXPADDEDBORDER);
-                rc->left   += border;
-                rc->top    += border;
-                rc->right  -= border;
-                rc->bottom -= border;
-            }
+        case WM_NCCALCSIZE:
             *result = 0;
             return true;
-        }
 
         case WM_NCHITTEST: {
             POINT pt = { GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam) };
@@ -430,11 +671,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
                     QWidget *child = ui->titleBar->childAt(tl);
                     if (child == ui->btnMenu_Min || child == ui->btnMenu_Max || child == ui->btnMenu_Close
                         || child == ui->btnNavMonitor || child == ui->btnNavPlayback
-                        || child == ui->btnNavLog || child == ui->btnNavSettings
-                        || child == ui->lineEditIp || child == ui->btnConnect
-                        || child == ui->btnCancelConnect || child == ui->lineEditRtsp
-                        || child == ui->btnVideoConnect || child == ui->btnVideoDisconnect
-                        || child == ui->btnMapToggle)
+                        || child == ui->btnNavLog || child == ui->btnNavSettings)
                         { *result = HTCLIENT; return true; }
                     *result = HTCAPTION;
                     return true;
@@ -447,14 +684,10 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             MINMAXINFO *mmi = reinterpret_cast<MINMAXINFO*>(msg->lParam);
             RECT wa;
             SystemParametersInfo(SPI_GETWORKAREA, 0, &wa, 0);
-            int border = GetSystemMetrics(SM_CXSIZEFRAME)
-                       + GetSystemMetrics(SM_CXPADDEDBORDER);
-            mmi->ptMaxPosition.x = wa.left - border;
-            mmi->ptMaxPosition.y = wa.top - border;
-            mmi->ptMaxSize.x = (wa.right - wa.left) + border * 2;
-            mmi->ptMaxSize.y = (wa.bottom - wa.top) + border * 2;
-            mmi->ptMinTrackSize.x = minimumWidth();
-            mmi->ptMinTrackSize.y = minimumHeight();
+            mmi->ptMaxPosition.x = wa.left;
+            mmi->ptMaxPosition.y = wa.top;
+            mmi->ptMaxSize.x = wa.right - wa.left;
+            mmi->ptMaxSize.y = wa.bottom - wa.top;
             return true;
         }
 
@@ -472,112 +705,6 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 }
 
 //============================================================================
-// setupUiStyles - 加载并应用 QSS 样式表
-//============================================================================
-void MainWindow::setupUiStyles()
-{
-    ui->tableIdentify->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-
-    QFile file(QStringLiteral(":/style.qss"));
-    if (file.open(QFile::ReadOnly | QFile::Text)) {
-        qApp->setStyleSheet(QString::fromUtf8(file.readAll()));
-        file.close();
-    }
-}
-
-//============================================================================
-// on_btnConnect_clicked - 连接/断开设备按钮
-// 已连接时点击为断开；未连接时读取 IP 和端口发起 TCP 连接
-//============================================================================
-void MainWindow::on_btnConnect_clicked()
-{
-    if (m_client->isConnected()) {
-        m_client->disconnectDevice();
-    } else {
-        QString ip = ui->lineEditIp->text();
-        m_client->connectToDevice(ip, 8089);
-        ui->btnConnect->setText(QString::fromUtf8("连接中..."));
-        ui->btnConnect->setEnabled(false);
-        ui->btnCancelConnect->setVisible(true);
-    }
-}
-
-//============================================================================
-// on_btnCancelConnect_clicked - 取消正在进行的连接
-// 直接断开 TCP 连接并恢复按钮状态
-//============================================================================
-void MainWindow::on_btnCancelConnect_clicked()
-{
-    m_client->disconnectDevice();
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("已取消连接"), 3000);
-}
-
-//============================================================================
-// on_btnVideoConnect_clicked - 连接 RTSP 视频流
-// 从输入框获取 RTSP URL 后交给 RtspThread 进行拉流
-//============================================================================
-void MainWindow::on_btnVideoConnect_clicked()
-{
-    QString url = ui->lineEditRtsp->text().trimmed();
-    if (url.isEmpty()) {
-        QMessageBox::warning(this, "RTSP", "请输入 RTSP 地址");
-        return;
-    }
-    m_rtsp->openStream(url);
-    ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
-    ui->statusbar->showMessage(QString::fromUtf8("正在连接 RTSP 视频流..."));
-}
-
-//============================================================================
-// on_btnVideoDisconnect_clicked - 断开 RTSP 视频流
-// 停止拉流线程、清除视频画面、恢复按钮状态
-//============================================================================
-void MainWindow::on_btnVideoDisconnect_clicked()
-{
-    m_rtsp->closeStream();
-    ui->videoWidget->clearFrame();
-    ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
-    ui->statusbar->showMessage(QString::fromUtf8("视频已断开"), 3000);
-}
-
-//============================================================================
-// onRtspFrame - 收到一帧 RTSP 视频图像
-// 将解码后的 QImage 传递给 VideoWidget 进行渲染
-//============================================================================
-void MainWindow::onRtspFrame(const QImage &frame)
-{
-    ui->videoWidget->setFrame(frame);
-}
-
-//============================================================================
-// onRtspOpened - RTSP 视频流成功打开
-// 更新按钮文本与状态栏提示
-//============================================================================
-void MainWindow::onRtspOpened()
-{
-    ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("已连接"));
-    ui->statusbar->showMessage(QString::fromUtf8("RTSP 视频已连接"), 3000);
-}
-
-//============================================================================
-// onRtspError - RTSP 视频流错误处理
-// 清除画面、恢复按钮，并在状态栏显示错误信息
-//============================================================================
-void MainWindow::onRtspError(const QString &msg)
-{
-    ui->videoWidget->clearFrame();
-    ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
-    ui->statusbar->showMessage(msg);
-}
-
-//============================================================================
 // onVideoSelection - 用户在视频画面上的框选操作
 // 将框选的像素坐标与宽高发送给设备，用于框选跟踪模式
 // cx, cy 为框选区域中心像素坐标，pw, ph 为框宽高
@@ -589,96 +716,185 @@ void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
             .arg(cx).arg(cy).arg(pw).arg(ph));
 
     if (!requireConnected()) return;
-    m_device->setBoxTrack(cx, cy, pw, ph);
+    activeCtrl()->setBoxTrack(cx, cy, pw, ph);
 }
 
 //============================================================================
-// onDeviceConnected - 设备连接成功回调
-// 更新按钮样式为红色"断开连接"，自动查询设备当前图像参数
+// onDeviceTreeDoubleClicked - 设备树双击
+// 创建设备上下文、启动 RTSP、分配网格单元格
 //============================================================================
-void MainWindow::onDeviceConnected()
+void MainWindow::onDeviceTreeDoubleClicked(const QString &name, const QString &ip, const QString &rtspUrl)
 {
-    ui->btnConnect->setText(QString::fromUtf8("断开连接"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", "connected");
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
+    // 获取或创建设备上下文
+    auto *dc = m_devices.value(ip);
+    if (!dc) {
+        dc = new DeviceContext(ip, m_cfg, this);
+        dc->state.deviceName = name;
+        m_devices[ip] = dc;
+        connect(dc->tcpClient, &TJsonClient::jsonReceived, this,
+            [this, ip](const QJsonObject &doc) { onDeviceJsonReceived(ip, doc); });
+        dc->tcpClient->connectToDevice(ip, 8089);
+    }
 
-    // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
-    m_device->queryImageParams();
+    // 检查该通道是否已分配到某个单元格
+    for (int i = 0; i < m_videoGrid->cellCount(); ++i) {
+        if (m_videoGrid->cellAt(i)->channelLabel() == name && m_gridCellMap.value(i) == ip) {
+            m_videoGrid->selectCell(i);
+            if (!rtspUrl.isEmpty())
+                dc->startRtsp(rtspUrl);
+            switchActiveDevice(ip);
+            ui->statusbar->showMessage(QStringLiteral("已切换 %1 → 画面%2").arg(name).arg(i + 1), 2000);
+            return;
+        }
+    }
 
-    // 启动系统参数定时下发
-    m_sysParamTimer->start();
+    // 查找空闲网格单元格
+    int idx = m_videoGrid->selectedCell();
+    if (idx < 0 || m_gridCellMap.contains(idx)) {
+        for (int i = 0; i < m_videoGrid->cellCount(); ++i) {
+            if (m_gridCellMap.contains(i)) continue;
+            idx = i;
+            break;
+        }
+        if (idx < 0) {
+            ui->statusbar->showMessage(QStringLiteral("无空余画面"), 2000);
+            return;
+        }
+    }
+
+    m_gridCellMap[idx] = ip;
+    m_videoGrid->assignChannel(idx, name, rtspUrl);
+
+    if (!rtspUrl.isEmpty())
+        dc->startRtsp(rtspUrl);
+    disconnect(dc, &DeviceContext::frameReady, nullptr, nullptr);
+    connect(dc, &DeviceContext::frameReady, this, [this, idx, ip](const QImage &frame) {
+        auto *vw = m_videoGrid->cellAt(idx);
+        if (vw) vw->setFrame(frame);
+        if (m_pipDialog->isVisible())
+            m_pipVideo->setFrame(frame);
+    });
+
+    switchActiveDevice(ip);
+    ui->statusbar->showMessage(QStringLiteral("已分配 %1 → 画面%2").arg(name).arg(idx + 1), 2000);
 }
 
 //============================================================================
-// onDeviceDisconnected - 设备断开回调
-// 恢复连接按钮的初始外观
+// onGridCellSelected - 网格单元格选中
+// 切换到该单元格对应的设备
 //============================================================================
-void MainWindow::onDeviceDisconnected()
+void MainWindow::onGridCellSelected(int cellIndex)
 {
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", QVariant());
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
-
-    // 停止系统参数定时下发
-    m_sysParamTimer->stop();
+    QString ip = m_gridCellMap.value(cellIndex);
+    if (!ip.isEmpty())
+        switchActiveDevice(ip);
 }
 
-// 200ms 周期查询系统参数（仅连接状态时下发）
+//============================================================================
+// onDrawerToggled - 抽屉面板开关
+//============================================================================
+void MainWindow::onDrawerToggled()
+{
+    m_drawerVisible = !m_drawerVisible;
+    m_drawerPanel->setVisible(m_drawerVisible);
+    m_drawerToggleBtn->setText(m_drawerVisible ? QStringLiteral("◀") : QStringLiteral("▶"));
+    if (ui->videoGridContainer) {
+        int ch = ui->videoGridContainer->height();
+        int bh = m_drawerToggleBtn->height();
+        m_drawerToggleBtn->move(m_drawerVisible ? 240 : 0, ch > bh ? (ch - bh) / 2 : 0);
+    }
+}
+
+//============================================================================
+// onDeviceJsonReceived - 收到某设备的 JSON 数据帧
+// 更新设备缓存状态，处于活跃设备时同步 UI
+//============================================================================
+void MainWindow::onDeviceJsonReceived(const QString &ip, const QJsonObject &doc)
+{
+    auto *dc = m_devices.value(ip);
+    if (!dc) return;
+
+    // 更新 DeviceContext 缓存状态
+    QString ctrlType = doc.value("ControlType").toString();
+    if (ctrlType == "ZoomInfo") {
+        dc->state.visZoom = doc.value("ZoomInfo").toDouble(1.0);
+        dc->state.irZoom = doc.value("ZoomInfoIR").toDouble(1.0);
+        dc->state.lastPan = doc.value("PTZInfoH").toDouble(0);
+        dc->state.lastTilt = doc.value("PTZInfoV").toDouble(0);
+        dc->state.lastLaserRange = doc.value("LaserRange").toDouble(0);
+        QString latStr = doc.value("Latitude").toString();
+        QString lonStr = doc.value("Longitude").toString();
+        dc->state.lastLat = latStr.toDouble();
+        dc->state.lastLon = lonStr.toDouble();
+        dc->state.lastAlt = doc.value("Height").toDouble(0);
+    } else if (ctrlType == "ImageSetting") {
+        int imgSize = doc.value("ImageSize").toInt();
+        static const int resTab[][2] = {{1920,1080},{1280,720},{704,576},{2566,1520}};
+        if (imgSize >= 0 && imgSize < 4) {
+            dc->state.resX = resTab[imgSize][0];
+            dc->state.resY = resTab[imgSize][1];
+        }
+        dc->state.workMode = doc.value("WorkMode").toInt();
+        dc->state.displayMode = doc.value("PipShow").toInt();
+        dc->state.algoModel = doc.value("Model").toInt();
+    } else if (ctrlType == "AIInfo") {
+        // AIInfo 不需要缓存
+    }
+
+    // 如果是活跃设备，同步 UI
+    if (ip == m_activeDeviceIp) {
+        // 更新 m_current* 成员变量（下游方法依赖它们）
+        m_currentVisZoom = dc->state.visZoom;
+        m_currentIrZoom = dc->state.irZoom;
+        m_currentResX = dc->state.resX;
+        m_currentResY = dc->state.resY;
+
+        updateStatusFromJson(doc);
+    }
+}
+
+// 500ms 周期查询当前活跃设备系统参数
 void MainWindow::onSysParamTimerTimeout()
 {
-    if (m_client->isConnected()) m_device->queryImageParams();
+    auto *c = activeClient();
+    if (c && c->isConnected()) activeCtrl()->queryImageParams();
 }
 
 //============================================================================
-// onErrorOccurred - 连接错误处理
-// 非重连时弹框显示错误；重连中只在状态栏提示，继续自动重连
+// switchActiveDevice - 切换当前控制设备
 //============================================================================
-void MainWindow::onErrorOccurred(const QString& errorMsg)
+void MainWindow::switchActiveDevice(const QString &ip)
 {
-    if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
-        ui->statusbar->showMessage(QString::fromUtf8("重连失败，%1").arg(errorMsg), 3000);
-        return;
+    if (ip == m_activeDeviceIp) return;
+
+    // 停止旧设备的 RTSP
+    auto *oldDc = m_devices.value(m_activeDeviceIp);
+    if (oldDc) oldDc->stopRtsp();
+
+    m_activeDeviceIp = ip;
+    auto *dc = m_devices.value(ip);
+
+        // 更新连接状态（树节点上已由 setDeviceConnected 独立更新）
+        if (dc && dc->tcpConnected) {
+            m_sysParamTimer->start();
+            dc->ctrl->queryImageParams();
+        } else {
+            m_sysParamTimer->stop();
+        }
+
+    // 从缓存恢复状态参数
+    if (dc) {
+        m_currentVisZoom = dc->state.visZoom;
+        m_currentIrZoom = dc->state.irZoom;
+        m_currentResX = dc->state.resX;
+        m_currentResY = dc->state.resY;
+        m_previousWorkMode = dc->state.workMode;
+        m_previousAlgoModel = dc->state.algoModel;
+        m_previousDisplayMode = dc->state.displayMode;
     }
 
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", QVariant());
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
-    QMessageBox::warning(this, QString::fromUtf8("连接错误"), errorMsg);
-}
-
-//============================================================================
-// onAckReceived - 处理设备返回的 ACK 应答
-// ACK 状态码:
-//   0 = 成功, 1 = 指令不完整, 2 = 指令内容错误
-// 在状态栏短暂显示供操作人员确认
-//============================================================================
-void MainWindow::onAckReceived(quint8 statusCode)
-{
-    QString msg;
-    switch (statusCode) {
-    case 0: msg = QString::fromUtf8("指令执行成功"); break;
-    case 1: msg = QString::fromUtf8("指令不完整");   break;
-    case 2: msg = QString::fromUtf8("指令内容错误");  break;
-    default: msg = QString::fromUtf8("未知状态码: %1").arg(statusCode);
-    }
-    ui->statusbar->showMessage(QString::fromUtf8("[ACK] %1").arg(msg), 3000);
-}
-
-//============================================================================
-// onJsonReceived - 收到设备推送的 JSON 数据帧
-// 将完整 JSON 文档交由 updateStatusFromJson 进行解析与 UI 刷新
-//============================================================================
-void MainWindow::onJsonReceived(const QJsonObject& doc)
-{
-    updateStatusFromJson(doc);
+    ui->statusbar->showMessage(
+        QString::fromUtf8("已切换到设备 %1").arg(ip), 3000);
 }
 
 //============================================================================
@@ -993,13 +1209,51 @@ QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double
 }
 
 //============================================================================
+// onAckReceived - ACK 应答处理
+//============================================================================
+void MainWindow::onAckReceived(quint8)
+{
+    // 预留：需要时在此处理 ACK 应答
+}
+
+//============================================================================
+// 活跃设备辅助方法
+//============================================================================
+static DeviceContext *devCtx(const QMap<QString, DeviceContext*> &m, const QString &ip) {
+    return ip.isEmpty() ? nullptr : m.value(ip, nullptr);
+}
+static TJsonClient *devClient(const QMap<QString, DeviceContext*> &m, const QString &ip) {
+    auto *d = devCtx(m, ip);
+    return d ? d->tcpClient : nullptr;
+}
+static DeviceController *devCtrl(const QMap<QString, DeviceContext*> &m, const QString &ip) {
+    auto *d = devCtx(m, ip);
+    return d ? d->ctrl : nullptr;
+}
+
+DeviceContext *MainWindow::activeDevice() const {
+    return devCtx(m_devices, m_activeDeviceIp);
+}
+TJsonClient *MainWindow::activeClient() const {
+    return devClient(m_devices, m_activeDeviceIp);
+}
+DeviceController *MainWindow::activeCtrl() const {
+    return devCtrl(m_devices, m_activeDeviceIp);
+}
+
+//============================================================================
 // requireConnected - 未连接时弹出提示并返回 false
 // 所有需要连接设备才能执行的 UI 操作均应先调用此函数
 //============================================================================
 bool MainWindow::requireConnected()
 {
-    if (!m_client->isConnected()) {
-        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请连接设备"));
+    if (m_activeDeviceIp.isEmpty()) {
+        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请选择画面中的设备"));
+        return false;
+    }
+    auto *dc = m_devices.value(m_activeDeviceIp);
+    if (!dc || !dc->tcpConnected) {
+        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("设备 %1 未连接").arg(m_activeDeviceIp));
         return false;
     }
     return true;
@@ -1028,20 +1282,20 @@ static void revertRadioMode(QRadioButton* off, QRadioButton* id, QRadioButton* t
 void MainWindow::on_radioModeOff_clicked() {
     if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
     if (m_updatingFromDevice) return;
-    m_device->setWorkMode(0);
-    m_device->queryImageParams();
+    activeCtrl()->setWorkMode(0);
+    activeCtrl()->queryImageParams();
 }
 void MainWindow::on_radioModeIdentify_clicked() {
     if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
     if (m_updatingFromDevice) return;
-    m_device->setWorkMode(1);
-    m_device->queryImageParams();
+    activeCtrl()->setWorkMode(1);
+    activeCtrl()->queryImageParams();
 }
 void MainWindow::on_radioModeAutoTrack_clicked() {
     if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
     if (m_updatingFromDevice) return;
-    m_device->setWorkMode(2);
-    m_device->queryImageParams();
+    activeCtrl()->setWorkMode(2);
+    activeCtrl()->queryImageParams();
 }
 
 //============================================================================
@@ -1053,12 +1307,11 @@ void MainWindow::on_btnPtzMoveTo_clicked()
 
 //============================================================================
 // on_btnSettings_clicked - 打开设置对话框
-// 模态对话框用于编辑相机参数 (像元尺寸、分辨率、焦距等)，
-// 关闭后重载配置以应用更改
+// 模态对话框编辑当前活跃设备的参数
 //============================================================================
 void MainWindow::on_btnSettings_clicked()
 {
-    SettingsDialog dlg(m_cfg, this);
+    SettingsDialog dlg(m_cfg, m_activeDeviceIp, this);
     dlg.exec();
 }
 
@@ -1070,8 +1323,8 @@ void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
 {
     if (!requireConnected()) { ui->comboAlgoModel->blockSignals(true); ui->comboAlgoModel->setCurrentIndex(m_previousAlgoModel); ui->comboAlgoModel->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
-    m_device->setAlgoModel(index);
-    m_device->queryImageParams();
+    activeCtrl()->setAlgoModel(index);
+    activeCtrl()->queryImageParams();
 }
 
 //============================================================================
@@ -1084,7 +1337,7 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
     if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
     syncLensTargetByDisplayMode(index);
-    m_device->setDisplayMode(index);
+    activeCtrl()->setDisplayMode(index);
 }
 
 //============================================================================
@@ -1112,7 +1365,7 @@ void MainWindow::on_btnSetLocation_clicked()
     }
 
     if (!requireConnected()) return;
-    m_device->setLocation(lat, lon);
+    activeCtrl()->setLocation(lat, lon);
     ui->statusbar->showMessage(QString::fromUtf8("已下发经纬度"), 3000);
 }
 
@@ -1123,7 +1376,7 @@ void MainWindow::on_btnSetLocation_clicked()
 void MainWindow::on_btnGetImageParams_clicked()
 {
     if (!requireConnected()) return;
-    m_device->queryImageParams();
+    activeCtrl()->queryImageParams();
     ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }
 
@@ -1671,6 +1924,10 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     updateMapLayout();
+    if (m_drawerToggleBtn && ui->videoGridContainer) {
+        int x = m_drawerVisible ? 240 : 0;
+        m_drawerToggleBtn->move(x, (ui->videoGridContainer->height() - m_drawerToggleBtn->height()) / 2);
+    }
 }
 
 //============================================================================
@@ -1686,11 +1943,10 @@ void MainWindow::toggleMap()
         updateMapLayout();
     } else {
         m_pipDialog->hide();
-        if (ui->videoWidget->parent() != ui->widgetDisplay) {
-            ui->videoWidget->setParent(ui->widgetDisplay);
-            ui->verticalLayout_display->addWidget(ui->videoWidget);
-        }
         m_mapContainer->setVisible(false);
+        m_videoGrid->setVisible(true);
+        m_drawerPanel->setVisible(m_drawerVisible);
+        m_drawerToggleBtn->setVisible(true);
     }
 }
 
@@ -1706,8 +1962,8 @@ void MainWindow::toggleMapMode()
 
 //============================================================================
 // updateMapLayout - 三模式布局
-//   地图隐藏    → videoWidget 填满 widgetDisplay
-//   迷你模式    → videoWidget 全屏 + 280 圆形浮层
+//   地图隐藏    → 视频网格填满 widgetDisplay
+//   迷你模式    → 视频网格 + 280 圆形浮层
 //   全屏/大地图  → mapWidget 填满 widgetDisplay + 独立 PiP 对话框
 //============================================================================
 void MainWindow::updateMapLayout()
@@ -1716,11 +1972,9 @@ void MainWindow::updateMapLayout()
     if (ps.isEmpty()) return;
 
     if (!m_mapVisible) {
-        if (ui->videoWidget->parent() != ui->widgetDisplay) {
-            ui->videoWidget->setParent(ui->widgetDisplay);
-            ui->verticalLayout_display->addWidget(ui->videoWidget);
-            ui->videoWidget->setVisible(true);
-        }
+        m_videoGrid->setVisible(true);
+        m_drawerPanel->setVisible(m_drawerVisible);
+        m_drawerToggleBtn->setVisible(true);
         m_mapContainer->setVisible(false);
         m_pipDialog->hide();
         return;
@@ -1729,7 +1983,11 @@ void MainWindow::updateMapLayout()
     m_mapContainer->setVisible(true);
 
     if (m_mapExpanded) {
-        // 大地图：地图填满显示区
+        // 大地图：地图填满显示区，视频网格隐藏
+        m_videoGrid->setVisible(false);
+        m_drawerPanel->setVisible(false);
+        m_drawerToggleBtn->setVisible(false);
+
         m_mapContainer->setGeometry(0, 0, ps.width(), ps.height());
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, false);
         m_mapContainer->clearMask();
@@ -1737,21 +1995,19 @@ void MainWindow::updateMapLayout()
         m_mapWidget->setCircularClip(false);
         m_mapOverlay->setVisible(false);
 
-        // 视频移至独立 PiP 对话框
-        ui->videoWidget->setParent(m_pipDialog);
-        m_pipDialog->layout()->addWidget(ui->videoWidget);
+        // PiP 显示当前选中通道的视频
         m_pipPos = QPoint(8, ps.height() - 200 - 8);
         m_pipDialog->move(m_pipPos);
         m_pipDialog->show();
-        ui->videoWidget->setVisible(true);
     } else {
-        // 迷你模式
-        if (ui->videoWidget->parent() != ui->widgetDisplay) {
-            ui->videoWidget->setParent(ui->widgetDisplay);
-            ui->verticalLayout_display->addWidget(ui->videoWidget);
-            ui->videoWidget->setVisible(true);
-        }
+        // 迷你模式：视频网格可见 + 圆形迷你地图叠加
+        m_videoGrid->setVisible(true);
+        m_drawerPanel->setVisible(m_drawerVisible);
+        m_drawerToggleBtn->setVisible(true);
         m_pipDialog->hide();
+        // 抽屉开关按钮位置更新
+        { int x = m_drawerVisible ? 240 : 0;
+          m_drawerToggleBtn->move(x, (ps.height() - m_drawerToggleBtn->height()) / 2); }
 
         m_mapContainer->setGeometry(m_miniMapPos.x(), m_miniMapPos.y(), 280, 280);
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
@@ -1804,6 +2060,43 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
         case QEvent::MouseButtonDblClick: {
             toggleMapMode();
+            return true;
+        }
+        default:
+            break;
+        }
+    }
+
+    if (obj == ui->titleBar) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: {
+            auto *me = static_cast<QMouseEvent*>(event);
+            if (me->button() == Qt::LeftButton) {
+                QWidget *child = ui->titleBar->childAt(me->pos());
+                if (child == ui->btnMenu_Min || child == ui->btnMenu_Max || child == ui->btnMenu_Close
+                    || child == ui->btnNavMonitor || child == ui->btnNavPlayback
+                    || child == ui->btnNavLog || child == ui->btnNavSettings)
+                    return false;
+                m_windowDragPos = me->globalPosition().toPoint();
+                m_windowDragging = true;
+            }
+            return true;
+        }
+        case QEvent::MouseMove: {
+            if (m_windowDragging) {
+                auto *me = static_cast<QMouseEvent*>(event);
+                QPoint delta = me->globalPosition().toPoint() - m_windowDragPos;
+                move(pos() + delta);
+                m_windowDragPos = me->globalPosition().toPoint();
+            }
+            return true;
+        }
+        case QEvent::MouseButtonRelease: {
+            m_windowDragging = false;
+            return true;
+        }
+        case QEvent::MouseButtonDblClick: {
+            on_btnMenu_Max_clicked();
             return true;
         }
         default:

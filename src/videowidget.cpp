@@ -46,9 +46,6 @@ QRect VideoWidget::selectionRect() const
     return QRect(m_selStart, m_selEnd).normalized();
 }
 
-// 绘制事件：负责渲染视频帧及选区叠加层
-// 无帧时显示"RTSP 未连接"占位文本；有帧时按等比缩放居中绘制，
-// 并叠加绿色半透明选区矩形（正在选择时）
 void VideoWidget::paintEvent(QPaintEvent * /*event*/)
 {
     QPainter p(this);
@@ -60,24 +57,53 @@ void VideoWidget::paintEvent(QPaintEvent * /*event*/)
         p.setPen(QColor("#666666"));
         p.setFont(QFont("Microsoft YaHei", 16));
         p.drawText(rect(), Qt::AlignCenter, "RTSP 未连接");
-        return;
+    } else {
+        QImage scaled = m_frame.scaled(size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        int x = (width()  - scaled.width())  / 2;
+        int y = (height() - scaled.height()) / 2;
+        m_displayRect = QRect(x, y, scaled.width(), scaled.height());
+        p.drawImage(m_displayRect, scaled);
+
+        if (m_selecting) {
+            QRect sel = QRect(m_selStart, m_selEnd).normalized();
+            p.setPen(QPen(QColor("#00ff00"), 2));
+            p.drawRect(sel);
+            p.fillRect(sel.adjusted(0, 0, -1, -1), QColor(0, 255, 0, 40));
+        }
     }
 
-    // 按等比缩放图像以适应控件尺寸，居中绘制
-    QImage scaled = m_frame.scaled(size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    int x = (width()  - scaled.width())  / 2;
-    int y = (height() - scaled.height()) / 2;
-    m_displayRect = QRect(x, y, scaled.width(), scaled.height());
-    p.drawImage(m_displayRect, scaled);
+    // ── 选中边框 ──
+    if (m_selected) {
+        p.setPen(QPen(QColor("#3A8BFF"), 3));
+        p.drawRect(rect().adjusted(1, 1, -2, -2));
+    }
 
-    // 绘制选区框：绿色边框 + 半透明绿色填充
-    if (m_selecting) {
-        QRect sel = QRect(m_selStart, m_selEnd).normalized();
-        p.setPen(QPen(QColor("#00ff00"), 2));
-        p.drawRect(sel);
+    // ── 通道标题 ──
+    if (!m_channelLabel.isEmpty()) {
+        QFont lblFont("Microsoft YaHei", 11);
+        p.setFont(lblFont);
+        QFontMetrics fm(lblFont);
+        int tw = fm.horizontalAdvance(m_channelLabel) + 12;
+        int th = fm.height() + 6;
+        QRect bgRect(0, 0, tw, th);
+        p.fillRect(bgRect, QColor(0, 0, 0, 180));
+        p.setPen(Qt::white);
+        p.drawText(bgRect.adjusted(6, 0, -6, 0), Qt::AlignVCenter | Qt::AlignLeft, m_channelLabel);
 
-        // 半透明叠加层，帮助用户看清选区范围
-        p.fillRect(sel.adjusted(0, 0, -1, -1), QColor(0, 255, 0, 40));
+        // 右下角通道编号角标
+        int cellIdx = property("cellIndex").toInt();
+        if (cellIdx >= 0) {
+            QFont idxFont("Microsoft YaHei", 10);
+            p.setFont(idxFont);
+            QFontMetrics ifm(idxFont);
+            QString idxText = QString::number(cellIdx + 1);
+            int iw = ifm.horizontalAdvance(idxText) + 10;
+            int ih = ifm.height() + 4;
+            QRect idxRect(width() - iw, height() - ih, iw, ih);
+            p.fillRect(idxRect, QColor(0, 0, 0, 140));
+            p.setPen(QColor("#aaaaaa"));
+            p.drawText(idxRect, Qt::AlignCenter, idxText);
+        }
     }
 }
 

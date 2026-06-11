@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 project(T-JSON LANGUAGES CXX)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel)
@@ -52,6 +55,12 @@ qt_add_executable(T-JSON
     src/mapbridge.h
     src/cmdlogdialog.cpp
     src/cmdlogdialog.h
+    src/videogridwidget.cpp
+    src/videogridwidget.h
+    src/devicetreewidget.cpp
+    src/devicetreewidget.h
+    src/devicecontext.cpp
+    src/devicecontext.h
     resources/resources.qrc
 )
 

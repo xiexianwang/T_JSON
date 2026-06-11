@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QVector>
 #include <QDialog>
+#include <QMap>
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
@@ -21,9 +22,13 @@
 #include <windowsx.h>
 #endif
 
+class DeviceContext;
 class RtspThread;
 class VideoWidget;
+class VideoGridWidget;
+class DeviceTreeWidget;
 class MapWidget;
+class QButtonGroup;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -51,18 +56,9 @@ public:
     void changeEvent(QEvent *event) override;
 
 private slots:
-    // ── 设备连接相关 ──
-    void on_btnConnect_clicked();           // 连接/断开设备按钮
-    void on_btnCancelConnect_clicked();     // 取消正在进行的连接
-    void onDeviceConnected();               // 设备连接成功回调
-    void onDeviceDisconnected();            // 设备断开回调
-    void onErrorOccurred(const QString& errorMsg);  // 连接错误处理
+    // ── 设备连接相关（操作当前活跃设备） ──
+    void onDeviceJsonReceived(const QString &ip, const QJsonObject &doc);
     void onAckReceived(quint8 statusCode);  // T-JSON ACK 应答处理
-
-    // ── JSON 数据与抓拍 ──
-    void onJsonReceived(const QJsonObject& doc);        // 收到设备 JSON 帧
-    void onImageSnapped(const QByteArray& jpegData,     // 抓拍图像回调
-                        const QRect& location);
 
     // ── 工作模式切换 ──
     void on_radioModeOff_clicked();          // 关闭 AI
@@ -88,22 +84,31 @@ private slots:
     void on_comboLensTarget_currentIndexChanged(int index);  // 镜头目标切换
     void on_btnSetLocation_clicked();                   // 手动下发经纬度
     void on_btnGetImageParams_clicked();                // 查询图像参数
-    void onSysParamTimerTimeout();                      // 200ms 周期查询系统参数
+    void onSysParamTimerTimeout();                      // 500ms 周期查询系统参数
 
-    // ── RTSP 视频流 ──
-    void on_btnVideoConnect_clicked();      // 连接 RTSP 视频流
-    void on_btnVideoDisconnect_clicked();   // 断开 RTSP 视频流
-    void onRtspFrame(const QImage &frame);  // 收到一帧视频图像
-    void onRtspOpened();                    // RTSP 连接成功
-    void onRtspError(const QString &msg);   // RTSP 连接出错
-    void onVideoSelection(int cx, int cy, int pw, int ph); // 视频画面框选
+    // ── 标题栏按钮 ──
+    void on_btnMenu_Min_clicked();
+    void on_btnMenu_Max_clicked();
+    void on_btnMenu_Close_clicked();
+
+    // ── 导航栏页面切换 ──
+    void on_btnNavMonitor_clicked();
+    void on_btnNavPlayback_clicked();
+    void on_btnNavLog_clicked();
+    void on_btnNavSettings_clicked();
+
+    // ── 设备资源树与分屏 ──
+    void onDeviceTreeDoubleClicked(const QString &name, const QString &ip, const QString &rtspUrl);
+    void onGridCellSelected(int cellIndex);
+    void onDrawerToggled();
+    void switchActiveDevice(const QString &ip);
 
 private:
     Ui::MainWindow *ui;             // UI 设计器生成的界面对象
-    TJsonClient *m_client;          // TCP JSON 协议客户端
     ConfigManager *m_cfg;           // 配置管理器（持久化设置）
-    DeviceController *m_device;     // 设备指令控制器（封装协议细节）
-    RtspThread *m_rtsp;            // RTSP 视频流拉取线程
+    QMap<QString, DeviceContext*> m_devices;  // IP → 设备上下文
+    QMap<int, QString> m_gridCellMap;         // 网格单元索引 → 设备 IP
+    QString m_activeDeviceIp;                 // 当前控制设备 IP
     MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
@@ -115,9 +120,18 @@ private:
     QPoint m_dragStart;              // 拖拽起点
     bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
 
+    // ── 分屏网格 ──
+    VideoGridWidget *m_videoGrid;
+    QWidget *m_drawerPanel;
+    DeviceTreeWidget *m_deviceTree;
+    QButtonGroup *m_splitGroup;
+    bool m_drawerVisible = true;
+    QPushButton *m_drawerToggleBtn;
+
     // ── PiP 视频窗口（大地图时独立无边框对话框） ──
     QDialog *m_pipDialog;
     QWidget *m_pipTitle;
+    VideoWidget *m_pipVideo;
     QPoint m_pipPos{10, 10};
     QPoint m_pipDragStart;
 
@@ -153,16 +167,27 @@ private:
     // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
     QTimer *m_sysParamTimer;
 
+    // ── 窗口拖动 ──
+    bool m_windowDragging = false;
+    QPoint m_windowDragPos;
+
     // ── 迷你地图控制 ──
     void toggleMap();                               // 切换地图显示/隐藏
     void toggleMapMode();                           // 切换迷你/全屏模式
     void updateMapLayout();                         // 更新地图尺寸和位置
+
+    // ── 活跃设备辅助 ──
+    DeviceContext *activeDevice() const;
+    TJsonClient *activeClient() const;
+    DeviceController *activeCtrl() const;
 
     // ── 私有工具方法 ──
     bool requireConnected();                        // 未连接时弹出状态栏提示并返回 false
     void setupUiStyles();                           // 加载并应用 QSS 样式表
     void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI
     void syncLensTargetByDisplayMode(int pipShow);  // 根据显示模式同步镜头目标选择
+    void onVideoSelection(int cx, int cy, int pw, int ph); // 视频画面框选
+    void onImageSnapped(const QByteArray& jpegData, const QRect& location); // 抓拍图像保存
     void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）
     QString missMradStr(double dx, double dy,       // 计算脱靶量（毫弧度）
                         double pixelSizeUm, double focalMm);

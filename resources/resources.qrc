@@ -30,14 +30,10 @@
         <file>qss/blacksoft/radiobutton_checked_disable.png</file>
         <file>qss/blacksoft/radiobutton_unchecked.png</file>
         <file>qss/blacksoft/radiobutton_unchecked_disable.png</file>
-        <file>qss/blacksoft/close.png</file>
-        <file>qss/blacksoft/maximize.png</file>
-        <file>qss/blacksoft/minimize.png</file>
-        <file>qss/blacksoft/restore.png</file>
         <file>qss/logo.jpg</file>
-        <file>gear.svg</file>
-        <file>monitor.svg</file>
-        <file>playback.svg</file>
-        <file>log.svg</file>
+        <file>qss/blacksoft/maximize.png</file>
+        <file>qss/blacksoft/restore.png</file>
+        <file>qss/blacksoft/minimize.png</file>
+        <file>qss/blacksoft/close.png</file>
     </qresource>
 </RCC>

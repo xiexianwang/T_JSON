@@ -15,9 +15,18 @@
 #include "configmanager.h"
 
 // 协议构建器：纯静态工具类，用于组装各类底层串口通信协议的数据包
-// 当前支持：Pelco-D（云台控制/红外镜头）、VISCA（可见光镜头变倍/变焦）
+// 当前支持：Pelco-D（云台控制/红外镜头）、VISCA（可见光镜头变倍/变焦）、IRAY（红外镜头）
 class ProtocolBuilder {
 public:
+    // IRAY 红外协议动作枚举
+    enum IrayAction : quint8 {
+        IrayStepPos   = 0x00,  // 单步+
+        IrayStepNeg   = 0x01,  // 单步-
+        IrayContNeg   = 0x02,  // 连续-
+        IrayContPos   = 0x03,  // 连续+
+        IrayStop      = 0x04,  // 连续停止
+        IrayAutoFocus = 0x05,  // 自动聚焦（仅聚焦电机）
+    };
     // Pelco-D 协议组包
     // 格式: [0xFF][地址][Cmd1][Cmd2][Data1][Data2][Checksum]
     // Checksum = (地址 + Cmd1 + Cmd2 + Data1 + Data2) % 256
@@ -69,6 +78,27 @@ public:
         pkt.append(static_cast<char>(zoom ? 0x07 : 0x08));  // 0x07=变倍停止, 0x08=变焦停止
         pkt.append(static_cast<char>(0x00));                // 停止速度参数为 0
         pkt.append(static_cast<char>(0xFF));
+        return pkt;
+    }
+
+    // IRAY 红外协议组包（聚焦/变倍电机控制）
+    // 格式: [0xAA][0x06][0x10][motor][0x01][action][0x00][checksum][0xEB][0xAA]
+    // checksum = sum(0xAA + 0x06 + 0x10 + motor + 0x01 + action + 0x00) & 0xFF
+    static QByteArray buildIray(quint8 motor, quint8 action) {
+        QByteArray pkt;
+        pkt.append(static_cast<char>(0xAA));
+        pkt.append(static_cast<char>(0x06));
+        pkt.append(static_cast<char>(0x10));
+        pkt.append(static_cast<char>(motor));      // 0x00=聚焦, 0x01=变倍
+        pkt.append(static_cast<char>(0x01));
+        pkt.append(static_cast<char>(action));     // 动作
+        pkt.append(static_cast<char>(0x00));
+        quint8 sum = 0;
+        for (int i = 0; i < pkt.size(); ++i)
+            sum += static_cast<quint8>(pkt[i]);
+        pkt.append(static_cast<char>(sum));        // checksum
+        pkt.append(static_cast<char>(0xEB));
+        pkt.append(static_cast<char>(0xAA));
         return pkt;
     }
 };

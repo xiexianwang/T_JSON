@@ -21,7 +21,7 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(ConfigManager *cfg, QWidget *parent = nullptr);
+    explicit SettingsDialog(ConfigManager *cfg, const QString &deviceIp = QString(), QWidget *parent = nullptr);
     ~SettingsDialog();
 
 private slots:

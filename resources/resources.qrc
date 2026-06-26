@@ -34,7 +34,8 @@
         <file>qss/blacksoft/maximize.png</file>
         <file>qss/blacksoft/minimize.png</file>
         <file>qss/blacksoft/restore.png</file>
-        <file>qss/logo.jpg</file>
+        <file>qss/logo.png</file>
+        <file>qss/logo.ico</file>
         <file>gear.svg</file>
         <file>monitor.svg</file>
         <file>playback.svg</file>

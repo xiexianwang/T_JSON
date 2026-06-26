@@ -24,6 +24,9 @@ public:
     // 返回当前选中的矩形区域（若未在选中状态则返回空矩形）
     QRect selectionRect() const;
 
+    // 启用/禁用鼠标框选（非点选/框选跟踪模式时禁用）
+    void setSelectionEnabled(bool enabled) { m_selectionEnabled = enabled; }
+
 signals:
     // 选区完成信号：返回选中区域中心坐标及宽高（原始帧像素单位）
     void selectionFinished(int centerX, int centerY, int width, int height);
@@ -50,6 +53,7 @@ private:
     bool m_selecting = false;    // 是否正在拖拽选择中
     QPoint m_selStart;           // 选区起点（控件坐标）
     QPoint m_selEnd;             // 选区终点（控件坐标）
+    bool m_selectionEnabled = true; // 是否允许鼠标框选
 
     // 显示几何信息
     QRect m_displayRect;         // 实际绘制帧图像的区域（居中缩放后）

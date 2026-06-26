@@ -155,8 +155,8 @@ background-color:rgba(238,0,0,128);
 }
 
 QRadioButton::indicator{
-width:15px;
-height:15px;
+    width:1.2em;
+    height:1.2em;
 }
 
 QRadioButton::indicator::unchecked{
@@ -180,8 +180,8 @@ padding:0px 0px 0px 0px;
 }
 
 QCheckBox::indicator,QGroupBox::indicator,QTreeView::indicator,QListView::indicator,QTableView::indicator{
-width:13px;
-height:13px;
+    width:1.1em;
+    height:1.1em;
 }
 
 QCheckBox::indicator:unchecked,QGroupBox::indicator:unchecked,QTreeView::indicator:unchecked,QListView::indicator:unchecked,QTableView::indicator:unchecked{
@@ -209,17 +209,17 @@ image:url(:/qss/blacksoft/checkbox_parcial_disable.png);
 }
 
 QTimeEdit::up-button,QDateEdit::up-button,QDateTimeEdit::up-button,QDoubleSpinBox::up-button,QSpinBox::up-button{
-image:url(:/qss/blacksoft/add_top.png);
-width:10px;
-height:10px;
-padding:2px 5px 0px 0px;
+    image:url(:/qss/blacksoft/add_top.png);
+    width:0.8em;
+    height:0.8em;
+    padding:2px 5px 0px 0px;
 }
 
 QTimeEdit::down-button,QDateEdit::down-button,QDateTimeEdit::down-button,QDoubleSpinBox::down-button,QSpinBox::down-button{
-image:url(:/qss/blacksoft/add_bottom.png);
-width:10px;
-height:10px;
-padding:0px 5px 2px 0px;
+    image:url(:/qss/blacksoft/add_bottom.png);
+    width:0.8em;
+    height:0.8em;
+    padding:0px 5px 2px 0px;
 }
 
 QTimeEdit::up-button:pressed,QDateEdit::up-button:pressed,QDateTimeEdit::up-button:pressed,QDoubleSpinBox::up-button:pressed,QSpinBox::up-button:pressed{
@@ -238,10 +238,10 @@ right:2px;
 }
 
 QComboBox::drop-down,QDateEdit::drop-down,QTimeEdit::drop-down,QDateTimeEdit::drop-down{
-subcontrol-origin:padding;
-subcontrol-position:top right;
-width:15px;
-border-left-width:0px;
+    subcontrol-origin:padding;
+    subcontrol-position:top right;
+    width:1.2em;
+    border-left-width:0px;
 border-left-style:solid;
 border-top-right-radius:3px;
 border-bottom-right-radius:3px;
@@ -363,16 +363,16 @@ background:qradialgradient(spread:pad,cx:0.5,cy:0.5,radius:0.5,fx:0.5,fy:0.5,sto
 }
 
 QScrollBar:horizontal{
-background:#484848;
-padding:0px;
-border-radius:6px;
-max-height:12px;
+    background:#484848;
+    padding:0px;
+    border-radius:6px;
+    max-height:1.0em;
 }
 
 QScrollBar::handle:horizontal{
-background:#242424;
-min-width:50px;
-border-radius:6px;
+    background:#242424;
+    min-width:3em;
+    border-radius:6px;
 }
 
 QScrollBar::handle:horizontal:hover{
@@ -400,16 +400,16 @@ background:none;
 }
 
 QScrollBar:vertical{
-background:#484848;
-padding:0px;
-border-radius:6px;
-max-width:12px;
+    background:#484848;
+    padding:0px;
+    border-radius:6px;
+    max-width:1.0em;
 }
 
 QScrollBar::handle:vertical{
-background:#242424;
-min-height:50px;
-border-radius:6px;
+    background:#242424;
+    min-height:3em;
+    border-radius:6px;
 }
 
 QScrollBar::handle:vertical:hover{
@@ -436,8 +436,16 @@ QScrollBar::sub-line:vertical{
 background:none;
 }
 
+QAbstractScrollArea{
+    background:#444444;
+}
+
 QScrollArea{
-border:0px;
+    border:0px;
+}
+
+QWidget#widgetControl {
+    background-color: #444444;
 }
 
 QTreeView,QListView,QTableView,QTabWidget::pane{
@@ -710,10 +718,6 @@ VideoWidget#videoWidget {
     border: none;
 }
 
-QPushButton#btnSettings {
-    font-weight: bold;
-}
-
 QWidget#toolbar {
     background: #252526;
     border-bottom: 1px solid #242424;
@@ -766,10 +770,9 @@ QToolButton#btnNavLog,
 QToolButton#btnNavSettings {
     border: none;
     border-radius: 0px;
-    padding: 2px 0px;
+    padding: 4px 8px;
     background: transparent;
     color: #a0a0b0;
-    font-size: 11px;
 }
 
 QToolButton#btnNavMonitor:hover,
@@ -780,14 +783,14 @@ QToolButton#btnNavSettings:hover {
     background: rgba(255,255,255,0.08);
 }
 
-QToolButton#btnNavMonitor:checked,
+/*QToolButton#btnNavMonitor:checked,
 QToolButton#btnNavPlayback:checked,
 QToolButton#btnNavLog:checked,
 QToolButton#btnNavSettings:checked {
     color: #ffffff;
     border-bottom: 2px solid #3A8BFF;
     background: rgba(58,139,255,0.12);
-}
+}*/
 
 /* 标题栏 logo 和标题 */
 QLabel#labelAppIcon {
@@ -797,7 +800,6 @@ QLabel#labelAppIcon {
 
 QLabel#labelAppTitle {
     color: #e0e0e0;
-    font-size: 13px;
     font-weight: bold;
     margin-right: 12px;
 }

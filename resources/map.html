@@ -61,7 +61,6 @@ html, body { width:100%; height:100%; background:transparent !important; font-fa
 // ======================================================================
 
 var MAX_SEGMENTS = 200;     // 最大色段数，超出后裁剪旧段
-var ARROW_INTERVAL = 10;    // 每 N 段加一个方向箭头
 
 // ======================================================================
 
@@ -518,7 +517,7 @@ function bearing(lat1, lon1, lat2, lon2) {
 function jsAddTrackPoint(trackId, lat, lon, speed) {
 
     if (!trackData[trackId]) {
-        trackData[trackId] = { prevLat: null, prevLon: null, segments: [], arrows: [], arrowCount: 0 };
+        trackData[trackId] = { prevLat: null, prevLon: null, segments: [] };
     }
 
     var td = trackData[trackId];
@@ -541,33 +540,12 @@ function jsAddTrackPoint(trackId, lat, lon, speed) {
 
     td.segments.push(seg);
 
-    // 方向箭头（每 ARROW_INTERVAL 段画一个三角形）
-    td.arrowCount++;
-    if (td.arrowCount % ARROW_INTERVAL === 0) {
-        var midLat = (td.prevLat + lat) / 2;
-        var midLon = (td.prevLon + lon) / 2;
-        var brng = bearing(td.prevLat, td.prevLon, lat, lon);
-        var aSize = 0.000075;
-        var br = brng * Math.PI / 180;
-        var tip = [midLat + aSize * 2 * Math.cos(br), midLon + aSize * 2 * Math.sin(br) / Math.cos(midLat * Math.PI / 180)];
-        var bl = [midLat + aSize * Math.cos(br + 2.5), midLon + aSize * Math.sin(br + 2.5) / Math.cos(midLat * Math.PI / 180)];
-        var br2 = [midLat + aSize * Math.cos(br - 2.5), midLon + aSize * Math.sin(br - 2.5) / Math.cos(midLat * Math.PI / 180)];
-        var arrow = L.polygon([tip, bl, br2], {
-            color: color, fillColor: color, fillOpacity: 0.8, weight: 1, interactive: false
-        }).addTo(trackLayers);
-        td.arrows.push(arrow);
-    }
-
     td.prevLat = lat;
     td.prevLon = lon;
 
     // FIFO 裁剪
     while (td.segments.length > MAX_SEGMENTS) {
         trackLayers.removeLayer(td.segments.shift());
-    }
-    var maxArrows = Math.floor(MAX_SEGMENTS / ARROW_INTERVAL) + 5;
-    while (td.arrows.length > maxArrows) {
-        trackLayers.removeLayer(td.arrows.shift());
     }
 }
 
@@ -576,7 +554,6 @@ function jsClearTrack(trackId) {
 
     if (trackData[trackId]) {
         trackData[trackId].segments.forEach(function(s) { trackLayers.removeLayer(s); });
-        trackData[trackId].arrows.forEach(function(a) { trackLayers.removeLayer(a); });
         delete trackData[trackId];
     }
 

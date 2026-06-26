@@ -13,6 +13,8 @@
 #include <QTimer>
 #include <QVector>
 #include <QDialog>
+#include <QSystemTrayIcon>
+#include <QMenu>
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
@@ -24,6 +26,7 @@
 class RtspThread;
 class VideoWidget;
 class MapWidget;
+class CmdLogDialog;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -49,8 +52,14 @@ public:
     void resizeEvent(QResizeEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void changeEvent(QEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
+    // ── 系统托盘 ──
+    void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
+    void onTrayShow();
+    void onTrayExit();
+
     // ── 设备连接相关 ──
     void on_btnConnect_clicked();           // 连接/断开设备按钮
     void on_btnCancelConnect_clicked();     // 取消正在进行的连接
@@ -65,9 +74,7 @@ private slots:
                         const QRect& location);
 
     // ── 工作模式切换 ──
-    void on_radioModeOff_clicked();          // 关闭 AI
-    void on_radioModeIdentify_clicked();     // 识别模式
-    void on_radioModeAutoTrack_clicked();    // 自动跟踪模式
+    void on_comboWorkMode_currentIndexChanged(int index);
 
     // ── 标题栏按钮 ──
     void on_btnMenu_Min_clicked();
@@ -82,10 +89,9 @@ private slots:
 
     // ── 界面交互 ──
     void on_btnPtzMoveTo_clicked();                     // 云台转动到指定角度
-    void on_btnSettings_clicked();                      // 打开设置对话框
-    void on_comboAlgoModel_currentIndexChanged(int index); // 算法模型切换
+    void on_comboAlgoModel1_currentIndexChanged(int index);
+    void on_comboAlgoModel2_currentIndexChanged(int index);
     void on_comboDisplayMode_currentIndexChanged(int index); // 显示模式切换
-    void on_comboLensTarget_currentIndexChanged(int index);  // 镜头目标切换
     void on_btnSetLocation_clicked();                   // 手动下发经纬度
     void on_btnGetImageParams_clicked();                // 查询图像参数
     void onSysParamTimerTimeout();                      // 200ms 周期查询系统参数
@@ -125,10 +131,15 @@ private:
     double m_currentIrZoom;         // 当前红外镜头倍率
     int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
     int m_previousWorkMode = 0;     // ZoomInfo 最后上报的 WorkMode
+    bool m_workModeInitialized = false;
+    bool m_displayModeInitialized = false;
+    bool m_algoModelInitialized = false;
     int m_previousAlgoModel = 0;    // ZoomInfo 最后上报的 Model
+    int m_currentAlgoModel = 0;
     int m_previousDisplayMode = 0;  // ZoomInfo 最后上报的 PipShow
     int m_currentResX = 2688;       // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
     int m_currentResY = 1520;       // 当前可见光实际垂直分辨率
+    bool m_rtspEverOpened = false;  // RTSP 是否曾打开（手动或自动），用于避免重复自动连接
     
     // ── 跟踪状态管理（地图目标/轨迹逻辑） ──
     struct TrackState {
@@ -143,6 +154,7 @@ private:
         double plotLat = 0, plotLon = 0;    // 上次绘制点 GPS
         double plotHeading = -1;            // 上次绘制段航向角（度），<0 = 未初始化
         QDateTime plotTime;                 // 上次绘制时间（心跳用）
+
     };
     TrackState m_track;
 
@@ -153,6 +165,21 @@ private:
     // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
     QTimer *m_sysParamTimer;
 
+    // ── AIInfo 超时清理（设备无目标时不发帧，超时清除残留数据） ──
+    QDateTime m_lastAiInfoTime;
+    QTimer *m_aiCleanupTimer;
+    void onAiCleanupTimeout();
+
+    // ── 系统托盘 ──
+    QSystemTrayIcon *m_trayIcon;
+    QMenu *m_trayMenu;
+
+    // ── 日志窗口 ──
+    CmdLogDialog *m_logDialog = nullptr;
+
+    // ── ACK 处理：记录最近一次发送的帧类型，用于判断 ACK 状态码含义 ──
+    FrameType m_lastAckFrameType = FrameType::Status;
+
     // ── 迷你地图控制 ──
     void toggleMap();                               // 切换地图显示/隐藏
     void toggleMapMode();                           // 切换迷你/全屏模式
@@ -162,7 +189,6 @@ private:
     bool requireConnected();                        // 未连接时弹出状态栏提示并返回 false
     void setupUiStyles();                           // 加载并应用 QSS 样式表
     void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI
-    void syncLensTargetByDisplayMode(int pipShow);  // 根据显示模式同步镜头目标选择
     void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）
     QString missMradStr(double dx, double dy,       // 计算脱靶量（毫弧度）
                         double pixelSizeUm, double focalMm);
@@ -176,6 +202,8 @@ private:
                         double tiltDeg, double& outLat, double& outLon);
     double estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize);
     double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
+    int currentAlgoModel() const;
+    void sendAlgoModel(int model);
 };
 
 #endif // MAINWINDOW_H

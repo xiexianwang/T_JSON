@@ -52,7 +52,7 @@ QRect VideoWidget::selectionRect() const
 void VideoWidget::paintEvent(QPaintEvent * /*event*/)
 {
     QPainter p(this);
-    p.setRenderHint(QPainter::SmoothPixmapTransform);
+    //p.setRenderHint(QPainter::SmoothPixmapTransform);
     p.fillRect(rect(), Qt::black);
 
     QMutexLocker lock(&m_frameMutex);
@@ -84,7 +84,7 @@ void VideoWidget::paintEvent(QPaintEvent * /*event*/)
 // 鼠标按下事件：在有帧且左键按下时，开始记录选区起点
 void VideoWidget::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton && m_hasFrame) {
+    if (event->button() == Qt::LeftButton && m_hasFrame && m_selectionEnabled) {
         m_selStart = event->pos();
         m_selEnd = event->pos();
         m_selecting = true;

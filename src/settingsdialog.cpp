@@ -40,6 +40,9 @@ void SettingsDialog::loadSettings()
     ui->editSerialIp->setText(m_cfg->serialIp());
     ui->spinSerialPort->setValue(m_cfg->serialPort());
 
+    // ---- 关闭按钮行为 ----
+    ui->comboCloseAction->setCurrentIndex(static_cast<int>(m_cfg->closeAction()));
+
     // ---- 可见光相机参数 ----
     const auto& cam = m_cfg->cam();
     ui->spinVisPixelSize->setValue(cam.visPixelSize);
@@ -82,6 +85,9 @@ void SettingsDialog::saveSettings()
     // ---- 串口连接 ----
     m_cfg->setSerialIp(ui->editSerialIp->text());
     m_cfg->setSerialPort(static_cast<quint16>(ui->spinSerialPort->value()));
+
+    // ---- 关闭按钮行为 ----
+    m_cfg->setCloseAction(static_cast<ConfigManager::CloseAction>(ui->comboCloseAction->currentIndex()));
 
     // ---- 可见光相机参数 ----
     auto& cam = m_cfg->cam();

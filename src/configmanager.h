@@ -41,7 +41,6 @@ struct PtzConfig {
 // 包含变倍/变焦速度、可见光与红外相机各自的设备地址
 struct LensConfig {
     quint8 zoomSpeed = 5;
-    quint8 focusSpeed = 5;
     quint8 visAddress = 1;
     quint8 irAddress = 2;
     QString visProtocol = "VISCA";
@@ -49,7 +48,6 @@ struct LensConfig {
 
     void load(QSettings& s) {
         zoomSpeed   = static_cast<quint8>(s.value("LensZoomSpeed", 5).toUInt());
-        focusSpeed  = static_cast<quint8>(s.value("LensFocusSpeed", 5).toUInt());
         visAddress  = static_cast<quint8>(s.value("VisAddress", 1).toUInt());
         irAddress   = static_cast<quint8>(s.value("IrAddress", 2).toUInt());
         visProtocol = s.value("VisProtocol", "VISCA").toString();
@@ -58,7 +56,6 @@ struct LensConfig {
 
     void save(QSettings& s) const {
         s.setValue("LensZoomSpeed",  zoomSpeed);
-        s.setValue("LensFocusSpeed", focusSpeed);
         s.setValue("VisAddress", visAddress);
         s.setValue("IrAddress",  irAddress);
         s.setValue("VisProtocol", visProtocol);
@@ -133,12 +130,12 @@ struct CameraConfig {
     }
 };
 
-// 配置管理器类
-// 负责统一管理 PTZ、镜头和相机三类配置的加载、保存与信号通知
 class ConfigManager : public QObject
 {
     Q_OBJECT
 public:
+    enum CloseAction { Ask = 0, Exit = 1, Minimize = 2 };
+
     explicit ConfigManager(QObject *parent = nullptr);
 
     void load();                // 从本地存储加载所有配置
@@ -147,11 +144,23 @@ public:
 
     PtzConfig& ptz() { return m_ptz; }       // 获取 PTZ 配置引用
     LensConfig& lens() { return m_lens; }    // 获取镜头配置引用
-    CameraConfig& cam() { return m_cam; }    // 获取相机配置引用
+    CameraConfig& cam() { return m_cam; }    // 获取相机参数配置引用
     QString serialIp() const { return m_serialIp; }        // 串口服务器 IP
     quint16 serialPort() const { return m_serialPort; }    // 串口服务器端口
     void setSerialIp(const QString& ip) { m_serialIp = ip; }
     void setSerialPort(quint16 port) { m_serialPort = port; }
+
+    CloseAction closeAction() const { return m_closeAction; }
+    void setCloseAction(CloseAction action) { m_closeAction = action; }
+
+    bool captureUploadEnabled() const { return m_captureUploadEnabled; }
+    void setCaptureUploadEnabled(bool enabled) { m_captureUploadEnabled = enabled; }
+    bool digitalZoomEnabled() const { return m_digitalZoomEnabled; }
+    void setDigitalZoomEnabled(bool enabled) { m_digitalZoomEnabled = enabled; }
+    bool autoZoomEnabled() const { return m_autoZoomEnabled; }
+    void setAutoZoomEnabled(bool enabled) { m_autoZoomEnabled = enabled; }
+    bool posResetEnabled() const { return m_posResetEnabled; }
+    void setPosResetEnabled(bool enabled) { m_posResetEnabled = enabled; }
 
 signals:
     void ptzConfigChanged();     // PTZ 配置变更时发射
@@ -164,6 +173,11 @@ private:
     CameraConfig m_cam;          // 相机参数配置实例
     QString m_serialIp = "192.168.1.66";   // 串口服务器 IP 地址
     quint16 m_serialPort = 4001;           // 串口服务器端口号
+    CloseAction m_closeAction = Ask;
+    bool m_captureUploadEnabled = false;
+    bool m_digitalZoomEnabled = false;
+    bool m_autoZoomEnabled = false;
+    bool m_posResetEnabled = false;
 };
 
 #endif // CONFIGMANAGER_H

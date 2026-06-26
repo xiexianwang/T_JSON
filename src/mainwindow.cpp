@@ -18,8 +18,14 @@
 #include <QDateTime>
 #include <QApplication>
 #include <QMouseEvent>
+#include <QCloseEvent>
 #include <QButtonGroup>
 #include <QToolButton>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QCheckBox>
+#include <QRadioButton>
+
 #include <QtMath>
 
 //============================================================================
@@ -46,15 +52,17 @@ MainWindow::MainWindow(QWidget *parent)
     , m_currentPipShow(0)                    // 默认显示模式：大图可见光
     , m_currentResX(m_cfg->cam().visResX)    // 默认可见光分辨率
     , m_currentResY(m_cfg->cam().visResY)
+    , m_workModeInitialized(false)
 {
     ui->setupUi(this);
-    setMinimumSize(1500, 1020);
-    QTimer::singleShot(0, this, [this]() { resize(1500, 1020); });
+
+    setWindowIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
+
     setupUiStyles();
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");
-    ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.jpg")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.png")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     ui->btnMenu_Min->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/minimize.png")));
     ui->btnMenu_Max->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/maximize.png")));
     ui->btnMenu_Close->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/close.png")));
@@ -94,9 +102,12 @@ MainWindow::MainWindow(QWidget *parent)
     m_mapOverlay->installEventFilter(this);
 
     // PiP 独立对话框：大地图时视频显示于此
+    // 保持 2566:1520 宽高比，置顶显示，高度需加上标题栏22px
     m_pipDialog = new QDialog(this, Qt::FramelessWindowHint | Qt::Tool);
     m_pipDialog->setAttribute(Qt::WA_ShowWithoutActivating);
-    m_pipDialog->setFixedSize(320, 200);
+    int pipW = 380;
+    int pipH = static_cast<int>(pipW * 1520.0 / 2566.0) + 44;  // 226 + 44 = 270
+    m_pipDialog->setFixedSize(pipW, pipH);
     auto *pipLay = new QVBoxLayout(m_pipDialog);
     pipLay->setSpacing(0);
     pipLay->setContentsMargins(0, 0, 0, 0);
@@ -137,6 +148,22 @@ MainWindow::MainWindow(QWidget *parent)
     m_sysParamTimer = new QTimer(this);
     m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
+
+    // AIInfo 超时清理：设备无目标时不发帧，2 秒无更新则清除残留标记
+    m_aiCleanupTimer = new QTimer(this);
+    m_aiCleanupTimer->setInterval(1000);
+    connect(m_aiCleanupTimer, &QTimer::timeout, this, &MainWindow::onAiCleanupTimeout);
+    m_aiCleanupTimer->start();
+
+    // 恢复上次的开关状态
+    ui->checkDigitalZoom->setChecked(m_cfg->digitalZoomEnabled());
+    ui->checkAutoZoom->setChecked(m_cfg->autoZoomEnabled());
+    ui->checkCaptureUpload->setChecked(m_cfg->captureUploadEnabled());
+    ui->checkPosReset->setChecked(m_cfg->posResetEnabled());
+
+    // 初始化框选启用状态
+    int wm = ui->comboWorkMode->currentIndex();
+    ui->videoWidget->setSelectionEnabled(wm == 3 || wm == 4);
 
     //============================================================================
     // RTSP 视频流信号连接
@@ -218,12 +245,12 @@ MainWindow::MainWindow(QWidget *parent)
     // 镜头控制 (Zoom 变倍 / Focus 调焦)
     // 按下按钮 → 持续变倍/调焦；释放按钮 → 停止
     // op 值: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut
-    // 当前镜头目标(comboLensTarget)决定操作可见光还是红外镜头
+    // 镜头目标根据显示模式自动判断：PipShow 1/4=红外(target=1)，其余=可见光(target=0)
     //============================================================================
     auto connectLensBtn = [this](QPushButton* btn, int op) {
         connect(btn, &QPushButton::pressed, this, [this, op]() {
             if (!requireConnected()) return;
-            int t = ui->comboLensTarget->currentIndex();
+            int t = (m_currentPipShow == 1 || m_currentPipShow == 4) ? 1 : 0;
             if (op == 0) m_device->lensZoomIn(t);
             else if (op == 1) m_device->lensZoomOut(t);
             else if (op == 2) m_device->lensFocusIn(t);
@@ -243,20 +270,10 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     ui->sliderZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
     ui->spinZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
-    ui->sliderFocusSpeed->setValue(m_cfg->lens().focusSpeed);
-    ui->spinFocusSpeed->setValue(m_cfg->lens().focusSpeed);
-
     connect(ui->sliderZoomSpeed, &QSlider::valueChanged, ui->spinZoomSpeed, &QSpinBox::setValue);
     connect(ui->spinZoomSpeed, QOverload<int>::of(&QSpinBox::valueChanged), ui->sliderZoomSpeed, &QSlider::setValue);
     connect(ui->spinZoomSpeed, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int val) {
         m_cfg->lens().zoomSpeed = static_cast<quint8>(val);
-        m_cfg->save();
-    });
-
-    connect(ui->sliderFocusSpeed, &QSlider::valueChanged, ui->spinFocusSpeed, &QSpinBox::setValue);
-    connect(ui->spinFocusSpeed, QOverload<int>::of(&QSpinBox::valueChanged), ui->sliderFocusSpeed, &QSlider::setValue);
-    connect(ui->spinFocusSpeed, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int val) {
-        m_cfg->lens().focusSpeed = static_cast<quint8>(val);
         m_cfg->save();
     });
 
@@ -278,24 +295,44 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // 附加功能开关 (数字变倍 / 自动变倍 / 抓拍上传 / 位置归零)
+    // 附加功能开关 (数字变倍 / 自动变焦 / 抓拍上传 / 位置归零)
     // 每个 CheckBox 直连对应的设备指令
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkDigitalZoom->blockSignals(true); ui->checkDigitalZoom->setChecked(!checked); ui->checkDigitalZoom->blockSignals(false); return; }
+        m_lastAckFrameType = FrameType::SetDigitalZoom;
         m_device->setDigitalZoom(checked);
+        m_cfg->setDigitalZoomEnabled(checked);
+        m_cfg->save();
     });
     connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkAutoZoom->blockSignals(true); ui->checkAutoZoom->setChecked(!checked); ui->checkAutoZoom->blockSignals(false); return; }
+        m_lastAckFrameType = FrameType::SetAlgoModel;
         m_device->setAutoZoom(checked);
+        m_cfg->setAutoZoomEnabled(checked);
+        m_cfg->save();
     });
     connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkCaptureUpload->blockSignals(true); ui->checkCaptureUpload->setChecked(!checked); ui->checkCaptureUpload->blockSignals(false); return; }
+        m_lastAckFrameType = FrameType::SetCaptureState;
         m_device->setCaptureUpload(checked);
+        m_cfg->setCaptureUploadEnabled(checked);
+        m_cfg->save();
     });
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkPosReset->blockSignals(true); ui->checkPosReset->setChecked(!checked); ui->checkPosReset->blockSignals(false); return; }
+        m_lastAckFrameType = FrameType::SetPosReset;
         m_device->posReset(checked);
+        m_cfg->setPosResetEnabled(checked);
+        m_cfg->save();
+    });
+    connect(ui->btnWiperStart, &QPushButton::clicked, this, [this]() {
+        if (!requireConnected()) return;
+        m_device->setWiper(true);
+    });
+    connect(ui->btnWiperStop, &QPushButton::clicked, this, [this]() {
+        if (!requireConnected()) return;
+        m_device->setWiper(false);
     });
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
@@ -306,16 +343,37 @@ MainWindow::MainWindow(QWidget *parent)
     // 指令日志窗口
     // 实时显示所有下发给设备的指令内容，方便调试与协议分析
     //============================================================================
-    auto *cmdLog = new CmdLogDialog(this);
-    connect(m_device, &DeviceController::commandSent, cmdLog, &CmdLogDialog::appendLog);
-    cmdLog->show();
+    m_logDialog = new CmdLogDialog(this);
+    connect(m_device, &DeviceController::commandSent, m_logDialog, &CmdLogDialog::appendLog);
+
+    //============================================================================
+    // 系统托盘
+    // 关闭窗口时最小化到托盘，右键菜单可退出程序
+    //============================================================================
+    m_trayIcon = new QSystemTrayIcon(this);
+    m_trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
+    m_trayIcon->setToolTip(QStringLiteral("LSS视频管理客户端"));
+
+    m_trayMenu = new QMenu(this);
+    m_trayMenu->addAction(QStringLiteral("显示主窗口"), this, &MainWindow::onTrayShow);
+    m_trayMenu->addSeparator();
+    m_trayMenu->addAction(QStringLiteral("退出"), this, &MainWindow::onTrayExit);
+
+    m_trayIcon->setContextMenu(m_trayMenu);
+    connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
+    m_trayIcon->show();
+
+    for (auto *cb : findChildren<QComboBox *>()) {
+        cb->setFocusPolicy(Qt::StrongFocus);
+        cb->installEventFilter(this);  // 拦截滚轮，仅下拉时允许切换
+    }
 }
 
 //============================================================================
 // 析构函数：释放 UI 资源
 // 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
 // 均以 MainWindow 为父对象，由 Qt 对象树自动析构
-// 析构前主动停止 RTSP 线程并等待其退出，避免线程仍在运行时被销毁触发 QThread 告警
+// 析构前停止 RTSP 线程：设置停止标志后 FFmpeg 中断回调会使其快速返回
 //============================================================================
 MainWindow::~MainWindow()
 {
@@ -323,8 +381,9 @@ MainWindow::~MainWindow()
         m_sysParamTimer->stop();
     disconnect(m_client, nullptr, this, nullptr);
     if (m_rtsp) {
+        ui->videoWidget->clearFrame();
         m_rtsp->closeStream();
-        m_rtsp->wait(5000);
+        m_rtsp->wait(2000);
     }
     delete m_pipDialog;
     delete ui;
@@ -349,7 +408,114 @@ void MainWindow::on_btnMenu_Max_clicked()
 
 void MainWindow::on_btnMenu_Close_clicked()
 {
-    close();
+    auto action = m_cfg->closeAction();
+    if (action == ConfigManager::Exit) {
+        m_trayIcon->hide();
+        qApp->quit();
+        return;
+    }
+    if (action == ConfigManager::Minimize) {
+        hide();
+        return;
+    }
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(QStringLiteral("关闭提示"));
+    dlg.setFixedSize(300, 160);
+    dlg.setWindowFlags((dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint));
+
+    auto *layout = new QVBoxLayout(&dlg);
+
+    // Radio 按钮行：左对齐退出程序，右对齐最小化到托盘
+    auto *radioLayout = new QHBoxLayout();
+    auto *radioExit = new QRadioButton(QStringLiteral("退出程序"), &dlg);
+    auto *radioMin = new QRadioButton(QStringLiteral("最小化到托盘"), &dlg);
+    radioMin->setChecked(true);
+    radioLayout->addWidget(radioExit);
+    radioLayout->addStretch();
+    radioLayout->addWidget(radioMin);
+    layout->addLayout(radioLayout);
+
+    // 底部行：记住选择（左）+ 确认（右）
+    auto *bottomLayout = new QHBoxLayout();
+    auto *cbRemember = new QCheckBox(QStringLiteral("记住本次选择"), &dlg);
+    bottomLayout->addWidget(cbRemember);
+    bottomLayout->addStretch();
+    auto *btnConfirm = new QPushButton(QStringLiteral("确认"), &dlg);
+    btnConfirm->setFixedWidth(80);
+    bottomLayout->addWidget(btnConfirm);
+    layout->addLayout(bottomLayout);
+
+    connect(btnConfirm, &QPushButton::clicked, this, [this, &dlg, radioExit, radioMin, cbRemember]() {
+        if (cbRemember->isChecked()) {
+            m_cfg->setCloseAction(radioExit->isChecked()
+                ? ConfigManager::Exit : ConfigManager::Minimize);
+            m_cfg->save();
+        }
+        if (radioExit->isChecked()) {
+            m_trayIcon->hide();
+            qApp->quit();
+        } else {
+            hide();
+        }
+        dlg.close();
+    });
+
+    dlg.exec();
+}
+
+//============================================================================
+// 系统托盘
+//============================================================================
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    auto action = m_cfg->closeAction();
+    if (action == ConfigManager::Exit) {
+        m_trayIcon->hide();
+        qApp->quit();
+        event->accept();
+        return;
+    }
+    if (action == ConfigManager::Minimize) {
+        hide();
+        event->ignore();
+        return;
+    }
+    if (m_trayIcon->isVisible()) {
+        hide();
+        m_trayIcon->showMessage(QStringLiteral("LSS Video Manager"),
+                                QStringLiteral("程序已最小化到系统托盘"),
+                                QSystemTrayIcon::Information, 2000);
+        event->ignore();
+    } else {
+        event->accept();
+    }
+}
+
+void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::DoubleClick)
+        onTrayShow();
+}
+
+void MainWindow::onTrayShow()
+{
+    showNormal();
+    activateWindow();
+    raise();
+}
+
+void MainWindow::onTrayExit()
+{
+    m_trayIcon->hide();
+    if (m_rtsp) {
+        ui->videoWidget->clearFrame();
+        m_rtsp->closeStream();
+    }
+    if (m_client->isConnected())
+        m_client->disconnectDevice();
+    qApp->quit();
 }
 
 //============================================================================
@@ -358,8 +524,19 @@ void MainWindow::on_btnMenu_Close_clicked()
 
 void MainWindow::on_btnNavMonitor_clicked()  { /* 当前页面 */ }
 void MainWindow::on_btnNavPlayback_clicked() { /* 预留 */ }
-void MainWindow::on_btnNavLog_clicked()      { /* 预留 */ }
-void MainWindow::on_btnNavSettings_clicked() { on_btnSettings_clicked(); }
+void MainWindow::on_btnNavLog_clicked()      {
+    if (m_logDialog->isVisible()) {
+        m_logDialog->hide();
+    } else {
+        m_logDialog->show();
+        m_logDialog->raise();
+        m_logDialog->activateWindow();
+    }
+}
+void MainWindow::on_btnNavSettings_clicked() {
+    SettingsDialog dlg(m_cfg, this);
+    dlg.exec();
+}
 
 //============================================================================
 // changeEvent - 窗口状态变化时更新最大化按钮图标
@@ -368,9 +545,13 @@ void MainWindow::on_btnNavSettings_clicked() { on_btnSettings_clicked(); }
 void MainWindow::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::WindowStateChange) {
-        ui->btnMenu_Max->setIcon(QIcon(isMaximized()
+        bool max = isMaximized();
+        ui->btnMenu_Max->setIcon(QIcon(max
             ? QStringLiteral(":/qss/blacksoft/restore.png")
             : QStringLiteral(":/qss/blacksoft/maximize.png")));
+        ui->btnMenu_Max->setToolTip(max
+            ? QString::fromUtf8("窗口化")
+            : QString::fromUtf8("最大化"));
     }
     QMainWindow::changeEvent(event);
 }
@@ -409,8 +590,11 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         }
 
         case WM_NCHITTEST: {
-            POINT pt = { GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam) };
-            QPoint local = mapFromGlobal(QPoint(pt.x, pt.y));
+            // GET_X_LPARAM 返回物理像素坐标，需 / devicePixelRatioF() 转为 Qt 逻辑坐标
+            POINT nativePt = { GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam) };
+            ScreenToClient(msg->hwnd, &nativePt);
+            qreal dpr = devicePixelRatioF();
+            QPoint local(qRound(nativePt.x / dpr), qRound(nativePt.y / dpr));
 
             if (!isMaximized()) {
                 int b = 8;
@@ -425,7 +609,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             }
 
             if (ui->titleBar && ui->titleBar->isVisible()) {
-                QPoint tl = ui->titleBar->mapFromGlobal(QPoint(pt.x, pt.y));
+                QPoint tl = ui->titleBar->mapFromParent(local);
                 if (ui->titleBar->rect().contains(tl)) {
                     QWidget *child = ui->titleBar->childAt(tl);
                     if (child == ui->btnMenu_Min || child == ui->btnMenu_Max || child == ui->btnMenu_Close
@@ -440,7 +624,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
                     return true;
                 }
             }
-            return false;
+            *result = HTCLIENT;
+            return true;
         }
 
         case WM_GETMINMAXINFO: {
@@ -480,8 +665,20 @@ void MainWindow::setupUiStyles()
 
     QFile file(QStringLiteral(":/style.qss"));
     if (file.open(QFile::ReadOnly | QFile::Text)) {
-        qApp->setStyleSheet(QString::fromUtf8(file.readAll()));
+        QByteArray qss = file.readAll();
+        qDebug() << "[QSS] Loaded" << qss.size() << "bytes from :/style.qss";
+        qApp->setStyleSheet(QString::fromUtf8(qss));
         file.close();
+    } else {
+        qWarning() << "[QSS] FAILED to open :/style.qss";
+    }
+
+    // QScrollArea viewport 默认继承系统托盘色，强制设为暗黑
+    if (ui->scrollAreaControl) {
+        ui->scrollAreaControl->viewport()->setAutoFillBackground(true);
+        QPalette pal = ui->scrollAreaControl->viewport()->palette();
+        pal.setColor(QPalette::Window, QColor(0x44, 0x44, 0x44));
+        ui->scrollAreaControl->viewport()->setPalette(pal);
     }
 }
 
@@ -526,6 +723,7 @@ void MainWindow::on_btnVideoConnect_clicked()
         QMessageBox::warning(this, "RTSP", "请输入 RTSP 地址");
         return;
     }
+    m_rtspEverOpened = true;
     m_rtsp->openStream(url);
     ui->btnVideoConnect->setEnabled(false);
     ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
@@ -538,10 +736,11 @@ void MainWindow::on_btnVideoConnect_clicked()
 //============================================================================
 void MainWindow::on_btnVideoDisconnect_clicked()
 {
-    m_rtsp->closeStream();
     ui->videoWidget->clearFrame();
+    ui->videoWidget->repaint();
+    m_rtsp->closeStream();
     ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
+    ui->btnVideoConnect->setText(QString::fromUtf8("开启"));
     ui->statusbar->showMessage(QString::fromUtf8("视频已断开"), 3000);
 }
 
@@ -572,9 +771,18 @@ void MainWindow::onRtspOpened()
 void MainWindow::onRtspError(const QString &msg)
 {
     ui->videoWidget->clearFrame();
-    ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("连视频"));
-    ui->statusbar->showMessage(msg);
+    if (m_rtsp->isRunning()) {
+        // 线程还在运行说明是自动重连中，保持按钮在"重连中..."状态
+        ui->btnVideoConnect->setText(QString::fromUtf8("重连中..."));
+        ui->statusbar->showMessage(msg.isEmpty()
+            ? QString::fromUtf8("RTSP 断开，正在重连...")
+            : QString::fromUtf8("RTSP 重连失败，继续重试..."));
+    } else {
+        // 线程已退出，按钮恢复"开启"让用户手动再试
+        ui->btnVideoConnect->setEnabled(true);
+        ui->btnVideoConnect->setText(QString::fromUtf8("开启"));
+        ui->statusbar->showMessage(msg);
+    }
 }
 
 //============================================================================
@@ -584,12 +792,25 @@ void MainWindow::onRtspError(const QString &msg)
 //============================================================================
 void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
 {
-    ui->statusbar->showMessage(
-        QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
-            .arg(cx).arg(cy).arg(pw).arg(ph));
+    int wm = ui->comboWorkMode->currentIndex();
+    if (wm != 3 && wm != 4) {
+        ui->statusbar->showMessage(QString::fromUtf8("仅在点选跟踪或框选跟踪模式下支持框选"), 3000);
+        return;
+    }
 
-    if (!requireConnected()) return;
-    m_device->setBoxTrack(cx, cy, pw, ph);
+    if (wm == 3) {
+        ui->statusbar->showMessage(
+            QString::fromUtf8("点选跟踪: 像素中心(%1,%2)")
+                .arg(cx).arg(cy));
+        if (!requireConnected()) return;
+        m_device->setPointTrack(cx, cy);
+    } else {
+        ui->statusbar->showMessage(
+            QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
+                .arg(cx).arg(cy).arg(pw).arg(ph));
+        if (!requireConnected()) return;
+        m_device->setBoxTrack(cx, cy, pw, ph);
+    }
 }
 
 //============================================================================
@@ -605,11 +826,31 @@ void MainWindow::onDeviceConnected()
     ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
 
+    m_workModeInitialized = false;
+    m_displayModeInitialized = false;
+    m_algoModelInitialized = false;
     // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
     m_device->queryImageParams();
 
+    // 连接后同步所有缓存开关状态，确保设备与 UI 一致
+    m_device->setDigitalZoom(m_cfg->digitalZoomEnabled());
+    m_device->setAutoZoom(m_cfg->autoZoomEnabled());
+    m_device->setCaptureUpload(m_cfg->captureUploadEnabled());
+    m_device->posReset(m_cfg->posResetEnabled());
+
     // 启动系统参数定时下发
     m_sysParamTimer->start();
+
+    // 首次连接设备时自动打开 RTSP，后续不再覆盖用户操作
+    if (!m_rtspEverOpened) {
+        QString rtspUrl = ui->lineEditRtsp->text().trimmed();
+        if (!rtspUrl.isEmpty()) {
+            m_rtspEverOpened = true;
+            ui->btnVideoConnect->setEnabled(false);
+            ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
+            m_rtsp->openStream(rtspUrl);
+        }
+    }
 }
 
 //============================================================================
@@ -657,16 +898,29 @@ void MainWindow::onErrorOccurred(const QString& errorMsg)
 //============================================================================
 // onAckReceived - 处理设备返回的 ACK 应答
 // ACK 状态码:
-//   0 = 成功, 1 = 指令不完整, 2 = 指令内容错误
-// 在状态栏短暂显示供操作人员确认
+//   0 = 执行正常, 1 = 包不完整, 2 = 协议内容错误
+// SetDigitalZoom/SetCaptureState/SetPosReset 这三个指令设备固定回 1，按成功处理
 //============================================================================
 void MainWindow::onAckReceived(quint8 statusCode)
 {
+    if (statusCode == 0) {
+        ui->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
+        return;
+    }
+    if (statusCode == 1) {
+        // SetDigitalZoom/SetCaptureState/SetPosReset 设备固定回 1，视为成功
+        if (m_lastAckFrameType == FrameType::SetDigitalZoom
+            || m_lastAckFrameType == FrameType::SetCaptureState
+            || m_lastAckFrameType == FrameType::SetPosReset) {
+            ui->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
+            return;
+        }
+        ui->statusbar->showMessage(QString::fromUtf8("[ACK] 包不完整"), 3000);
+        return;
+    }
     QString msg;
     switch (statusCode) {
-    case 0: msg = QString::fromUtf8("指令执行成功"); break;
-    case 1: msg = QString::fromUtf8("指令不完整");   break;
-    case 2: msg = QString::fromUtf8("指令内容错误");  break;
+    case 2: msg = QString::fromUtf8("协议内容错误"); break;
     default: msg = QString::fromUtf8("未知状态码: %1").arg(statusCode);
     }
     ui->statusbar->showMessage(QString::fromUtf8("[ACK] %1").arg(msg), 3000);
@@ -722,6 +976,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
     // 1) AIInfo - AI 识别与跟踪结果帧
     //==========================================================================
     if (controlType == "AIInfo") {
+        m_lastAiInfoTime = QDateTime::currentDateTime();
         int workMode = doc.value("WorkMode").toInt();
         int count = doc.value("ObjectCount").toInt();
 
@@ -735,7 +990,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             ui->tableIdentify->setRowCount(0);  // 清空旧数据，重新填充
 
             // 根据当前显示模式判断使用可见光还是红外参数
-            // PipShow: 0=大图可见光, 1=红外, 2=可见光, 3=融合, 4=大图红外
+            // combo 索引: 0=大图可见光, 1=红外, 2=可见光, 3=融合, 4=大图红外
             bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
             double px = isVis ? cam.visPixelSize : cam.irPixelSize;
             double fl = isVis ? cam.visMinFocal * m_currentVisZoom
@@ -750,11 +1005,19 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     QString id = it.key();
                     QJsonObject obj = it.value().toObject();
 
+                    double dist = obj.value("Distance").toDouble(0);
+                    int cls = obj.value("Class").toInt();
+                    dist = calcVisualDistance(obj, cls, false);
+                    if (dist > 0) {
+                        m_lastAiDist = dist;
+                        m_lastAiDistEstimated = (obj.value("Distance").toDouble(0) <= 0);
+                    }
+
                     int r = ui->tableIdentify->rowCount();
                     ui->tableIdentify->insertRow(r);
                     ui->tableIdentify->setItem(r, 0, new QTableWidgetItem(id));
-                    ui->tableIdentify->setItem(r, 1, new QTableWidgetItem(QString::number(obj.value("Class").toInt())));
-                    ui->tableIdentify->setItem(r, 2, new QTableWidgetItem(QString::number(obj.value("Distance").toDouble(), 'f', 1)));
+                    ui->tableIdentify->setItem(r, 1, new QTableWidgetItem(QString::number(cls)));
+                    ui->tableIdentify->setItem(r, 2, new QTableWidgetItem(QString::number(dist, 'f', 1)));
 
                     if (obj.contains("Points")) {
                         QJsonObject pts = obj.value("Points").toObject();
@@ -801,7 +1064,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 if (obj.contains("Distance")) {
                     double rawDist = obj.value("Distance").toDouble(0);
                     if (rawDist > 0)
-                        ui->trackDistance->setText(QString::number(rawDist, 'f', 1));
+                        ui->trackDistance->setText(QString::number(rawDist, 'f', 1) + QStringLiteral(" m"));
                     // rawDist==0: 保留 calcVisualDistance 设置的估算值
                 } else
                     ui->trackDistance->clear();
@@ -825,7 +1088,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     double dx = objCx - halfW, dy = objCy - halfH;
                     double dxMrad = dx * px / fl;
                     double dyMrad = dy * px / fl;
-                    ui->trackMissDistance->setText(QString("H: %1  V: %2")
+                    ui->trackMissDistance->setText(QString("H: %1  V: %2 mrad")
                         .arg(dxMrad, 0, 'f', 2).arg(dyMrad, 0, 'f', 2));
                 } else {
                     ui->trackPos->clear();
@@ -854,20 +1117,10 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         ui->statCamMode->setText(QString::number(doc.value("CamShowMode").toInt()));
         ui->statLatitude->setText(doc.value("Latitude").toString());
         ui->statLongitude->setText(doc.value("Longitude").toString());
-        ui->statHeight->setText(QString::number(doc.value("Height").toDouble(), 'f', 1));
-        {
-            double laserRange = doc.value("LaserRange").toDouble(0);
-            if (laserRange > 0) {
-                ui->statDistance->setText(QString::number(laserRange, 'f', 1));
-            } else if (m_lastAiDist > 0) {
-                QString est = m_lastAiDistEstimated ? QStringLiteral(" (估算)") : QString();
-                ui->statDistance->setText(QString::number(m_lastAiDist, 'f', 1) + est);
-            } else {
-                ui->statDistance->setText(QStringLiteral("--"));
-            }
-        }
-        ui->statPanAngle->setText(QString::number(doc.value("PTZInfoH").toDouble(), 'f', 1));
-        ui->statTiltAngle->setText(QString::number(doc.value("PTZInfoV").toDouble(), 'f', 1));
+        ui->statHeight->setText(QString::number(doc.value("Height").toDouble(), 'f', 1) + QStringLiteral(" m"));
+
+        ui->statPanAngle->setText(QString::number(doc.value("PTZInfoH").toDouble(), 'f', 1) + QStringLiteral("°"));
+        ui->statTiltAngle->setText(QString::number(doc.value("PTZInfoV").toDouble(), 'f', 1) + QStringLiteral("°"));
 
         updateLensStats();
         updateMapDevicePosition(doc);
@@ -907,8 +1160,9 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 
         // 显示类型映射表 (PIP = Picture-in-Picture)
         static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
-        int pip = doc.value("PipShow").toInt();
-        ui->paramPipShow->setText(pip >= 0 && pip < 5 ? QString::fromUtf8(pipMap[pip]) : QString::number(pip));
+        int pipRaw = doc.value("PipShow").toInt();
+        int comboIdx = DeviceController::pipShowToComboIndex(pipRaw);
+        ui->paramPipShow->setText(comboIdx >= 0 && comboIdx < 5 ? QString::fromUtf8(pipMap[comboIdx]) : QString::number(pipRaw));
 
         // 算法模型编码: 高段(传感器)×10 + 低段(识别类型)
         int model = doc.value("Model").toInt();
@@ -927,21 +1181,35 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         ui->paramMaxVisFL->setText(doc.value("MaxVisFL").toString());
         ui->paramMaxIRFL->setText(doc.value("MaxIRFL").toString());
 
-        m_currentPipShow = doc.value("PipShow").toInt();
+        m_currentPipShow = DeviceController::pipShowToComboIndex(doc.value("PipShow").toInt());
         m_previousDisplayMode = m_currentPipShow;
 
         // 同步 UI 下拉框到设备当前值，同时抑制信号递归
         m_updatingFromDevice = true;
-        if (model >= 0 && model < ui->comboAlgoModel->count())
-            ui->comboAlgoModel->setCurrentIndex(model);
+        // 首次连接时同步算法模型下拉框，后续不再覆盖用户选择
+        if (!m_algoModelInitialized) {
+            m_currentAlgoModel = model;
+            // 高段 = 传感器类型 (0=可见光, 1=红外) → comboAlgoModel1
+            if (high >= 0 && high < ui->comboAlgoModel1->count())
+                ui->comboAlgoModel1->setCurrentIndex(high);
+            // 低段 = 识别类型 (2-6 → comboAlgoModel2 索引 0-4)
+            if (low >= 2 && low <= 6)
+                ui->comboAlgoModel2->setCurrentIndex(low - 2);
+            m_algoModelInitialized = true;
+        }
         int pipShow = doc.value("PipShow").toInt();
-        if (pipShow >= 0 && pipShow < ui->comboDisplayMode->count())
-            ui->comboDisplayMode->setCurrentIndex(pipShow);
-        syncLensTargetByDisplayMode(pipShow);
-        // 同步工作模式单选按钮
-        if (wm == 0)      ui->radioModeOff->setChecked(true);
-        else if (wm == 1) ui->radioModeIdentify->setChecked(true);
-        else if (wm >= 2) ui->radioModeAutoTrack->setChecked(true);
+        if (!m_displayModeInitialized) {
+            int comboIdx = DeviceController::pipShowToComboIndex(pipShow);
+            if (comboIdx >= 0 && comboIdx < ui->comboDisplayMode->count()) {
+                ui->comboDisplayMode->setCurrentIndex(comboIdx);
+                m_displayModeInitialized = true;
+            }
+        }
+        // 首次连接时同步工作模式下拉框，后续不再覆盖用户选择
+        if (!m_workModeInitialized && wm >= 0 && wm < ui->comboWorkMode->count()) {
+            ui->comboWorkMode->setCurrentIndex(wm);
+            m_workModeInitialized = true;
+        }
         m_updatingFromDevice = false;
     }
 }
@@ -961,35 +1229,34 @@ void MainWindow::updateLensStats()
     double visFocal = cam.visMinFocal * m_currentVisZoom;
     double irFocal  = cam.irMinFocal * m_currentIrZoom;
 
-    ui->statZoomVis->setText(QString::number(m_currentVisZoom, 'f', 2));
-    ui->statFocalVis->setText(QString::number(visFocal, 'f', 2));
+    ui->statZoomVis->setText(QString::number(m_currentVisZoom, 'f', 2) + QStringLiteral("x"));
+    ui->statFocalVis->setText(QString::number(visFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusVis->clear();
 
     // HFOV = 2 * atan( sensor_width_mm / (2 * focal_mm) )
     double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
-    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2));
+    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
 
-    ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2));
-    ui->statFocalIR->setText(QString::number(irFocal, 'f', 2));
+    ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2) + QStringLiteral("x"));
+    ui->statFocalIR->setText(QString::number(irFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusIR->clear();
 
     double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
-    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2));
+    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
 }
 
 //============================================================================
 // missMradStr - 计算脱靶量（毫弧度）
 // 给定像素偏移 (dx, dy)、像元尺寸 (μm) 和焦距 (mm)，
 // 脱靶量 (mrad) = 像素偏移 × 像元尺寸 / 焦距
-// 返回总脱靶量的欧几里得距离（标量），保留两位小数
+// 返回 "H: xx.xx  V: xx.xx mrad" 格式字符串，与 trackMissDistance 一致
 //============================================================================
 QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double focalMm)
 {
     if (focalMm < 0.1) return QString();
     double dxMrad = dx * pixelSizeUm / focalMm;
     double dyMrad = dy * pixelSizeUm / focalMm;
-    double total = qSqrt(dxMrad * dxMrad + dyMrad * dyMrad);
-    return QString::number(total, 'f', 2);
+    return QString("H: %1  V: %2 mrad").arg(dxMrad, 0, 'f', 2).arg(dyMrad, 0, 'f', 2);
 }
 
 //============================================================================
@@ -999,48 +1266,36 @@ QString MainWindow::missMradStr(double dx, double dy, double pixelSizeUm, double
 bool MainWindow::requireConnected()
 {
     if (!m_client->isConnected()) {
-        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请连接设备"));
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle(QStringLiteral("提示"));
+        msgBox.setText(QStringLiteral("请连接设备"));
+        msgBox.setStandardButtons(QMessageBox::Ok);
+        msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
+        msgBox.exec();
         return false;
     }
     return true;
 }
 
-// 将工作模式单选按钮还原到 m_previousWorkMode（仅用于 requireConnected 失败后回退）
-static void revertRadioMode(QRadioButton* off, QRadioButton* id, QRadioButton* track, int prevWm)
+//============================================================================
+// on_comboWorkMode_currentIndexChanged - 工作模式下拉框切换
+//   0 = 关闭AI, 1 = 目标识别, 2 = 自动跟踪, 3 = 点选跟踪, 4 = 框选跟踪
+//============================================================================
+void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 {
-    off->blockSignals(true);
-    id->blockSignals(true);
-    track->blockSignals(true);
-    if (prevWm == 0)      off->setChecked(true);
-    else if (prevWm == 1) id->setChecked(true);
-    else                  track->setChecked(true);
-    off->blockSignals(false);
-    id->blockSignals(false);
-    track->blockSignals(false);
-}
+    // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
+    ui->videoWidget->setSelectionEnabled(index == 3 || index == 4);
 
-//============================================================================
-// on_radioModeOff_clicked / on_radioModeIdentify_clicked / on_radioModeAutoTrack_clicked
-// 工作模式单选按钮：直接调用 DeviceController 切换设备工作模式
-//   0 = 关闭 AI, 1 = 识别, 2 = 自动跟踪
-// 点选跟踪(3)和框选跟踪(4)由视频框选操作触发
-//============================================================================
-void MainWindow::on_radioModeOff_clicked() {
-    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
     if (m_updatingFromDevice) return;
-    m_device->setWorkMode(0);
-    m_device->queryImageParams();
-}
-void MainWindow::on_radioModeIdentify_clicked() {
-    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
-    if (m_updatingFromDevice) return;
-    m_device->setWorkMode(1);
-    m_device->queryImageParams();
-}
-void MainWindow::on_radioModeAutoTrack_clicked() {
-    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_previousWorkMode); return; }
-    if (m_updatingFromDevice) return;
-    m_device->setWorkMode(2);
+
+    if (!requireConnected()) {
+        m_updatingFromDevice = true;
+        ui->comboWorkMode->setCurrentIndex(m_previousWorkMode);
+        m_updatingFromDevice = false;
+        return;
+    }
+    m_device->setWorkMode(index);
+    m_previousWorkMode = index;
     m_device->queryImageParams();
 }
 
@@ -1052,49 +1307,64 @@ void MainWindow::on_btnPtzMoveTo_clicked()
 }
 
 //============================================================================
-// on_btnSettings_clicked - 打开设置对话框
-// 模态对话框用于编辑相机参数 (像元尺寸、分辨率、焦距等)，
-// 关闭后重载配置以应用更改
 //============================================================================
-void MainWindow::on_btnSettings_clicked()
-{
-    SettingsDialog dlg(m_cfg, this);
-    dlg.exec();
-}
-
-//============================================================================
-// on_comboAlgoModel_currentIndexChanged - 算法模型下拉框切换
+// on_comboAlgoModel1/2_currentIndexChanged - 算法模型下拉框切换
 // 受 m_updatingFromDevice 保护，避免设备回传时重复下发指令
 //============================================================================
-void MainWindow::on_comboAlgoModel_currentIndexChanged(int index)
+void MainWindow::on_comboAlgoModel1_currentIndexChanged(int index)
 {
-    if (!requireConnected()) { ui->comboAlgoModel->blockSignals(true); ui->comboAlgoModel->setCurrentIndex(m_previousAlgoModel); ui->comboAlgoModel->blockSignals(false); return; }
+    int low = ui->comboAlgoModel2->currentIndex();
+    sendAlgoModel(index * 10 + (low >= 0 ? low + 2 : 0));
+}
+void MainWindow::on_comboAlgoModel2_currentIndexChanged(int index)
+{
+    int high = ui->comboAlgoModel1->currentIndex();
+    sendAlgoModel(high * 10 + (index + 2));
+}
+void MainWindow::sendAlgoModel(int model)
+{
     if (m_updatingFromDevice) return;
-    m_device->setAlgoModel(index);
+    if (!requireConnected()) { return; }
+    m_currentAlgoModel = model;
+    m_device->setAlgoModel(model);
+    m_previousAlgoModel = model;
     m_device->queryImageParams();
 }
 
 //============================================================================
 // on_comboDisplayMode_currentIndexChanged - 显示模式下拉框切换
-// 切换时同步镜头目标选择（红外模式自动选中红外镜头），
-// 然后下发显示模式变更指令
+// 切换时下发显示模式变更指令，镜头目标由显示模式自动判断
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
     if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
-    syncLensTargetByDisplayMode(index);
-    m_device->setDisplayMode(index);
+    // 根据显示模式自动切换算法模型：0/2/3→可见光模型，1/4→红外模型
+    // 直接下发不触发 queryImageParams，避免设备返回旧数据覆盖显示模式
+    {
+        int algoIdx = (index == 1 || index == 4) ? 1 : 0;
+        if ((m_currentAlgoModel / 10) != algoIdx) {
+            int low = ui->comboAlgoModel2->currentIndex();
+            int model = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
+            m_currentAlgoModel = model;
+            m_device->setAlgoModel(model);
+            ui->comboAlgoModel1->blockSignals(true);
+            ui->comboAlgoModel1->setCurrentIndex(algoIdx);
+            ui->comboAlgoModel1->blockSignals(false);
+        }
+    }
+    // 延后发送显示模式，避免与 setAlgoModel 间隔过近被设备忽略
+    QTimer::singleShot(150, this, [this]() {
+        if (m_client->isConnected()) {
+            int idx = ui->comboDisplayMode->currentIndex();
+            m_device->setDisplayMode(idx);
+        }
+    });
 }
 
 //============================================================================
-// on_comboLensTarget_currentIndexChanged - 镜头目标切换 (预留)
-// 当前该字段仅用于标识，实际镜头控制由按钮事件读取 currentIndex 决定
+// on_comboLensTarget_currentIndexChanged - 已删除，镜头目标由显示模式自动判断
 //============================================================================
-void MainWindow::on_comboLensTarget_currentIndexChanged(int index)
-{
-    Q_UNUSED(index);
-}
 
 //============================================================================
 // on_btnSetLocation_clicked - 手动设置设备经纬度
@@ -1482,7 +1752,6 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             double tLat = 0, tLon = 0;
 
             dist = calcVisualDistance(lockedObj, cls, true);
-
             // 缓存 AI 目标距离（用于 ZoomInfo 无激光测距时回退）
             m_lastAiDist = dist;
             m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
@@ -1516,6 +1785,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                     m_track.id = lockedId;
                     if (targetChanged)
                         m_track.plotHeading = -1;
+
                     double outBearing = 0;
                     if (shouldPlotTrackPoint(tLat, tLon,
                                              m_track.plotLat, m_track.plotLon,
@@ -1622,7 +1892,7 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
     if (dist > 0 || !obj.contains("Points"))
         return dist;
 
-    int low = ui->comboAlgoModel->currentIndex() % 10;
+    int low = currentAlgoModel() % 10;
     double ref = m_cfg->cam().targetRefSize(low, cls);
 
     // 跟踪状态 (0xB1/0xB2) 无法通过 Class 查到参考尺寸
@@ -1651,7 +1921,7 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
 
     dist = estimateTargetDistance(boxPx, focal, pxSize, ref);
     if (updateTrackLabel)
-        ui->trackDistance->setText(QString::number(dist, 'f', 1) + " (估算)");
+        ui->trackDistance->setText(QString::number(dist, 'f', 1) + QStringLiteral(" m (估算)"));
     return dist;
 }
 
@@ -1740,7 +2010,7 @@ void MainWindow::updateMapLayout()
         // 视频移至独立 PiP 对话框
         ui->videoWidget->setParent(m_pipDialog);
         m_pipDialog->layout()->addWidget(ui->videoWidget);
-        m_pipPos = QPoint(8, ps.height() - 200 - 8);
+        m_pipPos = QPoint(8, ps.height() - 240 - 8);
         m_pipDialog->move(m_pipPos);
         m_pipDialog->show();
         ui->videoWidget->setVisible(true);
@@ -1770,12 +2040,21 @@ void MainWindow::updateMapLayout()
 }
 
 //============================================================================
-// eventFilter - 迷你地图 / PiP 对话框鼠标事件处理
+// eventFilter - 全局事件过滤
+//   QComboBox：拦截滚轮，仅下拉列表展开时才允许滚轮切换
 //   m_mapOverlay：单击＝展开，拖拽＝移动位置
 //   m_pipTitle：拖拽移动 PiP 对话框位置
 //============================================================================
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
+    // QComboBox 滚轮拦截：未展开时忽略滚轮事件
+    if (event->type() == QEvent::Wheel) {
+        auto *cb = qobject_cast<QComboBox*>(obj);
+        if (cb && !cb->view()->isVisible()) {
+            return true;  // 吞掉滚轮事件
+        }
+    }
+
     if (obj == m_mapOverlay) {
         switch (event->type()) {
         case QEvent::MouseButtonPress: {
@@ -1834,6 +2113,11 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
             m_pipTitle->setCursor(Qt::OpenHandCursor);
             return true;
         }
+        case QEvent::MouseButtonDblClick: {
+            // 双击标题栏：恢复视频到主显示区 + 显示迷你地图
+            toggleMapMode();
+            return true;
+        }
         default:
             break;
         }
@@ -1843,16 +2127,42 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 }
 
 //============================================================================
-// syncLensTargetByDisplayMode - 根据显示模式自动同步镜头目标
-// PipShow 为 1 (红外) 或 4 (大图红外) 时，自动选择红外镜头 (target=1)，
-// 否则选择可见光镜头 (target=0)
+// onAiCleanupTimeout - AIInfo 超时清理
+// 设备无目标时不发 AIInfo 帧，超过 2 秒无更新则清除界面残留数据
 //============================================================================
-void MainWindow::syncLensTargetByDisplayMode(int pipShow)
+void MainWindow::onAiCleanupTimeout()
 {
-    int target = 0;
-    if (pipShow == 1 || pipShow == 4)
-        target = 1;
+    if (!m_lastAiInfoTime.isValid()) return;
+    if (m_lastAiInfoTime.msecsTo(QDateTime::currentDateTime()) < 2000) return;
 
-    if (ui->comboLensTarget->currentIndex() != target)
-        ui->comboLensTarget->setCurrentIndex(target);
+    m_lastAiInfoTime = QDateTime();
+
+    // 清空识别表格
+    ui->lblIdentifyCount->setText(QString::fromUtf8("目标总数: 0"));
+    ui->tableIdentify->setRowCount(0);
+
+    // 清空跟踪面板
+    ui->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
+    ui->lblTrackStatus->setProperty("state", "nolock");
+    refreshStyle(ui->lblTrackStatus);
+    ui->trackPos->clear();
+    ui->trackMissDistance->clear();
+    ui->trackDistance->clear();
+
+    // 清空地图标记和轨迹
+    m_mapWidget->clearAllTracks();
+    m_mapWidget->updateTargetMarkers(QJsonArray());
+    m_mapWidget->clearFov();
+
+    // 重置跟踪状态
+    m_track = TrackState();
+    m_lastAiDist = 0;
+    m_lastAiDistEstimated = false;
+
+    qDebug() << "[AIInfo] Cleanup triggered: no AIInfo for 2s";
+}
+
+int MainWindow::currentAlgoModel() const
+{
+    return m_currentAlgoModel;
 }

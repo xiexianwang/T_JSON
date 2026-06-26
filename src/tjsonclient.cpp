@@ -249,10 +249,10 @@ void TJsonClient::processBuffer()
             QByteArray payload = m_buffer.mid(7, length);
             m_buffer.remove(0, 7 + length);             // 从缓冲区移除已处理帧
 
-            // ACK 帧：提取第二个字节作为状态码发射
-            if (type == static_cast<quint8>(FrameType::Ack) && payload.size() >= 2) {
-                quint8 statusCode = static_cast<quint8>(payload.at(1));
-                emit ackReceived(statusCode);
+            // ACK 帧：状态码为 2 字节大端整数
+            if (type == static_cast<quint8>(FrameType::Ack) && payload.size() == 2) {
+                quint16 statusCode = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(payload.constData()));
+                emit ackReceived(static_cast<quint8>(statusCode));
             } else if (type != static_cast<quint8>(FrameType::Heartbeat) && !payload.isEmpty()) {
                 // 非心跳帧且有载荷时，尝试按 JSON 解析
                 parseJsonFrame(payload);
@@ -319,10 +319,38 @@ void TJsonClient::parseJsonFrame(const QByteArray& payload)
 
 // 解析图像抓拍帧
 // 从完整的图像帧数据中提取 JPEG 数据块和图像在画面中的位置区域
-// 帧结构: [0xEB][0x92][type][jpegSize(4B)][left(2B)][top(2B)][width(2B)][height(2B)][reserved(2B)][jpegData]
+// 帧结构:
+//   [0xEB][0x92][0x04][jpegSize(4B)][left(2B)][top(2B)][width(2B)][height(2B)]
+//   [jpegData(NB)][checksum(1B)][0xFB][0x92]
+// 帧校验 = (0xEB + 0x92 + 0x04 + jpegSize 的 4 字节) & 0xFF
 void TJsonClient::parseImageSnapFrame(const QByteArray& payload)
 {
     if (payload.size() < 18) return;
+
+    // JPEG 数据大小（偏移 3 处）
+    quint32 jpegSize;
+    memcpy(&jpegSize, payload.constData() + 3, 4);
+    jpegSize = qFromBigEndian(jpegSize);
+
+    quint32 totalFrameSize = 18 + jpegSize;
+    if (static_cast<quint32>(payload.size()) < totalFrameSize) return;
+
+    // 校验帧校验和：前 7 字节累加
+    quint8 expectedSum = 0;
+    for (int i = 0; i < 7; ++i)
+        expectedSum += static_cast<quint8>(payload.at(i));
+    quint8 actualSum = static_cast<quint8>(payload.at(15 + jpegSize));
+    if (actualSum != expectedSum) {
+        qWarning() << "Image snap checksum mismatch: expected" << expectedSum << "got" << actualSum;
+        return;
+    }
+
+    // 校验帧尾标识 0xFB 0x92
+    if (static_cast<quint8>(payload.at(16 + jpegSize)) != 0xFB ||
+        static_cast<quint8>(payload.at(17 + jpegSize)) != 0x92) {
+        qWarning() << "Image snap footer mismatch";
+        return;
+    }
 
     // 从偏移 7 处读取画面区域坐标（大端序）
     quint16 left, top, width, height;
@@ -335,11 +363,6 @@ void TJsonClient::parseImageSnapFrame(const QByteArray& payload)
     top = qFromBigEndian(top);
     width = qFromBigEndian(width);
     height = qFromBigEndian(height);
-
-    // JPEG 数据大小（偏移 3 处）
-    quint32 jpegSize;
-    memcpy(&jpegSize, payload.constData() + 3, 4);
-    jpegSize = qFromBigEndian(jpegSize);
 
     // JPEG 数据从偏移 15 处开始
     QByteArray jpegData = payload.mid(15, jpegSize);

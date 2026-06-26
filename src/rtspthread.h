@@ -48,11 +48,18 @@ private:
     // 安全释放 FFmpeg 相关资源（解码器上下文、格式上下文、缩放上下文）
     void safeCleanup();
 
+    // FFmpeg 中断回调：让 avformat_open_input / av_read_frame 在 m_stop=true 时快速返回
+    static int interruptCallback(void *opaque);
+
     QMutex m_mutex;             // 保护共享状态（m_url, m_stop, m_openRequested 等）
     QWaitCondition m_cond;      // 用于线程间同步，等待打开/关闭请求
     QString m_url;              // 当前 RTSP 流的 URL
     bool m_openRequested = false; // 是否有新的打开请求待处理
     bool m_stop = false;        // 通知线程停止运行
+    bool m_autoReconnect = false; // 断线后自动重连
+    int m_retryCount = 0;          // 当前连续重连次数
+    int m_currentDelay = 2000;     // 当前重连延迟（毫秒），指数退避
+    bool m_connecting = false;     // 正在连接中标记，防止重复连接
 
     // FFmpeg 相关资源指针
     AVFormatContext *m_fmtCtx = nullptr;  // 格式上下文（封装层）

@@ -111,17 +111,39 @@
         <property name="text"><string>串口服务器端口:</string></property>
        </widget>
       </item>
-      <item row="7" column="1">
-       <widget class="QSpinBox" name="spinSerialPort">
-        <property name="minimum"><number>1</number></property>
-        <property name="maximum"><number>65535</number></property>
-        <property name="value"><number>4001</number></property>
+       <item row="7" column="1">
+        <widget class="QSpinBox" name="spinSerialPort">
+         <property name="minimum"><number>1</number></property>
+         <property name="maximum"><number>65535</number></property>
+         <property name="value"><number>4001</number></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    
+   <item>
+    <widget class="QGroupBox" name="groupCloseAction">
+     <property name="title">
+      <string>关闭按钮行为</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout_closeAction">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_15">
+        <property name="text"><string>关闭按钮操作:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboCloseAction">
+        <item><property name="text"><string>每次询问</string></property></item>
+        <item><property name="text"><string>退出程序</string></property></item>
+        <item><property name="text"><string>最小化到托盘</string></property></item>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   
+    
    <item>
     <widget class="QGroupBox" name="groupCamera">
      <property name="title">

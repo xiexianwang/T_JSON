@@ -53,7 +53,11 @@ qt_add_executable(T-JSON
     src/cmdlogdialog.cpp
     src/cmdlogdialog.h
     resources/resources.qrc
+    resources/app.rc
 )
+
+# 重命名输出 exe（任务管理器显示为 LSSVideoManager.exe）
+set_target_properties(T-JSON PROPERTIES OUTPUT_NAME "LSSVideoManager")
 
 target_include_directories(T-JSON PRIVATE "${FFMPEG_INCLUDE_DIR}")
 
@@ -82,7 +86,7 @@ if(WIN32)
     # ── Deploy Qt runtimes (WebEngine, WebChannel, etc.) ──
     if(EXISTS "${QT_BIN_DIR}/windeployqt6.exe")
         add_custom_command(TARGET T-JSON POST_BUILD
-            COMMAND "${QT_BIN_DIR}/windeployqt6" "$<TARGET_FILE_DIR:T-JSON>/T-JSON.exe" --verbose 0
+            COMMAND "${QT_BIN_DIR}/windeployqt6" "$<TARGET_FILE_DIR:T-JSON>/LSSVideoManager.exe" --verbose 0
             COMMENT "Deploying Qt runtimes via windeployqt"
         )
     endif()

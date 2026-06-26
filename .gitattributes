@@ -1,0 +1,11 @@
+# Auto detect text files
+* text=auto eol=lf
+
+# Binary files
+*.png   binary
+*.lib   binary
+*.dll   binary
+*.exe   binary
+*.def   binary
+*.pdb   binary
+*.pyc   binary

@@ -47,15 +47,14 @@ public:
         return pkt;
     }
 
-    // VISCA 变焦控制（Focus Far/Near），速度范围 0-7
-    static QByteArray buildViscaFocus(quint8 addr, bool far, quint8 speed) {
+    // VISCA 变焦控制（Focus Far/Near），固定指令
+    static QByteArray buildViscaFocus(quint8 addr, bool far) {
         QByteArray pkt;
         pkt.append(static_cast<char>(0x80 | addr));
         pkt.append(static_cast<char>(0x01));
         pkt.append(static_cast<char>(0x04));
         pkt.append(static_cast<char>(0x08));            // 子命令: 变焦 (Focus)
-        // bit5: 0=Near(近焦), 1=Far(远焦); 低 3 位为速度
-        pkt.append(static_cast<char>((far ? 0x20 : 0x30) | (speed & 0x07)));
+        pkt.append(static_cast<char>(far ? 0x02 : 0x03));
         pkt.append(static_cast<char>(0xFF));
         return pkt;
     }
@@ -93,6 +92,17 @@ class DeviceController : public QObject
 {
     Q_OBJECT
 public:
+    // PipShow 映射表：combo 索引 → 设备实际值
+    static constexpr int kPipShowValues[] = {0, 1, 2, 3, 16};
+    static constexpr int kPipShowCount = 5;
+    static int pipShowToComboIndex(int pipShow) {
+        for (int i = 0; i < kPipShowCount; i++)
+            if (kPipShowValues[i] == pipShow) return i;
+        // 设备回传值为 combo 索引（模式 4 设 16 回 4）
+        if (pipShow >= 0 && pipShow < kPipShowCount) return pipShow;
+        return 0;
+    }
+
     explicit DeviceController(TJsonClient* client, ConfigManager* cfg, QObject *parent = nullptr);
 
     // ================= 基础控制 =================
@@ -110,6 +120,7 @@ public:
 
     // ================= 框选跟踪 =================
     void setBoxTrack(int centerX, int centerY, int width, int height);  // 设置跟踪框
+    void setPointTrack(int centerX, int centerY);                       // 点选跟踪
 
     // ================= 预置位控制 (Pelco-D) =================
     void setPreset(int preset);             // 设置预置位
@@ -118,9 +129,10 @@ public:
 
     // ================= 附加功能开关 =================
     void setDigitalZoom(bool enable);       // 数字变焦开关
-    void setAutoZoom(bool enable);          // 自动变倍开关
+    void setAutoZoom(bool enable);          // 自动变焦开关
     void setCaptureUpload(bool enable);     // 抓拍上传开关
     void posReset(bool enable);             // 位置归零
+    void setWiper(bool enable);             // 雨刷开关
 
     // ================= 镜头控制 (VISCA / Pelco-D) =================
     // target: 0=可见光(VISCA), 1=红外(Pelco-D)

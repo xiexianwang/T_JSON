@@ -36,7 +36,7 @@ MapWidget::MapWidget(QWidget *parent)
     , m_bridge(new MapBridge(this))
 {
     ui->setupUi(this);
-    m_aiFlushTimer->setInterval(200);
+    m_aiFlushTimer->setInterval(300);
     connect(m_aiFlushTimer, &QTimer::timeout, this, &MapWidget::flushAiData);
     m_aiFlushTimer->start();
 
@@ -152,11 +152,13 @@ void MapWidget::flushAiData()
     if (m_dirtyFlags & DIRTY_TRK_CLR) {
         runJS(QStringLiteral("jsClearAllTracks()"));
     } else if (m_dirtyFlags & DIRTY_TRACKS) {
+        QString js;
         for (const auto& pt : m_cacheTrackPts) {
-            runJS(QStringLiteral("jsAddTrackPoint('%1',%2,%3,%4)")
+            js += QStringLiteral("jsAddTrackPoint('%1',%2,%3,%4);")
                   .arg(jsEscape(pt.id)).arg(pt.lat, 0, 'f', 8)
-                  .arg(pt.lon, 0, 'f', 8).arg(pt.speed, 0, 'f', 2));
+                  .arg(pt.lon, 0, 'f', 8).arg(pt.speed, 0, 'f', 2);
         }
+        runJS(js);
         m_cacheTrackPts.clear();
     }
     if (m_dirtyFlags & DIRTY_TARGETS) {

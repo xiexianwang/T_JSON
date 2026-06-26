@@ -47,7 +47,7 @@ void DeviceController::setDisplayMode(int mode)
 {
     QJsonObject cmd;
     cmd["ControlType"] = "PipShowSetting";
-    cmd["PipShow"] = mode;
+    cmd["PipShow"] = (mode >= 0 && mode < kPipShowCount) ? kPipShowValues[mode] : mode;
     m_client->sendJsonCmd(cmd, FrameType::SetDisplayMode);
 }
 
@@ -118,10 +118,9 @@ void DeviceController::lensFocusIn(int target)
     m_lastLensTarget = target;
     m_lastLensIsZoom = false;       // 标记为变焦操作
     LensConfig& l = m_cfg->lens();
-    quint8 speed = l.focusSpeed;
     if (target == 0) {
         // 可见光：VISCA Focus Far
-        QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, true, speed);
+        QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, true);
         sendTransparentData("VISCA", pkt);
     } else {
         // 红外：Pelco-D 变焦拉近 Cmd1=0x01, Cmd2=0x00
@@ -136,10 +135,9 @@ void DeviceController::lensFocusOut(int target)
     m_lastLensTarget = target;
     m_lastLensIsZoom = false;
     LensConfig& l = m_cfg->lens();
-    quint8 speed = l.focusSpeed;
     if (target == 0) {
         // 可见光：VISCA Focus Near
-        QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, false, speed);
+        QByteArray pkt = ProtocolBuilder::buildViscaFocus(l.visAddress, false);
         sendTransparentData("VISCA", pkt);
     } else {
         // 红外：Pelco-D 变焦拉远 Cmd2=0x80
@@ -229,41 +227,76 @@ void DeviceController::setBoxTrack(int centerX, int centerY, int width, int heig
     m_client->sendJsonCmd(cmd, FrameType::Control);
 }
 
+// 点选跟踪
+// 设置点击中心坐标，设备在 Distance 范围内搜索目标
+void DeviceController::setPointTrack(int centerX, int centerY)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "SetWorkMode";
+    cmd["SetWorkMode"] = 3;
+
+    QJsonObject center;
+    center["X"] = centerX;
+    center["Y"] = centerY;
+
+    QJsonObject p2;
+    p2["Center"] = center;
+    p2["Distance"] = 30;
+
+    cmd["P2Track"] = p2;
+    m_client->sendJsonCmd(cmd, FrameType::Control);
+}
+
 // ================= 附加功能开关 =================
 
 // 数字变焦开关
 void DeviceController::setDigitalZoom(bool enable)
 {
     QJsonObject cmd;
-    cmd["ControlType"] = "DigitalZoom";
+    cmd["ControlType"] = "DigitalZoomSetting";
     cmd["DigitalZoom"] = enable ? 1 : 0;
     m_client->sendJsonCmd(cmd, FrameType::SetDigitalZoom);
 }
 
-// 自动变倍开关
+// 自动变焦开关
 void DeviceController::setAutoZoom(bool enable)
 {
-    QJsonObject cmd;
-    cmd["ControlType"] = "AutoZoom";
-    cmd["AutoZoom"] = enable ? 1 : 0;
-    m_client->sendJsonCmd(cmd, FrameType::Control);
+    setWorkMode(enable ? 5 : 6);
 }
 
 // 抓拍上传开关
 void DeviceController::setCaptureUpload(bool enable)
 {
     QJsonObject cmd;
-    cmd["ControlType"] = "CaptureState";
-    cmd["CaptureState"] = enable ? 1 : 0;
+    cmd["ControlType"] = "ImageUpload";
+    cmd["Upload"] = enable ? 1 : 0;
     m_client->sendJsonCmd(cmd, FrameType::SetCaptureState);
+}
+
+// 雨刷开关
+// K1 开: FF 01 00 09 00 01 0B
+// K1 关: FF 01 00 0B 00 01 0D
+void DeviceController::setWiper(bool enable)
+{
+    QByteArray pkt;
+    pkt.append(static_cast<char>(0xFF));
+    pkt.append(static_cast<char>(0x01));
+    pkt.append(static_cast<char>(0x00));
+    pkt.append(static_cast<char>(enable ? 0x09 : 0x0B));
+    pkt.append(static_cast<char>(0x00));
+    pkt.append(static_cast<char>(0x01));
+    // checksum: 01 + 00 + cmd2 + 00 + 01
+    quint8 chk = 0x01 + 0x00 + (enable ? 0x09 : 0x0B) + 0x00 + 0x01;
+    pkt.append(static_cast<char>(chk));
+    sendTransparentData("PELCO_D", pkt);
 }
 
 // 位置归零（重置 PTZ 到初始位置）
 void DeviceController::posReset(bool enable)
 {
     QJsonObject cmd;
-    cmd["ControlType"] = "PosReset";
-    cmd["PosReset"] = enable ? 1 : 0;
+    cmd["ControlType"] = "ResetPosition";
+    cmd["ResetPosition"] = enable ? 1 : 0;
     m_client->sendJsonCmd(cmd, FrameType::SetPosReset);
 }
 

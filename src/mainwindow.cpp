@@ -1405,7 +1405,7 @@ bool MainWindow::requireConnected()
 bool MainWindow::requireMotorReady()
 {
     if (m_cfg->motorProtocol() == "MODBUS-RTU") {
-        if (!m_device->isMotorSerialOpen()) {
+        if (m_cfg->motorCommandChannel() == "串口" && !m_device->isMotorSerialOpen()) {
             QMessageBox msgBox(this);
             msgBox.setWindowTitle(QStringLiteral("提示"));
             msgBox.setText(QStringLiteral("电机串口未打开，请在设置中配置"));

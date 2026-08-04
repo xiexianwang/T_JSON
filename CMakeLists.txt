@@ -38,6 +38,10 @@ qt_add_executable(T-JSON
     src/devicecontroller.h
     src/configmanager.cpp
     src/configmanager.h
+    src/jsonframeparser.cpp
+    src/jsonframeparser.h
+    src/devicestate.h
+
     src/settingsdialog.cpp
     src/settingsdialog.h
     ui/settingsdialog.ui

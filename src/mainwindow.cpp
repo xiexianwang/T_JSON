@@ -52,14 +52,14 @@ MainWindow::MainWindow(QWidget *parent)
     , m_device(new DeviceController(m_client, m_cfg, this))  // 设备指令控制器
     , m_rtsp(new RtspThread(this))
     , m_ptzForwarder(new PtzForwarder(this))           // RTSP 视频拉流线程
-    , m_updatingFromDevice(false)            // 防递归更新初始关闭
-    , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
-    , m_currentIrZoom(1.0)                   // 默认红外倍率 1.0
+    , m_devState->updatingFromDevice(false)            // 防递归更新初始关闭
+    , m_devState->visZoom(1.0)                  // 默认可见光倍率 1.0
+    , m_devState->irZoom(1.0)                   // 默认红外倍率 1.0
     , m_currentTilt(0.0)                     // 默认俯仰角 0
-    , m_currentPipShow(0)                    // 默认显示模式：大图可见光
+    , m_devState->pipShow(0)                    // 默认显示模式：大图可见光
     , m_workModeInitialized(false)
-    , m_currentResX(m_cfg->cam().visResX)    // 默认可见光分辨率
-    , m_currentResY(m_cfg->cam().visResY)
+    , m_devState->resX(m_cfg->cam().visResX)    // 默认可见光分辨率
+    , m_devState->resY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
 
@@ -277,7 +277,7 @@ MainWindow::MainWindow(QWidget *parent)
     auto connectLensBtn = [this](QPushButton* btn, int op) {
         connect(btn, &QPushButton::pressed, this, [this, op]() {
             if (!requireConnected()) return;
-            int t = (m_currentPipShow == 1 || m_currentPipShow == 4) ? 1 : 0;
+            int t = (m_devState->pipShow == 1 || m_devState->pipShow == 4) ? 1 : 0;
             if (op == 0) m_device->lensZoomIn(t);
             else if (op == 1) m_device->lensZoomOut(t);
             else if (op == 2) m_device->lensFocusIn(t);
@@ -465,6 +465,7 @@ MainWindow::~MainWindow()
         m_rtsp->wait(2000);
     }
     delete m_pipDialog;
+    delete m_devState;
     delete ui;
 }
 
@@ -1095,12 +1096,12 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 
             // 根据当前显示模式判断使用可见光还是红外参数
             // combo 索引: 0=大图可见光, 1=红外, 2=可见光, 3=融合, 4=大图红外
-            bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+            bool isVis = (m_devState->pipShow != 1 && m_devState->pipShow != 4);
             double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-            double fl = isVis ? cam.visMinFocal * m_currentVisZoom
-                              : cam.irMinFocal * m_currentIrZoom;
-            int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
-            int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
+            double fl = isVis ? cam.visMinFocal * m_devState->visZoom
+                              : cam.irMinFocal * m_devState->irZoom;
+            int halfW = (isVis ? m_devState->resX : cam.irResX) / 2;
+            int halfH = (isVis ? m_devState->resY : cam.irResY) / 2;
 
             // Object 字段是一个字典，key 为目标 ID，value 为目标属性
             if (doc.contains("Object") && doc.value("Object").isObject()) {
@@ -1181,12 +1182,12 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     ui->trackPos->setText(QString("(%1,%2) %3×%4").arg(cx).arg(cy).arg(pw).arg(ph));
 
                     // 计算脱靶量：像素偏移 × 像元尺寸 / 焦距 → 毫弧度
-                    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+                    bool isVis = (m_devState->pipShow != 1 && m_devState->pipShow != 4);
                     double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-                    double fl = isVis ? cam.visMinFocal * m_currentVisZoom
-                                      : cam.irMinFocal * m_currentIrZoom;
-                    int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
-                    int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
+                    double fl = isVis ? cam.visMinFocal * m_devState->visZoom
+                                      : cam.irMinFocal * m_devState->irZoom;
+                    int halfW = (isVis ? m_devState->resX : cam.irResX) / 2;
+                    int halfH = (isVis ? m_devState->resY : cam.irResY) / 2;
                     double objCx = (l + r2) / 2.0, objCy = (t + b) / 2.0;
                     double dx = objCx - halfW, dy = objCy - halfH;
                     double dxMrad = dx * px / fl;
@@ -1214,8 +1215,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
     // 同时触发镜头统计信息更新与地图设备位置更新
     //==========================================================================
     } else if (controlType == "ZoomInfo") {
-        m_currentVisZoom = doc.value("ZoomInfo").toDouble(1.0);
-        m_currentIrZoom = doc.value("ZoomInfoIR").toDouble(1.0);
+        m_devState->visZoom = doc.value("ZoomInfo").toDouble(1.0);
+        m_devState->irZoom = doc.value("ZoomInfoIR").toDouble(1.0);
 
         ui->statCamMode->setText(QString::number(doc.value("CamShowMode").toInt()));
         ui->statLatitude->setText(doc.value("Latitude").toString());
@@ -1251,7 +1252,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
     //==========================================================================
     // 3) ImageSetting - 图像参数配置帧
     // 设备主动推送或响应查询，更新分辨率/码率/编码/工作模式/显示模式/算法
-    // 并根据设备当前值同步 UI 下拉框，同时设置 m_updatingFromDevice 标志
+    // 并根据设备当前值同步 UI 下拉框，同时设置 m_devState->updatingFromDevice 标志
     // 防止 UI 变化再次触发设备指令造成死循环
     //==========================================================================
     } else if (controlType == "ImageSetting") {
@@ -1262,8 +1263,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         {
             static const int resTab[][2] = {{1920,1080},{1280,720},{704,576},{2566,1520}};
             if (imgSize >= 0 && imgSize < 4) {
-                m_currentResX = resTab[imgSize][0];
-                m_currentResY = resTab[imgSize][1];
+                m_devState->resX = resTab[imgSize][0];
+                m_devState->resY = resTab[imgSize][1];
             }
         }
 
@@ -1279,7 +1280,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         static const char* wmMap[] = {"关闭AI", "识别", "自动跟踪", "点选跟踪", "波门/框选跟踪"};
         int wm = doc.value("WorkMode").toInt();
         ui->paramWorkMode->setText(wm >= 0 && wm < 5 ? QString::fromUtf8(wmMap[wm]) : QString::number(wm));
-        m_previousWorkMode = wm;
+        m_devState->previousWorkMode = wm;
 
         // 显示类型映射表 (PIP = Picture-in-Picture)
         static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
@@ -1299,16 +1300,16 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         if (low >= 2 && low <= 6)
             modelStr += QString(" / %1").arg(QString::fromUtf8(lowMap[low]));
         ui->paramAlgoModel->setText(modelStr.isEmpty() ? QString::number(model) : modelStr);
-        m_previousAlgoModel = model;
+        m_devState->previousAlgoModel = model;
 
         ui->paramMaxVisFL->setText(doc.value("MaxVisFL").toString());
         ui->paramMaxIRFL->setText(doc.value("MaxIRFL").toString());
 
-        m_currentPipShow = DeviceController::pipShowToComboIndex(doc.value("PipShow").toInt());
-        m_previousDisplayMode = m_currentPipShow;
+        m_devState->pipShow = DeviceController::pipShowToComboIndex(doc.value("PipShow").toInt());
+        m_devState->previousDisplayMode = m_devState->pipShow;
 
         // 同步 UI 下拉框到设备当前值，同时抑制信号递归
-        m_updatingFromDevice = true;
+        m_devState->updatingFromDevice = true;
         // 首次连接时同步算法模型下拉框，后续不再覆盖用户选择
         if (!m_algoModelInitialized) {
             m_currentAlgoModel = model;
@@ -1333,7 +1334,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             ui->comboWorkMode->setCurrentIndex(wm);
             m_workModeInitialized = true;
         }
-        m_updatingFromDevice = false;
+        m_devState->updatingFromDevice = false;
     }
 }
 
@@ -1349,10 +1350,10 @@ void MainWindow::updateLensStats()
     CameraConfig& cam = m_cfg->cam();
     const double kRad2Deg = 180.0 / 3.14159265358979323846;
 
-    double visFocal = cam.visMinFocal * m_currentVisZoom;
-    double irFocal  = cam.irMinFocal * m_currentIrZoom;
+    double visFocal = cam.visMinFocal * m_devState->visZoom;
+    double irFocal  = cam.irMinFocal * m_devState->irZoom;
 
-    ui->statZoomVis->setText(QString::number(m_currentVisZoom, 'f', 2) + QStringLiteral("x"));
+    ui->statZoomVis->setText(QString::number(m_devState->visZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalVis->setText(QString::number(visFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusVis->clear();
 
@@ -1360,7 +1361,7 @@ void MainWindow::updateLensStats()
     double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
     ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
 
-    ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2) + QStringLiteral("x"));
+    ui->statZoomIR->setText(QString::number(m_devState->irZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalIR->setText(QString::number(irFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusIR->clear();
 
@@ -1462,16 +1463,16 @@ void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
     // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
     ui->videoWidget->setSelectionEnabled(index == 3 || index == 4);
 
-    if (m_updatingFromDevice) return;
+    if (m_devState->updatingFromDevice) return;
 
     if (!requireConnected()) {
-        m_updatingFromDevice = true;
-        ui->comboWorkMode->setCurrentIndex(m_previousWorkMode);
-        m_updatingFromDevice = false;
+        m_devState->updatingFromDevice = true;
+        ui->comboWorkMode->setCurrentIndex(m_devState->previousWorkMode);
+        m_devState->updatingFromDevice = false;
         return;
     }
     m_device->setWorkMode(index);
-    m_previousWorkMode = index;
+    m_devState->previousWorkMode = index;
     m_device->queryImageParams();
 }
 
@@ -1587,7 +1588,7 @@ void MainWindow::on_btnPanZeroCalib_clicked()
 //============================================================================
 //============================================================================
 // on_comboAlgoModel1/2_currentIndexChanged - 算法模型下拉框切换
-// 受 m_updatingFromDevice 保护，避免设备回传时重复下发指令
+// 受 m_devState->updatingFromDevice 保护，避免设备回传时重复下发指令
 //============================================================================
 void MainWindow::on_comboAlgoModel1_currentIndexChanged(int index)
 {
@@ -1601,11 +1602,11 @@ void MainWindow::on_comboAlgoModel2_currentIndexChanged(int index)
 }
 void MainWindow::sendAlgoModel(int model)
 {
-    if (m_updatingFromDevice) return;
+    if (m_devState->updatingFromDevice) return;
     if (!requireConnected()) { return; }
     m_currentAlgoModel = model;
     m_device->setAlgoModel(model);
-    m_previousAlgoModel = model;
+    m_devState->previousAlgoModel = model;
     m_device->queryImageParams();
 }
 
@@ -1615,8 +1616,8 @@ void MainWindow::sendAlgoModel(int model)
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
-    if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
-    if (m_updatingFromDevice) return;
+    if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_devState->previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
+    if (m_devState->updatingFromDevice) return;
     // 根据显示模式自动切换算法模型：0/2/3→可见光模型，1/4→红外模型
     // 直接下发不触发 queryImageParams，避免设备返回旧数据覆盖显示模式
     {
@@ -1752,13 +1753,13 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     // 计算可见光视场角
     CameraConfig& cam = m_cfg->cam();
     double visSensorW = cam.visPixelSize * cam.visResX / 1000.0;
-    double visFocal = cam.visMinFocal * m_currentVisZoom;
+    double visFocal = cam.visMinFocal * m_devState->visZoom;
     double visHfov = 2.0 * qAtan(visSensorW / (2.0 * visFocal)) * 180.0 / M_PI;
     double visVfov = visHfov * cam.visResY / cam.visResX;
 
     // 计算红外视场角
     double irSensorW = cam.irPixelSize * cam.irResX / 1000.0;
-    double irFocal = cam.irMinFocal * m_currentIrZoom;
+    double irFocal = cam.irMinFocal * m_devState->irZoom;
     double irHfov = 2.0 * qAtan(irSensorW / (2.0 * irFocal)) * 180.0 / M_PI;
     double irVfov = irHfov * cam.irResY / cam.irResX;
 
@@ -1785,10 +1786,10 @@ void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
                               double& outLat, double& outLon)
 {
     CameraConfig& cam = m_cfg->cam();
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    bool isVis = (m_devState->pipShow != 1 && m_devState->pipShow != 4);
     double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-    double focal = isVis ? cam.visMinFocal * m_currentVisZoom
-                         : cam.irMinFocal * m_currentIrZoom;
+    double focal = isVis ? cam.visMinFocal * m_devState->visZoom
+                         : cam.irMinFocal * m_devState->irZoom;
     int resX = isVis ? cam.visResX : cam.irResX;
     int resY = isVis ? cam.visResY : cam.irResY;
     int halfW = resX / 2, halfH = resY / 2;
@@ -1835,10 +1836,10 @@ void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
                                   double tiltDeg, double& outLat, double& outLon)
 {
     CameraConfig& cam = m_cfg->cam();
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    bool isVis = (m_devState->pipShow != 1 && m_devState->pipShow != 4);
     double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-    double focal = isVis ? cam.visMinFocal * m_currentVisZoom
-                         : cam.irMinFocal * m_currentIrZoom;
+    double focal = isVis ? cam.visMinFocal * m_devState->visZoom
+                         : cam.irMinFocal * m_devState->irZoom;
     int resX = isVis ? cam.visResX : cam.irResX;
     int resY = isVis ? cam.visResY : cam.irResY;
     int halfW = resX / 2, halfH = resY / 2;
@@ -2208,10 +2209,10 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
     if (boxPx <= 0)
         return dist;
 
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    bool isVis = (m_devState->pipShow != 1 && m_devState->pipShow != 4);
     double pxSize = isVis ? m_cfg->cam().visPixelSize : m_cfg->cam().irPixelSize;
-    double focal = isVis ? m_cfg->cam().visMinFocal * m_currentVisZoom
-                          : m_cfg->cam().irMinFocal * m_currentIrZoom;
+    double focal = isVis ? m_cfg->cam().visMinFocal * m_devState->visZoom
+                          : m_cfg->cam().irMinFocal * m_devState->irZoom;
 
     dist = estimateTargetDistance(boxPx, focal, pxSize, ref);
     if (updateTrackLabel)

@@ -16,6 +16,7 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include "tjsonclient.h"
+#include "devicestate.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
 #include "ptzforwarder.h"
@@ -110,7 +111,8 @@ private slots:
 private:
     Ui::MainWindow *ui;             // UI 设计器生成的界面对象
     TJsonClient *m_client;          // TCP JSON 协议客户端
-    ConfigManager *m_cfg;           // 配置管理器（持久化设置）
+    ConfigManager *m_cfg;
+    DeviceState *m_devState = nullptr;           // 配置管理器（持久化设置）
     DeviceController *m_device;     // 设备指令控制器（封装协议细节）
     RtspThread *m_rtsp;            // RTSP 视频流拉取线程
     PtzForwarder *m_ptzForwarder;    // 串口服务器与转台数据转发
@@ -136,15 +138,15 @@ private:
     double m_currentIrZoom;         // 当前红外镜头倍率
     double m_currentTilt;           // 当前云台俯仰角（原始值，用于地图计算）
     int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
-    int m_previousWorkMode = 0;     // ZoomInfo 最后上报的 WorkMode
+         // ZoomInfo 最后上报的 WorkMode
     bool m_workModeInitialized = false;
     bool m_displayModeInitialized = false;
     bool m_algoModelInitialized = false;
-    int m_previousAlgoModel = 0;    // ZoomInfo 最后上报的 Model
+        // ZoomInfo 最后上报的 Model
     int m_currentAlgoModel = 0;
-    int m_previousDisplayMode = 0;  // ZoomInfo 最后上报的 PipShow
-    int m_currentResX = 2688;       // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
-    int m_currentResY = 1520;       // 当前可见光实际垂直分辨率
+      // ZoomInfo 最后上报的 PipShow
+           // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
+           // 当前可见光实际垂直分辨率
     bool m_rtspEverOpened = false;  // RTSP 是否曾打开（手动或自动），用于避免重复自动连接
     
     // ── 跟踪状态管理（地图目标/轨迹逻辑） ──

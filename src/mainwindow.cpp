@@ -1228,9 +1228,22 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 ui->statHeight->clear();
         }
 
-        ui->statPanAngle->setText(QString::number(doc.value("PTZInfoH").toDouble(), 'f', 1) + QStringLiteral("°"));
-        m_currentTilt = doc.value("PTZInfoV").toDouble();
-        ui->statTiltAngle->setText(QString::number(doc.value("PTZInfoV").toDouble(), 'f', 1) + QStringLiteral("°"));
+        double rawPan = doc.value("PTZInfoH").toDouble();
+        double rawTilt = doc.value("PTZInfoV").toDouble();
+
+        if (m_cfg->softwarePtzCalibrationEnabled()) {
+            rawPan -= m_cfg->ptzPanOffset();
+            while (rawPan < 0) rawPan += 360.0;
+            while (rawPan >= 360.0) rawPan -= 360.0;
+
+            rawTilt -= m_cfg->ptzTiltOffset();
+            while (rawTilt < -180.0) rawTilt += 360.0;
+            while (rawTilt > 180.0) rawTilt -= 360.0;
+        }
+
+        ui->statPanAngle->setText(QString::number(rawPan, 'f', 1) + QStringLiteral("°"));
+        m_currentTilt = rawTilt;
+        ui->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
 
         updateLensStats();
         updateMapDevicePosition(doc);
@@ -1714,6 +1727,16 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
     double alt = doc.value("Height").toDouble(0);
     double pan = doc.value("PTZInfoH").toDouble(0);
     double tilt = doc.value("PTZInfoV").toDouble(0);
+
+    if (m_cfg->softwarePtzCalibrationEnabled()) {
+        pan -= m_cfg->ptzPanOffset();
+        while (pan < 0) pan += 360.0;
+        while (pan >= 360.0) pan -= 360.0;
+
+        tilt -= m_cfg->ptzTiltOffset();
+        while (tilt < -180.0) tilt += 360.0;
+        while (tilt > 180.0) tilt -= 360.0;
+    }
     double range = doc.value("LaserRange").toDouble(0);
     bool rangeEstimated = false;
     if (range <= 0) {

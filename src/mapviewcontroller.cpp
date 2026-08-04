@@ -63,7 +63,9 @@ void MapViewController::createPipUi()
     if (m_pipDialog) return;
     m_pipDialog = new QDialog(static_cast<QWidget*>(parent()), Qt::FramelessWindowHint | Qt::Tool);
     m_pipDialog->setAttribute(Qt::WA_ShowWithoutActivating);
-    m_pipDialog->setFixedSize(320, 200);
+    int pipW = 380;
+    int pipH = static_cast<int>(pipW * 1520.0 / 2566.0) + 44; // 226 + 44 = 270
+    m_pipDialog->setFixedSize(pipW, pipH);
     auto *pipLay = new QVBoxLayout(m_pipDialog);
     pipLay->setSpacing(0);
     pipLay->setContentsMargins(0, 0, 0, 0);

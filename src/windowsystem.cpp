@@ -37,11 +37,14 @@ WindowSystem::WindowSystem(QWidget *titleBar,
     m_titleBar->installEventFilter(this);
     m_titleBar->setProperty("form", "title");
 
-    m_appIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.jpg"))
-                         .scaled(20, 20, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    m_appIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.png"))
+                         .scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     m_btnMin->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/minimize.png")));
     m_btnMax->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/maximize.png")));
+    m_btnMax->setToolTip(QStringLiteral("最大化"));
     m_btnClose->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/close.png")));
+    m_btnClose->setToolTip(QStringLiteral("关闭"));
+    m_btnMin->setToolTip(QStringLiteral("最小化"));
     for (auto *b : {m_btnMin, m_btnMax, m_btnClose})
         b->setIconSize(QSize(22, 22));
 
@@ -141,9 +144,11 @@ bool WindowSystem::eventFilter(QObject *obj, QEvent *event)
 void WindowSystem::handleChangeEvent(QEvent *event)
 {
     if (event->type() == QEvent::WindowStateChange) {
-        m_btnMax->setIcon(QIcon(m_mainWindow->isMaximized()
+        bool isMax = m_mainWindow->isMaximized();
+        m_btnMax->setIcon(QIcon(isMax
             ? QStringLiteral(":/qss/blacksoft/restore.png")
             : QStringLiteral(":/qss/blacksoft/maximize.png")));
+        m_btnMax->setToolTip(isMax ? QStringLiteral("向下还原") : QStringLiteral("最大化"));
     }
 }
 

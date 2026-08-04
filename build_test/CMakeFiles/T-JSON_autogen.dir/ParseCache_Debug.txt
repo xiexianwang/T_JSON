@@ -656,7 +656,6 @@ D:/work/T-JSON-V1.0/src/configmanager.h
  mdp:D:/Windows Kits/10/Include/10.0.26100.0/ucrt/stdlib.h
  mdp:D:/Windows Kits/10/Include/10.0.26100.0/ucrt/string.h
  mdp:D:/work/T-JSON-V1.0/src/configmanager.h
-D:/work/T-JSON-V1.0/src/ptzforwarder.cpp
 D:/work/T-JSON-V1.0/src/mainwindow.h
  mmc:Q_OBJECT
  mdp:D:/C++/VC/Tools/MSVC/14.44.35207/include/algorithm
@@ -1039,6 +1038,7 @@ D:/work/T-JSON-V1.0/src/mainwindow.h
  mdp:D:/work/T-JSON-V1.0/src/mainwindow.h
 D:/work/T-JSON-V1.0/src/mapwidget.cpp
  uic:ui_mapwidget.h
+D:/work/T-JSON-V1.0/src/ptzforwarder.cpp
 D:/work/T-JSON-V1.0/src/devicestate.h
 D:/work/T-JSON-V1.0/src/mapbridge.h
  mmc:Q_OBJECT

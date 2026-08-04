@@ -47,6 +47,7 @@ public:
                                 QObject *parent = nullptr);
 
     void handleResize();
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 private:
     // ── JSON 帧接收与分发 ──

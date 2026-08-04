@@ -167,6 +167,12 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
     // 表格表头初始化
     ui->tableIdentify->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
+    // QComboBox 禁用滚轮事件过滤
+    for (auto *cb : m_mainWindow->findChildren<QComboBox *>()) {
+        cb->setFocusPolicy(Qt::StrongFocus);
+        cb->installEventFilter(this);
+    }
+
     //============================================================================
     // 设备管理器信号 → UI 更新
     //============================================================================
@@ -638,7 +644,13 @@ void DeviceInteractionController::updateStatusFromJson(const QJsonObject &doc)
         ui->statCamMode->setText(QString::number(doc.value("CamShowMode").toInt()));
         ui->statLatitude->setText(doc.value("Latitude").toString());
         ui->statLongitude->setText(doc.value("Longitude").toString());
-        ui->statHeight->setText(QString::number(doc.value("Height").toDouble(), 'f', 1));
+        {
+            double h = doc.value("Height").toDouble();
+            if (h != 0.0)
+                ui->statHeight->setText(QString::number(h, 'f', 1) + QStringLiteral(" m"));
+            else
+                ui->statHeight->clear();
+        }
         {
             double laserRange = doc.value("LaserRange").toDouble(0);
             if (laserRange > 0) {
@@ -1032,4 +1044,18 @@ void DeviceInteractionController::onPanZeroCalibClicked() {
             m_statusBar->showMessage("零点标定指令(Pelco-D)已下发", 3000);
         }
     }
+}
+
+//============================================================================
+// eventFilter
+//============================================================================
+bool DeviceInteractionController::eventFilter(QObject *obj, QEvent *event)
+{
+    if (event->type() == QEvent::Wheel) {
+        auto *cb = qobject_cast<QComboBox*>(obj);
+        if (cb && !cb->view()->isVisible()) {
+            return true;
+        }
+    }
+    return QObject::eventFilter(obj, event);
 }

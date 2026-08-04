@@ -29,6 +29,7 @@
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QTableWidget>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -43,10 +44,10 @@ public:
     QHBoxLayout *horizontalLayout_title;
     QLabel *labelAppIcon;
     QLabel *labelAppTitle;
-    QPushButton *btnNavMonitor;
-    QPushButton *btnNavPlayback;
-    QPushButton *btnNavLog;
-    QPushButton *btnNavSettings;
+    QToolButton *btnNavMonitor;
+    QToolButton *btnNavPlayback;
+    QToolButton *btnNavLog;
+    QToolButton *btnNavSettings;
     QSpacerItem *spacerTitle;
     QPushButton *btnMenu_Min;
     QPushButton *btnMenu_Max;
@@ -265,40 +266,48 @@ public:
 
         horizontalLayout_title->addWidget(labelAppTitle);
 
-        btnNavMonitor = new QPushButton(titleBar);
+        btnNavMonitor = new QToolButton(titleBar);
         btnNavMonitor->setObjectName("btnNavMonitor");
-        btnNavMonitor->setMinimumSize(QSize(80, 28));
+        btnNavMonitor->setMinimumSize(QSize(52, 38));
         btnNavMonitor->setCursor(QCursor(Qt::CursorShape::ArrowCursor));
         btnNavMonitor->setFocusPolicy(Qt::FocusPolicy::NoFocus);
+        btnNavMonitor->setIconSize(QSize(18, 18));
         btnNavMonitor->setCheckable(true);
         btnNavMonitor->setChecked(true);
+        btnNavMonitor->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextUnderIcon);
 
         horizontalLayout_title->addWidget(btnNavMonitor);
 
-        btnNavPlayback = new QPushButton(titleBar);
+        btnNavPlayback = new QToolButton(titleBar);
         btnNavPlayback->setObjectName("btnNavPlayback");
-        btnNavPlayback->setMinimumSize(QSize(80, 28));
+        btnNavPlayback->setMinimumSize(QSize(52, 38));
         btnNavPlayback->setCursor(QCursor(Qt::CursorShape::ArrowCursor));
         btnNavPlayback->setFocusPolicy(Qt::FocusPolicy::NoFocus);
+        btnNavPlayback->setIconSize(QSize(18, 18));
         btnNavPlayback->setCheckable(true);
+        btnNavPlayback->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextUnderIcon);
 
         horizontalLayout_title->addWidget(btnNavPlayback);
 
-        btnNavLog = new QPushButton(titleBar);
+        btnNavLog = new QToolButton(titleBar);
         btnNavLog->setObjectName("btnNavLog");
-        btnNavLog->setMinimumSize(QSize(80, 28));
+        btnNavLog->setMinimumSize(QSize(52, 38));
         btnNavLog->setCursor(QCursor(Qt::CursorShape::ArrowCursor));
         btnNavLog->setFocusPolicy(Qt::FocusPolicy::NoFocus);
+        btnNavLog->setIconSize(QSize(18, 18));
         btnNavLog->setCheckable(true);
+        btnNavLog->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextUnderIcon);
 
         horizontalLayout_title->addWidget(btnNavLog);
 
-        btnNavSettings = new QPushButton(titleBar);
+        btnNavSettings = new QToolButton(titleBar);
         btnNavSettings->setObjectName("btnNavSettings");
-        btnNavSettings->setMinimumSize(QSize(80, 28));
+        btnNavSettings->setMinimumSize(QSize(52, 38));
         btnNavSettings->setCursor(QCursor(Qt::CursorShape::ArrowCursor));
         btnNavSettings->setFocusPolicy(Qt::FocusPolicy::NoFocus);
+        btnNavSettings->setIconSize(QSize(18, 18));
         btnNavSettings->setCheckable(true);
+        btnNavSettings->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextUnderIcon);
 
         horizontalLayout_title->addWidget(btnNavSettings);
 
@@ -1329,11 +1338,11 @@ public:
     {
         MainWindow->setWindowTitle(QCoreApplication::translate("MainWindow", "T-JSON \347\233\221\346\216\247\346\216\247\345\210\266\345\256\242\346\210\267\347\253\257", nullptr));
         labelAppIcon->setText(QString());
-        labelAppTitle->setText(QCoreApplication::translate("MainWindow", "T-JSON", nullptr));
-        btnNavMonitor->setText(QCoreApplication::translate("MainWindow", "\350\247\206\351\242\221\347\233\221\346\216\247", nullptr));
-        btnNavPlayback->setText(QCoreApplication::translate("MainWindow", "\350\247\206\351\242\221\345\233\236\346\224\276", nullptr));
-        btnNavLog->setText(QCoreApplication::translate("MainWindow", "\346\227\245\345\277\227\346\237\245\350\257\242", nullptr));
-        btnNavSettings->setText(QCoreApplication::translate("MainWindow", "\347\263\273\347\273\237\350\256\276\347\275\256", nullptr));
+        labelAppTitle->setText(QCoreApplication::translate("MainWindow", "LSS Video Manager", nullptr));
+        btnNavMonitor->setText(QCoreApplication::translate("MainWindow", "\347\233\221\346\216\247", nullptr));
+        btnNavPlayback->setText(QCoreApplication::translate("MainWindow", "\345\233\236\346\224\276", nullptr));
+        btnNavLog->setText(QCoreApplication::translate("MainWindow", "\346\227\245\345\277\227", nullptr));
+        btnNavSettings->setText(QCoreApplication::translate("MainWindow", "\350\256\276\347\275\256", nullptr));
 #if QT_CONFIG(tooltip)
         btnMenu_Min->setToolTip(QCoreApplication::translate("MainWindow", "\346\234\200\345\260\217\345\214\226", nullptr));
 #endif // QT_CONFIG(tooltip)

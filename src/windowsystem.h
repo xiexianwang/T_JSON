@@ -6,6 +6,7 @@
 
 class QWidget;
 class QPushButton;
+class QToolButton;
 class QStackedWidget;
 class QLabel;
 class QEvent;
@@ -17,8 +18,8 @@ class WindowSystem : public QObject
 public:
     WindowSystem(QWidget *titleBar,
                  QPushButton *btnMin, QPushButton *btnMax, QPushButton *btnClose,
-                 QPushButton *btnNavMon, QPushButton *btnNavPb,
-                 QPushButton *btnNavLog, QPushButton *btnNavSet,
+                 QToolButton *btnNavMon, QToolButton *btnNavPb,
+                 QToolButton *btnNavLog, QToolButton *btnNavSet,
                  QStackedWidget *contentStack,
                  QLabel *appIcon, QLabel *appTitle,
                  QMainWindow *mainWindow,
@@ -42,7 +43,7 @@ private:
 
     QWidget *m_titleBar;
     QPushButton *m_btnMin, *m_btnMax, *m_btnClose;
-    QPushButton *m_btnNavMonitor, *m_btnNavPlayback, *m_btnNavLog, *m_btnNavSettings;
+    QToolButton *m_btnNavMonitor, *m_btnNavPlayback, *m_btnNavLog, *m_btnNavSettings;
     QStackedWidget *m_contentStack;
     QLabel *m_appIcon, *m_appTitle;
     QMainWindow *m_mainWindow;

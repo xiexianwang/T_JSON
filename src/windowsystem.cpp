@@ -1,6 +1,7 @@
 #include "windowsystem.h"
 #include <QWidget>
 #include <QPushButton>
+#include <QToolButton>
 #include <QStackedWidget>
 #include <QLabel>
 #include <QMainWindow>
@@ -19,8 +20,8 @@
 
 WindowSystem::WindowSystem(QWidget *titleBar,
                            QPushButton *btnMin, QPushButton *btnMax, QPushButton *btnClose,
-                           QPushButton *btnNavMon, QPushButton *btnNavPb,
-                           QPushButton *btnNavLog, QPushButton *btnNavSet,
+                           QToolButton *btnNavMon, QToolButton *btnNavPb,
+                           QToolButton *btnNavLog, QToolButton *btnNavSet,
                            QStackedWidget *contentStack,
                            QLabel *appIcon, QLabel *appTitle,
                            QMainWindow *mainWindow,
@@ -54,6 +55,16 @@ WindowSystem::WindowSystem(QWidget *titleBar,
     navGroup->addButton(m_btnNavPlayback, 1);
     navGroup->addButton(m_btnNavLog, 2);
     navGroup->addButton(m_btnNavSettings, 3);
+    
+    auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
+        btn->setIcon(QIcon(svgPath));
+        btn->setIconSize(QSize(18, 18));
+        btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    };
+    setupNavBtn(m_btnNavMonitor, QStringLiteral(":/monitor.svg"));
+    setupNavBtn(m_btnNavPlayback, QStringLiteral(":/playback.svg"));
+    setupNavBtn(m_btnNavLog, QStringLiteral(":/log.svg"));
+    setupNavBtn(m_btnNavSettings, QStringLiteral(":/gear.svg"));
     m_btnNavMonitor->setChecked(true);
 
     loadStyles();

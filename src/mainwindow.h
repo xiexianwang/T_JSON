@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QJsonObject>
+#include <QRect>
 
 class DeviceManager;
 class TrackManager;
@@ -10,6 +12,7 @@ class ConfigManager;
 class WindowSystem;
 class DeviceInteractionController;
 struct DeviceState;
+class PtzForwarder;
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -39,6 +42,7 @@ private:
     DeviceState *m_devState = nullptr;
     WindowSystem *m_windowSystem = nullptr;
     DeviceInteractionController *m_interactionCtrl = nullptr;
+    PtzForwarder *m_ptzForwarder = nullptr;
 };
 
 #endif // MAINWINDOW_H

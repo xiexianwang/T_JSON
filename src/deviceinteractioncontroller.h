@@ -18,6 +18,7 @@ class DeviceManager;
 class TrackManager;
 class MapViewController;
 class ConfigManager;
+class PtzForwarder;
 struct DeviceState;
 class QStatusBar;
 struct CameraConfig;
@@ -41,6 +42,7 @@ public:
                                 MapViewController *mapCtrl,
                                 ConfigManager *cfg,
                                 DeviceState *devState,
+                                PtzForwarder *ptzForwarder,
                                 QStatusBar *statusBar,
                                 QObject *parent = nullptr);
 
@@ -102,6 +104,7 @@ private:
     ConfigManager *m_cfg;
     DeviceState *m_devState;
     QStatusBar *m_statusBar;
+    PtzForwarder *m_ptzForwarder;
 
     // ── 视频网格与抽屉 ──
     VideoGridWidget *m_videoGrid;

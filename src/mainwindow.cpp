@@ -10,9 +10,11 @@
 #include "videogridwidget.h"
 #include "devicetreewidget.h"
 #include "cmdlogdialog.h"
+#include "ptzforwarder.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QPushButton>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -23,20 +25,17 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 共享设备状态
     m_devState = new DeviceState;
 
-    // ── 视频网格 + 抽屉 + 设备树 ──
-    auto *videoGrid = new VideoGridWidget(ui->videoGridContainer);
-    auto *drawerPanel = new QWidget(ui->videoGridContainer);
+    auto *videoGrid = new VideoGridWidget(ui->widgetDisplay);
+    auto *drawerPanel = new QWidget(ui->widgetDisplay);
     drawerPanel->setObjectName("drawerPanel");
     drawerPanel->setFixedWidth(240);
     auto *deviceTree = new DeviceTreeWidget(drawerPanel);
-    auto *drawerToggleBtn = new QPushButton(ui->videoGridContainer);
+    auto *drawerToggleBtn = new QPushButton(ui->widgetDisplay);
     drawerToggleBtn->setObjectName("drawerToggleBtn");
     drawerToggleBtn->setFixedSize(20, 40);
 
-    // 窗口系统（标题栏 + 导航 + 原生事件）— HWND 创建前先注册，拦截 WM_NCCALCSIZE
     m_windowSystem = new WindowSystem(
         ui->titleBar,
         ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close,
@@ -45,23 +44,26 @@ MainWindow::MainWindow(QWidget *parent)
         ui->labelAppIcon, ui->labelAppTitle,
         this, this);
 
-    // 命令日志（设为不阻止应用退出）
     auto *cmdLog = new CmdLogDialog(this);
     cmdLog->setAttribute(Qt::WA_QuitOnClose, false);
-    cmdLog->show();
+    
+    m_ptzForwarder = new PtzForwarder(this);
+    QTimer::singleShot(0, this, [this]() {
+        if (m_cfg->serialServerEnabled()) {
+            m_ptzForwarder->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
+            m_ptzForwarder->setOffsets(m_cfg->ptzPanOffset(), m_cfg->ptzTiltOffset());
+        }
+    });
 
-    // 设备管理器
     m_devMgr = new DeviceManager(m_cfg, deviceTree, videoGrid, cmdLog, this);
 
-    // 地图控制器
     m_mapCtrl = new MapViewController(
         ui->widgetDisplay, videoGrid, drawerPanel, drawerToggleBtn,
         m_devMgr, m_trackMgr, m_cfg, this);
 
-    // 设备交互控制器（所有业务逻辑）
     m_interactionCtrl = new DeviceInteractionController(
         ui, videoGrid, drawerPanel, deviceTree, drawerToggleBtn, this,
-        m_devMgr, m_trackMgr, m_mapCtrl, m_cfg, m_devState,
+        m_devMgr, m_trackMgr, m_mapCtrl, m_cfg, m_devState, m_ptzForwarder,
         ui->statusbar, this);
 }
 

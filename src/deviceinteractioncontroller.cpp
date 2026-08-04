@@ -1,4 +1,5 @@
 #include "deviceinteractioncontroller.h"
+#include "ptzforwarder.h"
 #include "ui_mainwindow.h"
 #include "devicemanager.h"
 #include "trackmanager.h"
@@ -81,6 +82,7 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
                                                          MapViewController *mapCtrl,
                                                          ConfigManager *cfg,
                                                          DeviceState *devState,
+                                PtzForwarder *ptzForwarder,
                                                          QStatusBar *statusBar,
                                                          QObject *parent)
     : QObject(parent)
@@ -373,6 +375,21 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
     connect(ui->btnSetLocation, &QPushButton::clicked, this, &DeviceInteractionController::onSetLocationClicked);
     connect(ui->btnGetImageParams, &QPushButton::clicked, this, &DeviceInteractionController::onGetImageParamsClicked);
     connect(ui->btnPtzMoveTo, &QPushButton::clicked, this, &DeviceInteractionController::onPtzMoveToClicked);
+    connect(ui->btnPtzMoveToGps, &QPushButton::clicked, this, &DeviceInteractionController::onPtzMoveToGpsClicked);
+    connect(ui->btnPanZeroCalib, &QPushButton::clicked, this, &DeviceInteractionController::onPanZeroCalibClicked);
+
+    // Wiper / Motor controls
+    connect(ui->btnWiperStart, &QPushButton::clicked, this, &DeviceInteractionController::onWiperStartClicked);
+    connect(ui->btnWiperStop, &QPushButton::clicked, this, &DeviceInteractionController::onWiperStopClicked);
+    connect(ui->btnWiperLeft, &QPushButton::pressed, this, &DeviceInteractionController::onWiperLeftPressed);
+    connect(ui->btnWiperLeft, &QPushButton::released, this, &DeviceInteractionController::onWiperLeftReleased);
+    connect(ui->btnWiperRight, &QPushButton::pressed, this, &DeviceInteractionController::onWiperRightPressed);
+    connect(ui->btnWiperRight, &QPushButton::released, this, &DeviceInteractionController::onWiperRightReleased);
+    connect(ui->btnWiperZeroCalib, &QPushButton::clicked, this, &DeviceInteractionController::onWiperZeroCalibClicked);
+    connect(ui->btnWiperMode, &QPushButton::clicked, this, &DeviceInteractionController::onWiperModeClicked);
+    connect(ui->btnWiperSilent, &QPushButton::clicked, this, &DeviceInteractionController::onWiperSilentClicked);
+    connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, &DeviceInteractionController::onWiperCurrentEditingFinished);
+
     connect(ui->btnSettings, &QPushButton::clicked, this, &DeviceInteractionController::onSettingsClicked);
     connect(ui->btnMapToggle, &QPushButton::clicked, this, [this]() { m_mapCtrl->toggleVisibility(); });
 
@@ -619,8 +636,21 @@ void DeviceInteractionController::updateStatusFromJson(const QJsonObject &doc)
                 ui->statDistance->setText(QStringLiteral("--"));
             }
         }
-        ui->statPanAngle->setText(QString::number(doc.value("PTZInfoH").toDouble(), 'f', 1));
-        ui->statTiltAngle->setText(QString::number(doc.value("PTZInfoV").toDouble(), 'f', 1));
+        double rawPan = doc.value("PTZInfoH").toDouble();
+        double rawTilt = doc.value("PTZInfoV").toDouble();
+
+        if (m_cfg->softwarePtzCalibrationEnabled()) {
+            rawPan -= m_cfg->ptzPanOffset();
+            while (rawPan < 0) rawPan += 360.0;
+            while (rawPan >= 360.0) rawPan -= 360.0;
+
+            rawTilt -= m_cfg->ptzTiltOffset();
+            while (rawTilt < -180.0) rawTilt += 360.0;
+            while (rawTilt > 180.0) rawTilt -= 360.0;
+        }
+
+        ui->statPanAngle->setText(QString::number(rawPan, 'f', 1) + QStringLiteral("°"));
+        ui->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
 
         updateLensStats();
         m_mapCtrl->updateDevicePosition(doc,
@@ -902,5 +932,137 @@ void DeviceInteractionController::handleResize()
         int h = ui->videoGridContainer->height();
         int bh = m_drawerToggleBtn->height();
         m_drawerToggleBtn->move(x, h > bh ? (h - bh) / 2 : 0);
+    }
+}
+
+//============================================================================
+// Wiper / Motor Controls
+//============================================================================
+void DeviceInteractionController::onWiperStartClicked() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorStart();
+}
+void DeviceInteractionController::onWiperStopClicked() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorStop();
+    QTimer::singleShot(50, this, [this]() {
+        if(m_devMgr->activeCtrl()) m_devMgr->activeCtrl()->motorReturnZero();
+    });
+}
+void DeviceInteractionController::onWiperLeftPressed() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorJogLeft();
+}
+void DeviceInteractionController::onWiperLeftReleased() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorStop();
+}
+void DeviceInteractionController::onWiperRightPressed() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorJogRight();
+}
+void DeviceInteractionController::onWiperRightReleased() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorStop();
+}
+void DeviceInteractionController::onWiperZeroCalibClicked() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorZeroCalib();
+}
+void DeviceInteractionController::onWiperModeClicked() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorToggleMode();
+    QTimer::singleShot(500, this, [this]() {
+        if(m_devMgr->activeCtrl()) m_devMgr->activeCtrl()->motorCheckMode();
+    });
+}
+void DeviceInteractionController::onWiperSilentClicked() {
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorToggleSilentMode();
+}
+void DeviceInteractionController::onWiperCurrentEditingFinished() {
+    int ma = ui->editWiperCurrent->text().toInt();
+    if (!requireConnected()) return;
+    m_devMgr->activeCtrl()->motorSetCurrent(ma);
+    m_statusBar->showMessage(QString("正在下发并固化电机电流: %1 mA").arg(ma), 3000);
+}
+
+void DeviceInteractionController::onPtzMoveToGpsClicked() {
+    if (!requireConnected()) return;
+
+    QString lonStr = ui->editTargetLon->text().trimmed();
+    QString latStr = ui->editTargetLat->text().trimmed();
+    QString altStr = ui->editTargetAlt->text().trimmed();
+
+    if (lonStr.isEmpty() || latStr.isEmpty()) {
+        QMessageBox::warning(m_mainWindow, "输入错误", "请输入目标的经纬度和高度。");
+        return;
+    }
+
+    double targetLon = GeoUtils::parseCoord(lonStr);
+    double targetLat = GeoUtils::parseCoord(latStr);
+    double targetAlt = altStr.toDouble();
+
+    double devLat = GeoUtils::parseCoord(ui->statLatitude->text());
+    double devLon = GeoUtils::parseCoord(ui->statLongitude->text());
+    double devAlt = ui->statHeight->text().toDouble(); 
+
+    if (devLat == 0 && devLon == 0) {
+        QMessageBox::warning(m_mainWindow, "状态错误", "当前设备 GPS 未知，无法计算目标角度。");
+        return;
+    }
+
+    double pan = GeoUtils::bearing(devLat, devLon, targetLat, targetLon);
+    double dist = GeoUtils::haversineDistance(devLat, devLon, targetLat, targetLon);
+
+    double tilt = 0;
+    if (dist > 0.001) { 
+        tilt = -qRadiansToDegrees(qAtan2(targetAlt - devAlt, dist));
+    }
+
+    m_devMgr->activeCtrl()->ptzMoveTo(pan, tilt);
+    m_statusBar->showMessage(QString("转到 GPS: 方位=%1° 俯仰=%2°").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
+}
+
+void DeviceInteractionController::onPanZeroCalibClicked() {
+    if (!requireConnected()) return;
+    
+    if (QMessageBox::question(m_mainWindow, "零点标定", "确认将当前云台水平和俯仰位置标定为 0 度？") == QMessageBox::Yes) {
+        if (m_cfg->softwarePtzCalibrationEnabled()) {
+            QString panStr = ui->statPanAngle->text();
+            panStr.remove("°");
+            double displayedPan = panStr.toDouble();
+
+            QString tiltStr = ui->statTiltAngle->text();
+            tiltStr.remove("°");
+            double displayedTilt = tiltStr.toDouble();
+
+            double oldPanOffset = m_cfg->ptzPanOffset();
+            double oldTiltOffset = m_cfg->ptzTiltOffset();
+
+            double newPanOffset = displayedPan + oldPanOffset;
+            while (newPanOffset >= 360.0) newPanOffset -= 360.0;
+            while (newPanOffset < 0) newPanOffset += 360.0;
+
+            double newTiltOffset = oldTiltOffset - displayedTilt;
+            while (newTiltOffset > 180.0) newTiltOffset -= 360.0;
+            while (newTiltOffset <= -180.0) newTiltOffset += 360.0;
+
+            m_cfg->setPtzPanOffset(newPanOffset);
+            m_cfg->setPtzTiltOffset(newTiltOffset);
+            m_cfg->save();
+
+            if (m_ptzForwarder) {
+                m_ptzForwarder->setOffsets(newPanOffset, newTiltOffset);
+                m_ptzForwarder->flushZeroPosition();
+            }
+
+            ui->statPanAngle->setText("0.0°");
+            ui->statTiltAngle->setText("0.0°");
+            m_statusBar->showMessage("零点标定(软件偏置)已保存", 3000);
+        } else {
+            m_devMgr->activeCtrl()->ptzSetZero();
+            m_statusBar->showMessage("零点标定指令(Pelco-D)已下发", 3000);
+        }
     }
 }

@@ -776,6 +776,18 @@ void DeviceInteractionController::onLensTargetChanged(int)
 
 void DeviceInteractionController::onPtzMoveToClicked()
 {
+    if (!requireConnected()) return;
+
+    bool panOk = false;
+    bool tiltOk = false;
+    double pan = ui->editTargetPan->text().toDouble(&panOk);
+    double tilt = ui->editTargetTilt->text().toDouble(&tiltOk);
+
+    if (panOk && tiltOk) {
+        m_devMgr->activeCtrl()->ptzMoveTo(pan, tilt);
+    } else {
+        QMessageBox::warning(m_mainWindow, QString::fromUtf8("输入错误"), QString::fromUtf8("请输入有效的水平和垂直角度值。"));
+    }
 }
 
 

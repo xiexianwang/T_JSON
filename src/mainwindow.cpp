@@ -1530,7 +1530,7 @@ void MainWindow::on_btnPanZeroCalib_clicked()
     if (!requireConnected()) return;
     
     if (QMessageBox::question(this, "零点标定", "确认将当前云台水平和俯仰位置标定为 0 度？") == QMessageBox::Yes) {
-        if (m_cfg->serialServerEnabled()) {
+        if (m_cfg->softwarePtzCalibrationEnabled()) {
             // 开启了模拟串口服务器，使用软件偏置
             QString panStr = ui->statPanAngle->text();
             panStr.remove("°");

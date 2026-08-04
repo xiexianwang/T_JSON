@@ -177,6 +177,9 @@ public:
     void setSerialServerEnabled(bool enabled) { m_serialServerEnabled = enabled; }
     bool turntableIpEnabled() const { return m_turntableIpEnabled; }
     void setTurntableIpEnabled(bool enabled) { m_turntableIpEnabled = enabled; }
+    bool softwarePtzCalibrationEnabled() const { return m_softwarePtzCalibrationEnabled; }
+    void setSoftwarePtzCalibrationEnabled(bool enabled) { m_softwarePtzCalibrationEnabled = enabled; }
+    
     bool motorSerialEnabled() const { return m_motorSerialEnabled; }
     void setMotorSerialEnabled(bool enabled) { m_motorSerialEnabled = enabled; }
     QString motorTcpIp() const { return m_motorTcpIp; }
@@ -208,6 +211,7 @@ private:
     QString m_motorComPort = "COM1";
     bool m_serialServerEnabled = true;
     bool m_turntableIpEnabled = true;
+    bool m_softwarePtzCalibrationEnabled = false;
     bool m_motorSerialEnabled = true;
     QString m_motorTcpIp = "192.168.1.55";
     quint16 m_motorTcpPort = 5000;

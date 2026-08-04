@@ -36,6 +36,7 @@ void ConfigManager::load()
     m_motorComPort    = settings.value("MotorComPort", "COM1").toString();
     m_serialServerEnabled = settings.value("SerialServerEnabled", true).toBool();
     m_turntableIpEnabled = settings.value("TurntableIpEnabled", true).toBool();
+    m_softwarePtzCalibrationEnabled = settings.value("SoftwarePtzCalibration", false).toBool();
     m_motorSerialEnabled = settings.value("MotorSerialEnabled", true).toBool();
     m_motorTcpIp = settings.value("MotorTcpIp", "192.168.1.55").toString();
     m_motorTcpPort = static_cast<quint16>(settings.value("MotorTcpPort", 5000).toUInt());
@@ -69,6 +70,7 @@ void ConfigManager::save()
     settings.setValue("MotorComPort", m_motorComPort);
     settings.setValue("SerialServerEnabled", m_serialServerEnabled);
     settings.setValue("TurntableIpEnabled", m_turntableIpEnabled);
+    settings.setValue("SoftwarePtzCalibration", m_softwarePtzCalibrationEnabled);
     settings.setValue("MotorSerialEnabled", m_motorSerialEnabled);
     settings.setValue("MotorTcpIp", m_motorTcpIp);
     settings.setValue("MotorTcpPort", m_motorTcpPort);

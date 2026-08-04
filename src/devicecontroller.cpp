@@ -84,7 +84,7 @@ void DeviceController::ptzMoveTo(double pan, double tilt)
     quint8 addr = m_cfg->ptz().address;
 
     // 如果开启了模拟串口服务器，则应用软件偏置
-    if (m_cfg->serialServerEnabled()) {
+    if (m_cfg->softwarePtzCalibrationEnabled()) {
         pan += m_cfg->ptzPanOffset();
         tilt += m_cfg->ptzTiltOffset();
     }

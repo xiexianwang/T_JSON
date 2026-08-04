@@ -45,6 +45,8 @@ void SettingsDialog::loadSettings()
     ui->checkSerialServerEnabled->setChecked(m_cfg->serialServerEnabled());
     ui->checkTurntableIpEnabled->setChecked(m_cfg->turntableIpEnabled());
     ui->checkMotorSerialEnabled->setChecked(m_cfg->motorSerialEnabled());
+    ui->checkSoftwarePtzCalibration->setChecked(m_cfg->softwarePtzCalibrationEnabled());
+
     ui->editMotorTcpIp->setText(m_cfg->motorTcpIp());
     ui->spinMotorTcpPort->setValue(m_cfg->motorTcpPort());
 
@@ -100,6 +102,8 @@ void SettingsDialog::saveSettings()
     m_cfg->setSerialServerEnabled(ui->checkSerialServerEnabled->isChecked());
     m_cfg->setTurntableIpEnabled(ui->checkTurntableIpEnabled->isChecked());
     m_cfg->setMotorSerialEnabled(ui->checkMotorSerialEnabled->isChecked());
+    m_cfg->setSoftwarePtzCalibrationEnabled(ui->checkSoftwarePtzCalibration->isChecked());
+
     m_cfg->setMotorTcpIp(ui->editMotorTcpIp->text());
     m_cfg->setMotorTcpPort(static_cast<quint16>(ui->spinMotorTcpPort->value()));
 

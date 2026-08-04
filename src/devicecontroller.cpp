@@ -83,12 +83,15 @@ void DeviceController::ptzMoveTo(double pan, double tilt)
 {
     quint8 addr = m_cfg->ptz().address;
 
-    // 加上偏移量，计算实际发给云台的角度
-    pan += m_cfg->ptzPanOffset();
+    // 如果开启了模拟串口服务器，则应用软件偏置
+    if (m_cfg->serialServerEnabled()) {
+        pan += m_cfg->ptzPanOffset();
+        tilt += m_cfg->ptzTiltOffset();
+    }
+    
     while (pan >= 360.0) pan -= 360.0;
     while (pan < 0) pan += 360.0;
 
-    tilt += m_cfg->ptzTiltOffset();
     while (tilt > 180.0) tilt -= 360.0;
     while (tilt <= -180.0) tilt += 360.0;
 

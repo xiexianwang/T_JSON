@@ -1530,35 +1530,43 @@ void MainWindow::on_btnPanZeroCalib_clicked()
     if (!requireConnected()) return;
     
     if (QMessageBox::question(this, "零点标定", "确认将当前云台水平和俯仰位置标定为 0 度？") == QMessageBox::Yes) {
-        QString panStr = ui->statPanAngle->text();
-        panStr.remove("°");
-        double displayedPan = panStr.toDouble();
+        if (m_cfg->serialServerEnabled()) {
+            // 开启了模拟串口服务器，使用软件偏置
+            QString panStr = ui->statPanAngle->text();
+            panStr.remove("°");
+            double displayedPan = panStr.toDouble();
 
-        QString tiltStr = ui->statTiltAngle->text();
-        tiltStr.remove("°");
-        double displayedTilt = tiltStr.toDouble();
+            QString tiltStr = ui->statTiltAngle->text();
+            tiltStr.remove("°");
+            double displayedTilt = tiltStr.toDouble();
 
-        double oldPanOffset = m_cfg->ptzPanOffset();
-        double oldTiltOffset = m_cfg->ptzTiltOffset();
+            double oldPanOffset = m_cfg->ptzPanOffset();
+            double oldTiltOffset = m_cfg->ptzTiltOffset();
 
-        double newPanOffset = displayedPan + oldPanOffset;
-        while (newPanOffset >= 360.0) newPanOffset -= 360.0;
-        while (newPanOffset < 0) newPanOffset += 360.0;
+            double newPanOffset = displayedPan + oldPanOffset;
+            while (newPanOffset >= 360.0) newPanOffset -= 360.0;
+            while (newPanOffset < 0) newPanOffset += 360.0;
 
-        double newTiltOffset = oldTiltOffset - displayedTilt;
-        while (newTiltOffset > 180.0) newTiltOffset -= 360.0;
-        while (newTiltOffset <= -180.0) newTiltOffset += 360.0;
+            double newTiltOffset = oldTiltOffset - displayedTilt;
+            while (newTiltOffset > 180.0) newTiltOffset -= 360.0;
+            while (newTiltOffset <= -180.0) newTiltOffset += 360.0;
 
-        m_cfg->setPtzPanOffset(newPanOffset);
-        m_cfg->setPtzTiltOffset(newTiltOffset);
-        m_cfg->save();
+            m_cfg->setPtzPanOffset(newPanOffset);
+            m_cfg->setPtzTiltOffset(newTiltOffset);
+            m_cfg->save();
 
-        m_ptzForwarder->setOffsets(newPanOffset, newTiltOffset);
-        m_ptzForwarder->flushZeroPosition();
+            m_ptzForwarder->setOffsets(newPanOffset, newTiltOffset);
+            m_ptzForwarder->flushZeroPosition();
 
-        ui->statPanAngle->setText("0.0°");
-        ui->statTiltAngle->setText("0.0°");
-        ui->statusbar->showMessage("零点标定已保存", 3000);
+            ui->statPanAngle->setText("0.0°");
+            ui->statTiltAngle->setText("0.0°");
+            ui->statusbar->showMessage("零点标定(软件偏置)已保存", 3000);
+        } else {
+            // 未开启模拟串口服务器，直接通过 PELCO-D 透传标定指令
+            m_device->ptzSetZero();
+            ui->statusbar->showMessage("零点标定指令(Pelco-D)已下发", 3000);
+            // 这里不强制改 UI，让后续设备主动上报的新角度来刷新 UI
+        }
     }
 }
 

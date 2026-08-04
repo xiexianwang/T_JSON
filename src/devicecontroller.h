@@ -121,7 +121,8 @@ public:
     // ================= 云台控制 (Pelco-D) =================
     void ptzMove(PtzDir dir);               // 云台向指定方向运动
     void ptzStop();                         // 云台停止运动
-    void ptzMoveTo(double pan, double tilt);// 云台转动到绝对角度
+    void ptzMoveTo(double pan, double tilt);
+    void ptzSetZero();// 云台转动到绝对角度
     
     // ================= 框选跟踪 =================
     void setBoxTrack(int centerX, int centerY, int width, int height);  // 设置跟踪框

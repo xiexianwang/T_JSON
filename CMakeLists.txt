@@ -29,6 +29,9 @@ set(FFMPEG_LIBS
 qt_add_executable(T-JSON
     WIN32 MACOSX_BUNDLE
     src/main.cpp
+    src/core/GeoCalculator.cpp
+    src/core/GeoCalculator.h
+    src/core/DeviceState.h
     src/mainwindow.cpp
     src/mainwindow.h
     ui/mainwindow.ui

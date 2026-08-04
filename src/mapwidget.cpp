@@ -36,34 +36,36 @@ MapWidget::MapWidget(QWidget *parent)
     , m_bridge(new MapBridge(this))
 {
     ui->setupUi(this);
-    m_aiFlushTimer->setInterval(300);
+    m_aiFlushTimer->setInterval(200);
     connect(m_aiFlushTimer, &QTimer::timeout, this, &MapWidget::flushAiData);
     m_aiFlushTimer->start();
 
     m_channel->registerObject(QStringLiteral("bridge"), m_bridge);
     auto *page = ui->m_webView->page();
-    page->setWebChannel(m_channel);
-    page->setBackgroundColor(Qt::transparent);
+    if (page) {
+        page->setWebChannel(m_channel);
+        page->setBackgroundColor(Qt::transparent);
 
-    QFile htmlF(QStringLiteral(":/map.html"));
-    if (htmlF.open(QFile::ReadOnly)) {
-        QString html = QString::fromUtf8(htmlF.readAll());
-        ui->m_webView->setHtml(html);
-    } else {
-        qWarning() << "Failed to load map resources";
-    }
-
-    connect(page, &QWebEnginePage::loadFinished, this, [this](bool ok) {
-        qDebug() << "[Map] Page load:" << (ok ? "OK" : "FAILED");
-        if (ok && m_pendingReload) {
-            m_pendingReload = false;
-            setZoom(m_pendingZoom);
-            setMapType(m_pendingMapType);
+        QFile htmlF(QStringLiteral(":/map.html"));
+        if (htmlF.open(QFile::ReadOnly)) {
+            QString html = QString::fromUtf8(htmlF.readAll());
+            ui->m_webView->setHtml(html);
+        } else {
+            qWarning() << "Failed to load map resources";
         }
-    });
-    connect(page, &QWebEnginePage::loadProgress, this, [](int p) {
-        qDebug() << "[Map] Load progress:" << p << "%";
-    });
+
+        connect(page, &QWebEnginePage::loadFinished, this, [this](bool ok) {
+            qDebug() << "[Map] Page load:" << (ok ? "OK" : "FAILED");
+            if (ok && m_pendingReload) {
+                m_pendingReload = false;
+                setZoom(m_pendingZoom);
+                setMapType(m_pendingMapType);
+            }
+        });
+        connect(page, &QWebEnginePage::loadProgress, this, [](int p) {
+            qDebug() << "[Map] Load progress:" << p << "%";
+        });
+    }
 
     connect(m_bridge, &MapBridge::mapClicked, this, &MapWidget::mapClicked);
     connect(m_bridge, &MapBridge::mapZoomChanged, this, &MapWidget::mapZoomChanged);
@@ -152,13 +154,11 @@ void MapWidget::flushAiData()
     if (m_dirtyFlags & DIRTY_TRK_CLR) {
         runJS(QStringLiteral("jsClearAllTracks()"));
     } else if (m_dirtyFlags & DIRTY_TRACKS) {
-        QString js;
         for (const auto& pt : m_cacheTrackPts) {
-            js += QStringLiteral("jsAddTrackPoint('%1',%2,%3,%4);")
+            runJS(QStringLiteral("jsAddTrackPoint('%1',%2,%3,%4)")
                   .arg(jsEscape(pt.id)).arg(pt.lat, 0, 'f', 8)
-                  .arg(pt.lon, 0, 'f', 8).arg(pt.speed, 0, 'f', 2);
+                  .arg(pt.lon, 0, 'f', 8).arg(pt.speed, 0, 'f', 2));
         }
-        runJS(js);
         m_cacheTrackPts.clear();
     }
     if (m_dirtyFlags & DIRTY_TARGETS) {

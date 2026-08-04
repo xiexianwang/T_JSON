@@ -1,0 +1,32 @@
+^D:\WORK\T-JSON-V1.0\BUILD_TEST\CMAKEFILES\A9AA9E0799079EEEB3F760045876C499\T-JSON_BUILD.CMAKE.RULE
+setlocal
+cd D:\work\T-JSON-V1.0
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+call D:\work\T-JSON-V1.0\build_test\.qt\bin\qt_setup_tool_path.bat D:/QT6/6.11.1/msvc2022_64/bin/qmlimportscanner.exe -rootPath D:/work/T-JSON-V1.0 -cmake-output -output-file D:/work/T-JSON-V1.0/build_test/.qt/qml_imports/T-JSON_build.cmake -importPath D:/work/T-JSON-V1.0/build_test -importPath D:/QT6/6.11.1/msvc2022_64/qml
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\WORK\T-JSON-V1.0\BUILD_TEST\CMAKEFILES\85BE48938C1E62F8A486E5575716E92E\T-JSON_QMLIMPORTSCAN.RULE
+setlocal
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\WORK\T-JSON-V1.0\CMAKELISTS.TXT
+setlocal
+D:\QT6\Tools\CMake_64\bin\cmake.exe -SD:/work/T-JSON-V1.0 -BD:/work/T-JSON-V1.0/build_test --check-stamp-file D:/work/T-JSON-V1.0/build_test/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

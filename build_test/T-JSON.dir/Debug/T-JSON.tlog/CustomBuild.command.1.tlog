@@ -1,0 +1,36 @@
+^D:\WORK\T-JSON-V1.0\BUILD_TEST\CMAKEFILES\4D6B9EDED0109232DB7D6C684DA4FE65\AUTOUIC_(CONFIG).STAMP.RULE
+setlocal
+cd D:\work\T-JSON-V1.0\build_test
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\WORK\T-JSON-V1.0\BUILD_TEST\CMAKEFILES\0053FB15BB3A09E5E86D94D00ACF5489\QRC_RESOURCES.CPP.RULE
+setlocal
+cd D:\work\T-JSON-V1.0\build_test
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+D:\QT6\Tools\CMake_64\bin\cmake.exe -E cmake_autorcc D:/work/T-JSON-V1.0/build_test/CMakeFiles/T-JSON_autogen.dir/AutoRcc_resources_3YJK5W5UP7_Info.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\WORK\T-JSON-V1.0\CMAKELISTS.TXT
+setlocal
+D:\QT6\Tools\CMake_64\bin\cmake.exe -SD:/work/T-JSON-V1.0 -BD:/work/T-JSON-V1.0/build_test --check-stamp-file D:/work/T-JSON-V1.0/build_test/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

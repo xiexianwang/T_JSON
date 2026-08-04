@@ -1,0 +1,10 @@
+^D:\WORK\T-JSON-V1.0\CMAKELISTS.TXT
+setlocal
+D:\QT6\Tools\CMake_64\bin\cmake.exe -SD:/work/T-JSON-V1.0 -BD:/work/T-JSON-V1.0/build_test --check-stamp-file D:/work/T-JSON-V1.0/build_test/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

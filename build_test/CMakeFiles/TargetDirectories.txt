@@ -1,0 +1,5 @@
+D:/work/T-JSON-V1.0/build_test/CMakeFiles/T-JSON.dir
+D:/work/T-JSON-V1.0/build_test/CMakeFiles/T-JSON_qmlimportscan.dir
+D:/work/T-JSON-V1.0/build_test/CMakeFiles/INSTALL.dir
+D:/work/T-JSON-V1.0/build_test/CMakeFiles/ALL_BUILD.dir
+D:/work/T-JSON-V1.0/build_test/CMakeFiles/ZERO_CHECK.dir

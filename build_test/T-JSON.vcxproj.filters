@@ -1,0 +1,245 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\mocs_compilation_Debug.cpp">
+      <Filter>Source Files\Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\mainwindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\tjsonclient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\devicecontroller.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\configmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\geoutils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\devicemanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\devicecontext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\deviceinteractioncontroller.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\videogridwidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\devicetreewidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\windowsystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\trackmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\mapviewcontroller.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\jsonframeparser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\settingsdialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\videowidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\rtspthread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\mapwidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\mapbridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\cmdlogdialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\src\ptzforwarder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\3YJK5W5UP7_Debug\qrc_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\mocs_compilation_Release.cpp">
+      <Filter>Source Files\Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\3YJK5W5UP7_Release\qrc_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\mocs_compilation_MinSizeRel.cpp">
+      <Filter>Source Files\Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\3YJK5W5UP7_MinSizeRel\qrc_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <Filter>Source Files\Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\3YJK5W5UP7_RelWithDebInfo\qrc_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\tjsonclient.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\devicecontroller.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\geoutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\configmanager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\devicemanager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\devicecontext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\deviceinteractioncontroller.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\videogridwidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\devicetreewidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\windowsystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\trackmanager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\mapviewcontroller.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\jsonframeparser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\devicestate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\settingsdialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\videowidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\rtspthread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\mapwidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\mapbridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\cmdlogdialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\src\ptzforwarder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_Debug\ui\ui_mainwindow.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_Debug\ui\ui_settingsdialog.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_Debug\ui\ui_mapwidget.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_Release\ui\ui_mainwindow.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_Release\ui\ui_settingsdialog.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_Release\ui\ui_mapwidget.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_MinSizeRel\ui\ui_mainwindow.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_MinSizeRel\ui\ui_settingsdialog.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_MinSizeRel\ui\ui_mapwidget.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_RelWithDebInfo\ui\ui_mainwindow.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_RelWithDebInfo\ui\ui_settingsdialog.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\include_RelWithDebInfo\ui\ui_mapwidget.h">
+      <Filter>Source Files\Generated</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\work\T-JSON-V1.0\build_test\CMakeFiles\4d6b9eded0109232db7d6c684da4fe65\autouic_(CONFIG).stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\work\T-JSON-V1.0\build_test\CMakeFiles\0053fb15bb3a09e5e86d94d00acf5489\qrc_resources.cpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\work\T-JSON-V1.0\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\work\T-JSON-V1.0\ui\mainwindow.ui" />
+    <None Include="D:\work\T-JSON-V1.0\ui\settingsdialog.ui" />
+    <None Include="D:\work\T-JSON-V1.0\ui\mapwidget.ui" />
+    <None Include="D:\work\T-JSON-V1.0\resources\resources.qrc" />
+    <None Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\autouic_Debug.stamp">
+      <Filter>Source Files\Generated</Filter>
+    </None>
+    <None Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\autouic_Release.stamp">
+      <Filter>Source Files\Generated</Filter>
+    </None>
+    <None Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\autouic_MinSizeRel.stamp">
+      <Filter>Source Files\Generated</Filter>
+    </None>
+    <None Include="D:\work\T-JSON-V1.0\build_test\T-JSON_autogen\autouic_RelWithDebInfo.stamp">
+      <Filter>Source Files\Generated</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="D:\work\T-JSON-V1.0\resources\app.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{64C3AFA4-67EC-3A33-BFF8-D12544EB1042}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{FCCAEC3C-A872-37F4-BA89-691A9641DD36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D76FFD88-AC5A-3319-9953-7F03464C2140}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Generated">
+      <UniqueIdentifier>{84B7B000-312F-3BAA-8A68-D29C12C73F99}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

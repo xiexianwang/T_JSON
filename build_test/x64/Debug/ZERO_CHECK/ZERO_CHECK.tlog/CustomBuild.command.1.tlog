@@ -1,0 +1,10 @@
+^D:\WORK\T-JSON-V1.0\BUILD_TEST\CMAKEFILES\85BE48938C1E62F8A486E5575716E92E\GENERATE.STAMP.RULE
+setlocal
+D:\QT6\Tools\CMake_64\bin\cmake.exe -SD:/work/T-JSON-V1.0 -BD:/work/T-JSON-V1.0/build_test --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/work/T-JSON-V1.0/build_test/T-JSON.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

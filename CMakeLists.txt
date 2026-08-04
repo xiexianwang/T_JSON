@@ -37,7 +37,26 @@ qt_add_executable(T-JSON
     src/devicecontroller.cpp
     src/devicecontroller.h
     src/configmanager.cpp
+    src/geoutils.cpp
+    src/geoutils.h
+
     src/configmanager.h
+    src/devicemanager.cpp
+    src/devicemanager.h
+    src/devicecontext.cpp
+    src/devicecontext.h
+    src/deviceinteractioncontroller.cpp
+    src/deviceinteractioncontroller.h
+    src/videogridwidget.cpp
+    src/videogridwidget.h
+    src/devicetreewidget.cpp
+    src/devicetreewidget.h
+    src/windowsystem.cpp
+    src/windowsystem.h
+    src/trackmanager.cpp
+    src/trackmanager.h
+    src/mapviewcontroller.cpp
+    src/mapviewcontroller.h
     src/jsonframeparser.cpp
     src/jsonframeparser.h
     src/devicestate.h

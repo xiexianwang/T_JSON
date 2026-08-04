@@ -277,10 +277,10 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
     //============================================================================
     // 镜头控制
     //============================================================================
-    auto connectLensBtn = [this, ui](QPushButton* btn, int op) {
-        connect(btn, &QPushButton::pressed, this, [this, op, ui]() {
+    auto connectLensBtn = [this](QPushButton* btn, int op) {
+        connect(btn, &QPushButton::pressed, this, [this, op]() {
             if (!requireConnected()) return;
-            int t = ui->comboLensTarget->currentIndex();
+            int t = (m_devState->pipShow == 1 || m_devState->pipShow == 4) ? 1 : 0;
             if (op == 0) m_devMgr->activeCtrl()->lensZoomIn(t);
             else if (op == 1) m_devMgr->activeCtrl()->lensZoomOut(t);
             else if (op == 2) m_devMgr->activeCtrl()->lensFocusIn(t);
@@ -303,8 +303,6 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
     //============================================================================
     ui->sliderZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
     ui->spinZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
-    ui->sliderFocusSpeed->setValue(m_cfg->lens().focusSpeed);
-    ui->spinFocusSpeed->setValue(m_cfg->lens().focusSpeed);
 
     connect(ui->sliderZoomSpeed, &QSlider::valueChanged, ui->spinZoomSpeed, &QSpinBox::setValue);
     connect(ui->spinZoomSpeed, QOverload<int>::of(&QSpinBox::valueChanged), ui->sliderZoomSpeed, &QSlider::setValue);
@@ -313,12 +311,7 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
         m_cfg->save();
     });
 
-    connect(ui->sliderFocusSpeed, &QSlider::valueChanged, ui->spinFocusSpeed, &QSpinBox::setValue);
-    connect(ui->spinFocusSpeed, QOverload<int>::of(&QSpinBox::valueChanged), ui->sliderFocusSpeed, &QSlider::setValue);
-    connect(ui->spinFocusSpeed, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int val) {
-        m_cfg->lens().focusSpeed = static_cast<quint8>(val);
-        m_cfg->save();
-    });
+
 
     //============================================================================
     // 预置位控制
@@ -363,15 +356,36 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
     //============================================================================
     // 工作模式 + 算法模型 + 显示模式 + 镜头目标
     //============================================================================
-    connect(ui->radioModeOff, &QRadioButton::clicked, this, &DeviceInteractionController::onRadioModeOffClicked);
-    connect(ui->radioModeIdentify, &QRadioButton::clicked, this, &DeviceInteractionController::onRadioModeIdentifyClicked);
-    connect(ui->radioModeAutoTrack, &QRadioButton::clicked, this, &DeviceInteractionController::onRadioModeAutoTrackClicked);
-    connect(ui->comboAlgoModel, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &DeviceInteractionController::onAlgoModelChanged);
+    connect(ui->comboWorkMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int index) {
+        if (!requireConnected()) {
+            ui->comboWorkMode->blockSignals(true);
+            ui->comboWorkMode->setCurrentIndex(m_devState->previousWorkMode);
+            ui->comboWorkMode->blockSignals(false);
+            return;
+        }
+        if (m_devState->updatingFromDevice) return;
+        m_devMgr->activeCtrl()->setWorkMode(index);
+        m_devMgr->activeCtrl()->queryImageParams();
+    });
+    auto handleAlgoChange = [this](int index, QComboBox* combo) {
+        if (!requireConnected()) {
+            combo->blockSignals(true);
+            combo->setCurrentIndex(0); // simplified
+            combo->blockSignals(false);
+            return;
+        }
+        if (m_devState->updatingFromDevice) return;
+        
+        QString text = combo->itemText(index);
+        int modelIdx = text.split(":").first().toInt();
+        m_devMgr->activeCtrl()->setAlgoModel(modelIdx);
+        m_devMgr->activeCtrl()->queryImageParams();
+    };
+    connect(ui->comboAlgoModel1, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int idx){ handleAlgoChange(idx, ui->comboAlgoModel1); });
+    connect(ui->comboAlgoModel2, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int idx){ handleAlgoChange(idx, ui->comboAlgoModel2); });
     connect(ui->comboDisplayMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &DeviceInteractionController::onDisplayModeChanged);
-    connect(ui->comboLensTarget, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &DeviceInteractionController::onLensTargetChanged);
+    
     connect(ui->btnSetLocation, &QPushButton::clicked, this, &DeviceInteractionController::onSetLocationClicked);
     connect(ui->btnGetImageParams, &QPushButton::clicked, this, &DeviceInteractionController::onGetImageParamsClicked);
     connect(ui->btnPtzMoveTo, &QPushButton::clicked, this, &DeviceInteractionController::onPtzMoveToClicked);
@@ -390,7 +404,7 @@ DeviceInteractionController::DeviceInteractionController(Ui::MainWindow *ui,
     connect(ui->btnWiperSilent, &QPushButton::clicked, this, &DeviceInteractionController::onWiperSilentClicked);
     connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, &DeviceInteractionController::onWiperCurrentEditingFinished);
 
-    connect(ui->btnSettings, &QPushButton::clicked, this, &DeviceInteractionController::onSettingsClicked);
+    
     connect(ui->btnMapToggle, &QPushButton::clicked, this, [this]() { m_mapCtrl->toggleVisibility(); });
 
     m_devMgr->connectAllDevices();
@@ -554,7 +568,7 @@ void DeviceInteractionController::updateStatusFromJson(const QJsonObject &doc)
                 isVis ? cam.visMinFocal * m_devState->visZoom : cam.irMinFocal * m_devState->irZoom,
                 (isVis ? m_devState->resX : cam.irResX) / 2,
                 (isVis ? m_devState->resY : cam.irResY) / 2,
-                ui->comboAlgoModel->currentIndex(),
+                m_devState->previousAlgoModel,
                 m_devState->visZoom, m_devState->irZoom, m_devState->pipShow,
                 cam);
         }
@@ -699,16 +713,13 @@ void DeviceInteractionController::updateStatusFromJson(const QJsonObject &doc)
         m_devState->previousDisplayMode = m_devState->pipShow;
 
         m_devState->updatingFromDevice = true;
-        int lowIdx = model % 10;
-        if (lowIdx >= 0 && lowIdx < ui->comboAlgoModel->count())
-            ui->comboAlgoModel->setCurrentIndex(lowIdx);
-        int pipShow = doc.value("PipShow").toInt();
-        if (pipShow >= 0 && pipShow < ui->comboDisplayMode->count())
-            ui->comboDisplayMode->setCurrentIndex(pipShow);
-        syncLensTargetByDisplayMode(pipShow);
-        if (wm == 0)      ui->radioModeOff->setChecked(true);
-        else if (wm == 1) ui->radioModeIdentify->setChecked(true);
-        else if (wm >= 2) ui->radioModeAutoTrack->setChecked(true);
+        if (model == 0 || model == 1) {
+            ui->comboAlgoModel1->setCurrentIndex(model);
+        } else if (model >= 2 && model <= 6) {
+            ui->comboAlgoModel2->setCurrentIndex(model - 2);
+        }
+        ui->comboDisplayMode->setCurrentIndex(DeviceController::pipShowToComboIndex(m_devState->pipShow));
+        ui->comboWorkMode->setCurrentIndex(wm);
         m_devState->updatingFromDevice = false;
     }
 }
@@ -739,41 +750,6 @@ void DeviceInteractionController::updateLensStats()
     ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2));
 }
 
-//============================================================================
-// 工作模式切换
-//============================================================================
-void DeviceInteractionController::onRadioModeOffClicked() {
-    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_devState->previousWorkMode); return; }
-    if (m_devState->updatingFromDevice) return;
-    m_devMgr->activeCtrl()->setWorkMode(0);
-    m_devMgr->activeCtrl()->queryImageParams();
-}
-
-void DeviceInteractionController::onRadioModeIdentifyClicked() {
-    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_devState->previousWorkMode); return; }
-    if (m_devState->updatingFromDevice) return;
-    m_devMgr->activeCtrl()->setWorkMode(1);
-    m_devMgr->activeCtrl()->queryImageParams();
-}
-
-void DeviceInteractionController::onRadioModeAutoTrackClicked() {
-    if (!requireConnected()) { revertRadioMode(ui->radioModeOff, ui->radioModeIdentify, ui->radioModeAutoTrack, m_devState->previousWorkMode); return; }
-    if (m_devState->updatingFromDevice) return;
-    m_devMgr->activeCtrl()->setWorkMode(2);
-    m_devMgr->activeCtrl()->queryImageParams();
-}
-
-//============================================================================
-// 下拉框与按钮
-//============================================================================
-void DeviceInteractionController::onAlgoModelChanged(int index)
-{
-    if (!requireConnected()) { ui->comboAlgoModel->blockSignals(true); ui->comboAlgoModel->setCurrentIndex(m_devState->previousAlgoModel % 10); ui->comboAlgoModel->blockSignals(false); return; }
-    if (m_devState->updatingFromDevice) return;
-    m_devMgr->activeCtrl()->setAlgoModel(index);
-    m_devMgr->activeCtrl()->queryImageParams();
-}
-
 void DeviceInteractionController::onDisplayModeChanged(int index)
 {
     if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_devState->previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
@@ -790,11 +766,7 @@ void DeviceInteractionController::onPtzMoveToClicked()
 {
 }
 
-void DeviceInteractionController::onSettingsClicked()
-{
-    SettingsDialog dlg(m_cfg, m_devMgr->activeDeviceIp(), m_mainWindow);
-    dlg.exec();
-}
+
 
 void DeviceInteractionController::onSetLocationClicked()
 {
@@ -824,12 +796,7 @@ void DeviceInteractionController::onGetImageParamsClicked()
 //============================================================================
 void DeviceInteractionController::syncLensTargetByDisplayMode(int pipShow)
 {
-    int target = 0;
-    if (pipShow == 1 || pipShow == 4)
-        target = 1;
-
-    if (ui->comboLensTarget->currentIndex() != target)
-        ui->comboLensTarget->setCurrentIndex(target);
+    // No-op in V1.0 UI
 }
 
 //============================================================================

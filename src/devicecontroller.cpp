@@ -106,6 +106,14 @@ void DeviceController::ptzMoveTo(double pan, double tilt)
     });
 }
 
+// 云台水平零点标定 (Pelco-D: 0x49)
+void DeviceController::ptzSetZero()
+{
+    quint8 addr = m_cfg->ptz().address;
+    QByteArray pkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x49, 0x00, 0x00);
+    sendTransparentData("PELCO_D", pkt);
+}
+
 // 镜头变倍缩小
 void DeviceController::lensZoomOut(int target)
 {

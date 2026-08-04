@@ -7,6 +7,9 @@
 
 #include "devicecontroller.h"
 #include <QDebug>
+#include <QTimer>
+#include <QSerialPort>
+#include <QSerialPortInfo>
 
 // 构造函数：保存 TJsonClient 和 ConfigManager 的指针
 // 注意：两者均为非拥有指针，由外部管理其生命周期
@@ -75,23 +78,29 @@ void DeviceController::ptzStop()
     sendTransparentData("PELCO_D", pkt);
 }
 
-// 镜头变倍放大
-// target=0: 可见光使用 VISCA 协议; target=1: 红外使用 Pelco-D 协议
-void DeviceController::lensZoomIn(int target)
+// 云台转动到绝对角度
+void DeviceController::ptzMoveTo(double pan, double tilt)
 {
-    m_lastLensTarget = target;      // 记录目标用于停止操作
-    m_lastLensIsZoom = true;        // 标记为变倍操作
-    LensConfig& l = m_cfg->lens();
-    quint8 speed = l.zoomSpeed;
-    if (target == 0) {
-        // 可见光：VISCA Zoom Tele
-        QByteArray pkt = ProtocolBuilder::buildViscaZoom(l.visAddress, true, speed);
-        sendTransparentData("VISCA", pkt);
-    } else {
-        // 红外：Pelco-D 变倍放大 Cmd2=0x20
-        QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x20, 0x00, speed);
-        sendTransparentData("VISCAIR", pkt);
-    }
+    quint8 addr = m_cfg->ptz().address;
+
+    // 加上偏移量，计算实际发给云台的角度
+    pan += m_cfg->ptzPanOffset();
+    while (pan >= 360.0) pan -= 360.0;
+    while (pan < 0) pan += 360.0;
+
+    tilt += m_cfg->ptzTiltOffset();
+    while (tilt > 180.0) tilt -= 360.0;
+    while (tilt <= -180.0) tilt += 360.0;
+
+    int panVal = static_cast<int>(pan * 100);
+    QByteArray panPkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x4B, (panVal >> 8) & 0xFF, panVal & 0xFF);
+    sendTransparentData("PELCO_D", panPkt);
+
+    int tiltVal = tilt >= 0 ? static_cast<int>(tilt * 100 + 0.5) : static_cast<int>(36000 + tilt * 100 + 0.5);
+    QByteArray tiltPkt = ProtocolBuilder::buildPelcoD(addr, 0x00, 0x4D, (tiltVal >> 8) & 0xFF, tiltVal & 0xFF);
+    QTimer::singleShot(50, this, [this, tiltPkt]() {
+        sendTransparentData("PELCO_D", tiltPkt);
+    });
 }
 
 // 镜头变倍缩小
@@ -108,6 +117,22 @@ void DeviceController::lensZoomOut(int target)
     } else {
         // 红外：Pelco-D 变倍缩小 Cmd2=0x40
         QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x40, 0x00, speed);
+        sendTransparentData("VISCAIR", pkt);
+    }
+}
+
+// 镜头变倍放大
+void DeviceController::lensZoomIn(int target)
+{
+    m_lastLensTarget = target;
+    m_lastLensIsZoom = true;
+    LensConfig& l = m_cfg->lens();
+    quint8 speed = l.zoomSpeed;
+    if (target == 0) {
+        QByteArray pkt = ProtocolBuilder::buildViscaZoom(l.visAddress, true, speed);
+        sendTransparentData("VISCA", pkt);
+    } else {
+        QByteArray pkt = ProtocolBuilder::buildPelcoD(l.irAddress, 0x00, 0x20, 0x00, speed);
         sendTransparentData("VISCAIR", pkt);
     }
 }
@@ -278,17 +303,8 @@ void DeviceController::setCaptureUpload(bool enable)
 // K1 关: FF 01 00 0B 00 01 0D
 void DeviceController::setWiper(bool enable)
 {
-    QByteArray pkt;
-    pkt.append(static_cast<char>(0xFF));
-    pkt.append(static_cast<char>(0x01));
-    pkt.append(static_cast<char>(0x00));
-    pkt.append(static_cast<char>(enable ? 0x09 : 0x0B));
-    pkt.append(static_cast<char>(0x00));
-    pkt.append(static_cast<char>(0x01));
-    // checksum: 01 + 00 + cmd2 + 00 + 01
-    quint8 chk = 0x01 + 0x00 + (enable ? 0x09 : 0x0B) + 0x00 + 0x01;
-    pkt.append(static_cast<char>(chk));
-    sendTransparentData("PELCO_D", pkt);
+    if (enable) motorStart();
+    else motorStop();
 }
 
 // 位置归零（重置 PTZ 到初始位置）
@@ -316,4 +332,304 @@ void DeviceController::sendTransparentData(const QString& serialType, const QByt
 {
     emit commandSent(serialType, data);                     // 通知上层指令已发送
     m_client->sendSerialCmd(serialType, data);              // 通过 TCP 透传
+}
+
+// ================= 电机串口管理 =================
+
+bool DeviceController::openMotorSerial(const QString& portName)
+{
+    closeMotorSerial();
+    m_motorSerial = new QSerialPort(portName, this);
+    m_motorSerial->setBaudRate(QSerialPort::Baud9600);
+    m_motorSerial->setDataBits(QSerialPort::Data8);
+    m_motorSerial->setParity(QSerialPort::NoParity);
+    m_motorSerial->setStopBits(QSerialPort::OneStop);
+    if (!m_motorSerial->open(QIODevice::ReadWrite)) {
+        emit motorSerialError(m_motorSerial->errorString());
+        delete m_motorSerial;
+        m_motorSerial = nullptr;
+        return false;
+    }
+    connect(m_motorSerial, &QSerialPort::readyRead, this, [this]() {
+        QByteArray data = m_motorSerial->readAll();
+        if (data.size() >= 5 && static_cast<quint8>(data.at(1)) == 0x03) {
+            bool isManual = (static_cast<quint8>(data.at(3)) == 0x01);
+            emit motorModeResult(isManual);
+        }
+        emit commandSent("MODBUS_RECV", data);
+    });
+    connect(m_motorSerial, &QSerialPort::errorOccurred, this, [this](QSerialPort::SerialPortError err) {
+        if (err != QSerialPort::NoError)
+            emit motorSerialError(m_motorSerial->errorString());
+    });
+    return true;
+}
+
+void DeviceController::closeMotorSerial()
+{
+    if (m_motorSerial) {
+        m_motorSerial->close();
+        m_motorSerial->deleteLater();
+        m_motorSerial = nullptr;
+    }
+}
+
+bool DeviceController::isMotorSerialOpen() const
+{
+    return m_motorSerial && m_motorSerial->isOpen();
+}
+
+void DeviceController::sendModbus(const QByteArray& pkt)
+{
+    if (m_cfg->motorCommandChannel() == "串口") {
+        if (!m_motorSerial || !m_motorSerial->isOpen()) {
+            emit motorSerialError(tr("电机串口未打开"));
+            return;
+        }
+        m_motorSerial->write(pkt);
+        emit commandSent("MODBUS-RTU(SERIAL)", pkt);
+    } else {
+        // 默认走 Pelco-D 透传
+        sendPelcoDWiper(pkt);
+    }
+}
+
+void DeviceController::sendPelcoDWiper(const QByteArray& pkt)
+{
+    sendTransparentData("PELCO_D", pkt);
+}
+
+
+static uint16_t calculateModbusCRC16(const QByteArray &data) {
+    uint16_t crc = 0xFFFF;
+    for (int pos = 0; pos < data.size(); pos++) {
+        crc ^= (uint8_t)data[pos];
+        for (int i = 8; i != 0; i--) {
+            if ((crc & 0x0001) != 0) {
+                crc >>= 1;
+                crc ^= 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
+
+// ================= 电机 TCP 管理 (STM32-TCP-V4.0) =================
+
+
+void DeviceController::openMotorTcp()
+{
+    closeMotorTcp();
+    m_motorTcpSocket = new QTcpSocket(this);
+    connect(m_motorTcpSocket, &QTcpSocket::readyRead, this, [this]() {
+        QByteArray data = m_motorTcpSocket->readAll();
+        // Here we could parse the JSON response from the motor, e.g. for motorCheckMode
+        emit commandSent("STM32-TCP_RECV", data);
+    });
+    connect(m_motorTcpSocket, &QTcpSocket::errorOccurred, this, [this](QAbstractSocket::SocketError err) {
+        Q_UNUSED(err);
+        emit motorSerialError(m_motorTcpSocket->errorString());
+    });
+    m_motorTcpSocket->connectToHost(m_cfg->motorTcpIp(), m_cfg->motorTcpPort());
+}
+
+void DeviceController::closeMotorTcp()
+{
+    if (m_motorTcpSocket) {
+        m_motorTcpSocket->abort();
+        m_motorTcpSocket->deleteLater();
+        m_motorTcpSocket = nullptr;
+    }
+}
+
+bool DeviceController::isMotorTcpOpen() const
+{
+    return m_motorTcpSocket && m_motorTcpSocket->state() == QAbstractSocket::ConnectedState;
+}
+
+void DeviceController::sendMotorTcpV4(const QJsonObject& json)
+{
+    if (!m_motorTcpSocket || m_motorTcpSocket->state() != QAbstractSocket::ConnectedState) {
+        // Try to connect if not connected
+        if (m_motorTcpSocket) {
+            m_motorTcpSocket->connectToHost(m_cfg->motorTcpIp(), m_cfg->motorTcpPort());
+            m_motorTcpSocket->waitForConnected(500);
+        }
+        if (!m_motorTcpSocket || m_motorTcpSocket->state() != QAbstractSocket::ConnectedState) {
+            emit motorSerialError(tr("电机 TCP 未连接"));
+            return;
+        }
+    }
+    
+    QJsonDocument doc(json);
+    QByteArray payload = doc.toJson(QJsonDocument::Compact);
+    
+    QByteArray header;
+    header.resize(8);
+    // Magic: 0xA55A (小端序 -> 5A A5)
+    header[0] = static_cast<char>(0x5A);
+    header[1] = static_cast<char>(0xA5);
+    header[2] = static_cast<char>(0x02); // Cmd: 0x02
+    quint16 len = payload.size();
+    header[3] = static_cast<char>(len & 0xFF);
+    header[4] = static_cast<char>((len >> 8) & 0xFF);
+    header[5] = static_cast<char>(++m_motorTcpSeq & 0xFF);
+    header[6] = 0x00; // CRC
+    header[7] = 0x00; // CRC
+
+    QByteArray pkt = header + payload;
+    m_motorTcpSocket->write(pkt);
+    emit commandSent("STM32-TCP-V4.0", pkt);
+}
+
+// ================= 雨刷电机控制 =================
+
+void DeviceController::motorStart()
+{
+    if (m_cfg->motorProtocol() == "MODBUS-RTU") {
+        sendModbus(QByteArray::fromHex("01060037001039C8"));
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        QJsonObject cmd;
+        cmd["cmd_id"] = m_motorTcpSeq;
+        cmd["action"] = 5;
+        sendMotorTcpV4(cmd);
+    } else {
+        sendPelcoDWiper(QByteArray::fromHex("FF01000900010B"));
+    }
+}
+
+void DeviceController::motorStop()
+{
+    if (m_cfg->motorProtocol() == "MODBUS-RTU") {
+        sendModbus(QByteArray::fromHex("0106003800000807"));
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        QJsonObject cmd;
+        cmd["cmd_id"] = m_motorTcpSeq;
+        cmd["action"] = 2;
+        sendMotorTcpV4(cmd);
+    } else {
+        sendPelcoDWiper(QByteArray::fromHex("FF01000B00010D"));
+    }
+}
+
+void DeviceController::motorJogLeft()
+{
+    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        QJsonObject cmd;
+        cmd["cmd_id"] = m_motorTcpSeq;
+        cmd["action"] = 1;
+        cmd["target_pos"] = 0;
+        cmd["speed"] = 30000;
+        sendMotorTcpV4(cmd);
+        return;
+    }
+    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    sendModbus(QByteArray::fromHex("01060037008039A4"));
+}
+
+void DeviceController::motorJogRight()
+{
+    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        QJsonObject cmd;
+        cmd["cmd_id"] = m_motorTcpSeq;
+        cmd["action"] = 1;
+        cmd["target_pos"] = 100000;
+        cmd["speed"] = 30000;
+        sendMotorTcpV4(cmd);
+        return;
+    }
+    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    sendModbus(QByteArray::fromHex("01060037004039F4"));
+}
+
+void DeviceController::motorZeroCalib()
+{
+    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    sendModbus(QByteArray::fromHex("0106003A00016807"));
+}
+
+void DeviceController::motorReturnZero()
+{
+    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    sendModbus(QByteArray::fromHex("01060037000439C7"));
+}
+
+void DeviceController::motorCheckMode()
+{
+    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    sendModbus(QByteArray::fromHex("010301B10001D5D1"));
+}
+
+void DeviceController::motorToggleMode()
+{
+    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        m_motorTcpIsAuto = !m_motorTcpIsAuto;
+        QJsonObject cmd;
+        cmd["cmd_id"] = m_motorTcpSeq;
+        cmd["action"] = m_motorTcpIsAuto ? 11 : 10;
+        sendMotorTcpV4(cmd);
+        // 通知界面更新模式结果
+        emit motorModeResult(!m_motorTcpIsAuto);
+        return;
+    }
+    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    
+    m_motorModbusIsAuto = !m_motorModbusIsAuto;
+    if (m_motorModbusIsAuto) {
+        // 切换到自动模式
+        sendModbus(QByteArray::fromHex("011001B100030600140009000AD4A8"));
+    } else {
+        // 切换到手动模式
+        sendModbus(QByteArray::fromHex("011001B1000306000000000000B4AE"));
+        QTimer::singleShot(50, this, [this]() {
+            sendModbus(QByteArray::fromHex("010600380001C9C7"));
+        });
+        QTimer::singleShot(100, this, [this]() {
+            sendModbus(QByteArray::fromHex("01060037000439C7")); // 触发绝对位置模式启动(回零)
+        });
+    }
+    emit motorModeResult(!m_motorModbusIsAuto); // isManual = !isAuto
+}
+
+void DeviceController::motorToggleSilentMode()
+{
+    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        m_motorTcpIsSilent = !m_motorTcpIsSilent;
+        QJsonObject cmd;
+        cmd["cmd_id"] = m_motorTcpSeq;
+        cmd["action"] = m_motorTcpIsSilent ? 6 : 7;
+        sendMotorTcpV4(cmd);
+        // 通知界面更新按钮文字
+        emit motorSilentResult(m_motorTcpIsSilent);
+    }
+}
+
+void DeviceController::motorSetCurrent(int ma)
+{
+    if (ma < 0) ma = 0;
+    if (ma > 2000) ma = 2000;
+    
+    // 构造设置电流指令
+    QByteArray pkt;
+    pkt.append((char)0x01);
+    pkt.append((char)0x06);
+    pkt.append((char)0x00);
+    pkt.append((char)0x1E);
+    pkt.append((char)((ma >> 8) & 0xFF));
+    pkt.append((char)(ma & 0xFF));
+    
+    uint16_t crc = calculateModbusCRC16(pkt);
+    pkt.append((char)(crc & 0xFF));
+    pkt.append((char)((crc >> 8) & 0xFF));
+    
+    // 根据通道配置下发
+    sendModbus(pkt);
+    
+    // 延时50ms后发送固化指令
+    QTimer::singleShot(50, this, [this]() {
+        QByteArray savePkt = QByteArray::fromHex("010600178000580E");
+        sendModbus(savePkt);
+    });
 }

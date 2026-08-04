@@ -18,6 +18,7 @@
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "configmanager.h"
+#include "ptzforwarder.h"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
@@ -89,6 +90,8 @@ private slots:
 
     // ── 界面交互 ──
     void on_btnPtzMoveTo_clicked();                     // 云台转动到指定角度
+    void on_btnPtzMoveToGps_clicked();                  // 云台转动到指定经纬度高度
+    void on_btnPanZeroCalib_clicked();                  // 水平零点标定
     void on_comboAlgoModel1_currentIndexChanged(int index);
     void on_comboAlgoModel2_currentIndexChanged(int index);
     void on_comboDisplayMode_currentIndexChanged(int index); // 显示模式切换
@@ -110,6 +113,7 @@ private:
     ConfigManager *m_cfg;           // 配置管理器（持久化设置）
     DeviceController *m_device;     // 设备指令控制器（封装协议细节）
     RtspThread *m_rtsp;            // RTSP 视频流拉取线程
+    PtzForwarder *m_ptzForwarder;    // 串口服务器与转台数据转发
     MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
@@ -120,6 +124,7 @@ private:
     bool m_dragging = false;         // 拖拽中标记
     QPoint m_dragStart;              // 拖拽起点
     bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
+    double m_deviceHeight = 0;     // 用户手动设置的设备高度(m)，替代设备上报值
 
     // ── PiP 视频窗口（大地图时独立无边框对话框） ──
     QDialog *m_pipDialog;
@@ -129,6 +134,7 @@ private:
 
     double m_currentVisZoom;        // 当前可见光镜头倍率（从设备 ZoomInfo 更新）
     double m_currentIrZoom;         // 当前红外镜头倍率
+    double m_currentTilt;           // 当前云台俯仰角（原始值，用于地图计算）
     int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
     int m_previousWorkMode = 0;     // ZoomInfo 最后上报的 WorkMode
     bool m_workModeInitialized = false;
@@ -187,6 +193,8 @@ private:
 
     // ── 私有工具方法 ──
     bool requireConnected();                        // 未连接时弹出状态栏提示并返回 false
+    bool requireMotorReady();                       // 检查电机串口是否就绪
+    void updateMotorButtons();                      // 根据电机协议更新按钮状态
     void setupUiStyles();                           // 加载并应用 QSS 样式表
     void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI
     void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）

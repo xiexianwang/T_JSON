@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(T-JSON LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel SerialPort)
 # Compute Qt binary directory from Qt6_DIR
 get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../../bin" ABSOLUTE)
 
@@ -52,6 +52,8 @@ qt_add_executable(T-JSON
     src/mapbridge.h
     src/cmdlogdialog.cpp
     src/cmdlogdialog.h
+    src/ptzforwarder.cpp
+    src/ptzforwarder.h
     resources/resources.qrc
     resources/app.rc
 )
@@ -69,6 +71,7 @@ target_link_libraries(T-JSON
         Qt::Gui
         Qt::WebEngineWidgets
         Qt::WebChannel
+        Qt::SerialPort
         ${FFMPEG_LIBS}
 )
 

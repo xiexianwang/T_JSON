@@ -1,9 +1,9 @@
 ; Inno Setup 脚本 — LSS Video Manager 视频管理客户端
 ; 使用 Inno Setup 6 编译
 
-#define MyAppName "LSS Video Manager"
-#define MyAppNameCN "LSS视频管理客户端"
-#define MyAppVersion "1.0"
+#define MyAppName "LSS Video Manager 测试版"
+#define MyAppNameCN "LSS视频管理客户端 - 测试版"
+#define MyAppVersion "1.1-beta"
 #define MyAppPublisher "江苏莱瑟斯"
 #define MyAppExeName "LSSVideoManager.exe"
 #define MyBuildDir "build\Desktop_Qt_6_11_1_MSVC2022_64bit-Release"
@@ -17,8 +17,8 @@ DefaultDirName={autopf}\LSS Video Manager
 DefaultGroupName=LSS Video Manager
 AllowNoIcons=yes
 OutputDir=installer
-OutputBaseFilename=LSS-Video-Manager-V1.0-Setup
-Compression=lzma2/ultra64
+OutputBaseFilename=LSS-Video-Manager-V1.1-beta-Setup
+Compression=lzma2/fast
 SolidCompression=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=admin
@@ -93,6 +93,9 @@ Source: "{#MyBuildDir}\qmltooling\*"; DestDir: "{app}\qmltooling"; Flags: ignore
 
 ; resources 目录（QSS、地图 HTML 等内置资源已编译进 exe，但保留目录用于运行期生成文件）
 Source: "{#MyBuildDir}\resources\*"; DestDir: "{app}\resources"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; 版本说明
+Source: "docs\V1.1-beta-版本说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 ; VC++ 运行库（静默安装）
 Source: "{#MyBuildDir}\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall

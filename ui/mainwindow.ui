@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>T-JSON 监控控制客户端</string>
+   <string>T-JSON 监控控制客户端 - 测试版</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_main">
@@ -463,20 +463,20 @@
         </layout>
        </widget>
       </item>
-      <item>
-       <widget class="QScrollArea" name="scrollAreaControl">
-        <property name="minimumSize">
-         <size>
-          <width>340</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>420</width>
-          <height>16777215</height>
-         </size>
-        </property>
+       <item>
+        <widget class="QScrollArea" name="scrollAreaControl">
+         <property name="minimumSize">
+          <size>
+           <width>360</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>440</width>
+           <height>16777215</height>
+          </size>
+         </property>
         <property name="horizontalScrollBarPolicy">
          <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
         </property>
@@ -488,26 +488,26 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>418</width>
-           <height>766</height>
+           <width>564</width>
+           <height>790</height>
           </rect>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_control">
-          <property name="spacing">
-           <number>4</number>
-          </property>
-          <property name="leftMargin">
-           <number>5</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <property name="rightMargin">
-           <number>0</number>
-          </property>
-          <property name="bottomMargin">
-           <number>0</number>
-          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_control">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <property name="leftMargin">
+            <number>5</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>20</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
           <item>
            <widget class="QGroupBox" name="groupAiAlgo">
             <property name="title">
@@ -766,7 +766,7 @@
                <item>
                 <widget class="QLabel" name="label">
                  <property name="text">
-                  <string>H角:</string>
+                  <string>方位(°):</string>
                  </property>
                 </widget>
                </item>
@@ -776,7 +776,7 @@
                <item>
                 <widget class="QLabel" name="label">
                  <property name="text">
-                  <string>V角:</string>
+                  <string>俯仰(°):</string>
                  </property>
                 </widget>
                </item>
@@ -793,35 +793,64 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_angleCalib">
-               <item>
-                <widget class="QLabel" name="label">
+              <layout class="QGridLayout" name="gridLayout_ptzGps">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelTargetLat">
                  <property name="text">
-                  <string>H标:</string>
+                  <string>纬度:</string>
                  </property>
                 </widget>
                </item>
-               <item>
-                <widget class="QLineEdit" name="editCalibPan"/>
-               </item>
-               <item>
-                <widget class="QLabel" name="label">
-                 <property name="text">
-                  <string>V标:</string>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="editTargetLat">
+                 <property name="placeholderText">
+                  <string>°</string>
                  </property>
                 </widget>
                </item>
-               <item>
-                <widget class="QLineEdit" name="editCalibTilt"/>
-               </item>
-               <item>
-                <widget class="QPushButton" name="btnPtzCalib">
+               <item row="0" column="2">
+                <widget class="QLabel" name="labelTargetLon">
                  <property name="text">
-                  <string>标定</string>
+                  <string>经度:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="3">
+                <widget class="QLineEdit" name="editTargetLon">
+                 <property name="placeholderText">
+                  <string>°</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelTargetAlt">
+                 <property name="text">
+                  <string>高度:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="editTargetAlt">
+                 <property name="placeholderText">
+                  <string>m</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="2" colspan="2">
+                <widget class="QPushButton" name="btnPtzMoveToGps">
+                 <property name="text">
+                  <string>目标引导</string>
                  </property>
                 </widget>
                </item>
               </layout>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnPanZeroCalib">
+               <property name="text">
+                <string>水平零点标定</string>
+               </property>
+              </widget>
              </item>
              <item>
               <layout class="QHBoxLayout" name="horizontalLayout_wiper">
@@ -845,6 +874,79 @@
                   <string>停止</string>
                  </property>
                 </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnWiperLeft">
+                 <property name="text">
+                  <string>左转</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnWiperRight">
+                 <property name="text">
+                  <string>右转</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnWiperZeroCalib">
+                 <property name="text">
+                  <string>零点校准</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnWiperMode">
+                 <property name="text">
+                  <string>切换模式</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnWiperSilent">
+                 <property name="text">
+                  <string>静音模式</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_wiper_current">
+               <item>
+                <widget class="QLabel" name="lblWiperCurrent">
+                 <property name="text">
+                  <string>电机电流(mA):</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="editWiperCurrent">
+                 <property name="placeholderText">
+                  <string>输入电流0-2000，回车设置</string>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>150</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_wiper_current">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
                </item>
               </layout>
              </item>
@@ -1032,7 +1134,21 @@
                </property>
               </widget>
              </item>
-             <item row="2" column="0" colspan="2">
+             <item row="2" column="0">
+              <widget class="QLabel" name="lblSetHeight">
+               <property name="text">
+                <string>高度(m):</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="editSetHeight">
+               <property name="placeholderText">
+                <string>0</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0" colspan="2">
               <widget class="QPushButton" name="btnSetLocation">
                <property name="text">
                 <string>下发参数</string>
@@ -1177,6 +1293,26 @@
           </item>
           <item row="1" column="1">
            <widget class="QLineEdit" name="statCamMode">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label_wiper">
+            <property name="text">
+             <string>雨刷:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="statWiperStatus">
+            <property name="text">
+             <string notr="true"/>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>

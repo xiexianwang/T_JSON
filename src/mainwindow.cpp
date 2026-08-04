@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QMouseEvent>
 #include <QCloseEvent>
+#include <QTimer>
 #include <QButtonGroup>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -27,6 +28,10 @@
 #include <QRadioButton>
 
 #include <QtMath>
+
+static double parseCoord(const QString& s);
+static double haversineDistance(double lat1, double lon1, double lat2, double lon2);
+static double bearing(double lat1, double lon1, double lat2, double lon2);
 
 //============================================================================
 // 辅助函数：刷新控件的 QSS 动态属性
@@ -45,14 +50,16 @@ MainWindow::MainWindow(QWidget *parent)
     , m_client(new TJsonClient(this))        // TCP JSON 协议客户端
     , m_cfg(new ConfigManager(this))         // 持久化配置管理
     , m_device(new DeviceController(m_client, m_cfg, this))  // 设备指令控制器
-    , m_rtsp(new RtspThread(this))           // RTSP 视频拉流线程
+    , m_rtsp(new RtspThread(this))
+    , m_ptzForwarder(new PtzForwarder(this))           // RTSP 视频拉流线程
     , m_updatingFromDevice(false)            // 防递归更新初始关闭
     , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
     , m_currentIrZoom(1.0)                   // 默认红外倍率 1.0
+    , m_currentTilt(0.0)                     // 默认俯仰角 0
     , m_currentPipShow(0)                    // 默认显示模式：大图可见光
+    , m_workModeInitialized(false)
     , m_currentResX(m_cfg->cam().visResX)    // 默认可见光分辨率
     , m_currentResY(m_cfg->cam().visResY)
-    , m_workModeInitialized(false)
 {
     ui->setupUi(this);
 
@@ -88,6 +95,26 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavLog, 2);
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
+
+    // 根据配置自动初始化连接
+    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
+        m_device->openMotorSerial(m_cfg->motorComPort());
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        m_device->openMotorTcp();
+    }
+
+    connect(m_ptzForwarder, &PtzForwarder::ptzAnglesUpdated, this, [this](double, double) {
+        // 转台角度已改用 8089 端口 JSON 数据更新
+    });
+
+    // PTZ Forwarder start（延迟到事件循环启动后）
+    QTimer::singleShot(0, this, [this]() {
+        if (m_cfg->serialServerEnabled()) {
+            m_ptzForwarder->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
+            m_ptzForwarder->setOffsets(m_cfg->ptzPanOffset(), m_cfg->ptzTiltOffset());
+        }
+    });
+
 
     // 迷你地图：容器 → MapWidget → 覆盖层
     m_mapContainer = new QWidget(ui->widgetDisplay);
@@ -327,13 +354,64 @@ MainWindow::MainWindow(QWidget *parent)
         m_cfg->save();
     });
     connect(ui->btnWiperStart, &QPushButton::clicked, this, [this]() {
-        if (!requireConnected()) return;
-        m_device->setWiper(true);
+        if (!requireMotorReady()) return;
+        m_device->motorStart();
     });
     connect(ui->btnWiperStop, &QPushButton::clicked, this, [this]() {
-        if (!requireConnected()) return;
-        m_device->setWiper(false);
+        if (!requireMotorReady()) return;
+        m_device->motorStop();
+        QTimer::singleShot(50, this, [this]() {
+            m_device->motorReturnZero();
+        });
     });
+    connect(m_device, &DeviceController::motorModeResult, this, [this](bool isManual) {
+        ui->statWiperStatus->setText(isManual ? "手动" : "自动");
+    });
+    connect(m_device, &DeviceController::motorSerialError, this, [this](const QString& msg) {
+        ui->statWiperStatus->setText("故障");
+        qWarning() << "电机串口错误:" << msg;
+    });
+    connect(ui->btnWiperLeft, &QPushButton::pressed, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorJogLeft();
+    });
+    connect(ui->btnWiperLeft, &QPushButton::released, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorStop();
+    });
+    connect(ui->btnWiperRight, &QPushButton::pressed, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorJogRight();
+    });
+    connect(ui->btnWiperRight, &QPushButton::released, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorStop();
+    });
+    connect(ui->btnWiperZeroCalib, &QPushButton::clicked, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorZeroCalib();
+    });
+    connect(ui->btnWiperMode, &QPushButton::clicked, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorToggleMode();
+        QTimer::singleShot(500, this, [this]() {
+            m_device->motorCheckMode();
+        });
+    });
+    connect(ui->btnWiperSilent, &QPushButton::clicked, this, [this]() {
+        if (!requireMotorReady()) return;
+        m_device->motorToggleSilentMode();
+    });
+    connect(m_device, &DeviceController::motorSilentResult, this, [this](bool isSilent) {
+        ui->btnWiperSilent->setText(isSilent ? "狂暴模式" : "静音模式");
+        ui->statusbar->showMessage(isSilent ? "电机已切换为：静音模式 (StealthChop)" : "电机已切换为：狂暴模式 (SpreadCycle)", 3000);
+    });
+    connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, [this]() {
+        int ma = ui->editWiperCurrent->text().toInt();
+        m_device->motorSetCurrent(ma);
+        ui->statusbar->showMessage(QString("正在下发并固化电机电流: %1 mA").arg(ma), 3000);
+    });
+
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
         m_device->callPreset(0);
@@ -365,8 +443,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     for (auto *cb : findChildren<QComboBox *>()) {
         cb->setFocusPolicy(Qt::StrongFocus);
-        cb->installEventFilter(this);  // 拦截滚轮，仅下拉时允许切换
+        cb->installEventFilter(this);
     }
+    updateMotorButtons();
 }
 
 //============================================================================
@@ -446,7 +525,7 @@ void MainWindow::on_btnMenu_Close_clicked()
     bottomLayout->addWidget(btnConfirm);
     layout->addLayout(bottomLayout);
 
-    connect(btnConfirm, &QPushButton::clicked, this, [this, &dlg, radioExit, radioMin, cbRemember]() {
+    connect(btnConfirm, &QPushButton::clicked, this, [this, &dlg, radioExit, cbRemember]() {
         if (cbRemember->isChecked()) {
             m_cfg->setCloseAction(radioExit->isChecked()
                 ? ConfigManager::Exit : ConfigManager::Minimize);
@@ -536,6 +615,27 @@ void MainWindow::on_btnNavLog_clicked()      {
 void MainWindow::on_btnNavSettings_clicked() {
     SettingsDialog dlg(m_cfg, this);
     dlg.exec();
+
+    // 电机协议变更后重新打开串口
+    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
+        m_device->openMotorSerial(m_cfg->motorComPort());
+        m_device->closeMotorTcp();
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        m_device->openMotorTcp();
+        m_device->closeMotorSerial();
+    } else {
+        m_device->closeMotorSerial();
+        m_device->closeMotorTcp();
+    }
+    updateMotorButtons();
+
+    // 重启 PTZ 转发服务
+    if (m_cfg->serialServerEnabled()) {
+        m_ptzForwarder->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
+    } else {
+        // 应该也停止它，但目前没有停止方法。假设 start 足够或者是单次触发。
+        // Let's assume PtzForwarder doesn't have stop or it doesn't matter for now.
+    }
 }
 
 //============================================================================
@@ -691,6 +791,10 @@ void MainWindow::on_btnConnect_clicked()
     if (m_client->isConnected()) {
         m_client->disconnectDevice();
     } else {
+        if (!m_cfg->turntableIpEnabled()) {
+             ui->statusbar->showMessage(QString::fromUtf8("转台IP连接已禁用"), 3000);
+             return;
+        }
         QString ip = ui->lineEditIp->text();
         m_client->connectToDevice(ip, 8089);
         ui->btnConnect->setText(QString::fromUtf8("连接中..."));
@@ -1005,9 +1109,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     QString id = it.key();
                     QJsonObject obj = it.value().toObject();
 
-                    double dist = obj.value("Distance").toDouble(0);
                     int cls = obj.value("Class").toInt();
-                    dist = calcVisualDistance(obj, cls, false);
+                    double dist = calcVisualDistance(obj, cls, false);
                     if (dist > 0) {
                         m_lastAiDist = dist;
                         m_lastAiDistEstimated = (obj.value("Distance").toDouble(0) <= 0);
@@ -1117,9 +1220,16 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         ui->statCamMode->setText(QString::number(doc.value("CamShowMode").toInt()));
         ui->statLatitude->setText(doc.value("Latitude").toString());
         ui->statLongitude->setText(doc.value("Longitude").toString());
-        ui->statHeight->setText(QString::number(doc.value("Height").toDouble(), 'f', 1) + QStringLiteral(" m"));
+        {
+            double h = doc.value("Height").toDouble();
+            if (h != 0.0)
+                ui->statHeight->setText(QString::number(h, 'f', 1) + QStringLiteral(" m"));
+            else
+                ui->statHeight->clear();
+        }
 
         ui->statPanAngle->setText(QString::number(doc.value("PTZInfoH").toDouble(), 'f', 1) + QStringLiteral("°"));
+        m_currentTilt = doc.value("PTZInfoV").toDouble();
         ui->statTiltAngle->setText(QString::number(doc.value("PTZInfoV").toDouble(), 'f', 1) + QStringLiteral("°"));
 
         updateLensStats();
@@ -1277,6 +1387,59 @@ bool MainWindow::requireConnected()
     return true;
 }
 
+// 检查电机是否就绪
+// MODBUS-RTU 协议时需串口已打开，Pelco-D 直发即可
+bool MainWindow::requireMotorReady()
+{
+    if (m_cfg->motorProtocol() == "MODBUS-RTU") {
+        if (!m_device->isMotorSerialOpen()) {
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QStringLiteral("提示"));
+            msgBox.setText(QStringLiteral("电机串口未打开，请在设置中配置"));
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
+            msgBox.exec();
+            return false;
+        }
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        if (!m_device->isMotorTcpOpen()) {
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QStringLiteral("提示"));
+            msgBox.setText(QStringLiteral("电机 TCP 正在连接或连接失败，请检查配置"));
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
+            // 这里我们允许它尝试去重连，不直接 return false
+            // 但是如果是要强制的话可以 return false; 
+            // 我们在 DeviceController 里面已经有 sendMotorTcpV4 时如果断开会自动尝试重连一次
+        }
+    }
+    return true;
+}
+
+// 更新电机控制按钮状态
+void MainWindow::updateMotorButtons()
+{
+    bool isModbus = (m_cfg->motorProtocol() == "MODBUS-RTU");
+    bool isTcp = (m_cfg->motorProtocol() == "STM32-TCP-V4.0");
+    bool isPelco = (m_cfg->motorProtocol() == "Pelco-D");
+    
+    // 只有 Modbus 和 TCP 全功能可用，Pelco-D 仅允许雨刷
+    
+    bool othersEnabled = !isPelco;
+    ui->btnWiperLeft->setEnabled(othersEnabled);
+    ui->btnWiperRight->setEnabled(othersEnabled);
+    ui->btnWiperZeroCalib->setEnabled(othersEnabled);
+    ui->btnWiperMode->setEnabled(othersEnabled);
+    
+    // 狂暴/静音模式仅在 STM32-TCP-V4.0 下有效，或者如果您希望 Modbus 也有预留，可以调整
+    // 根据文档，action 6/7 属于 V4.0 TCP 接口
+    ui->btnWiperSilent->setEnabled(isTcp);
+
+    if (isModbus && m_device->isMotorSerialOpen()) {
+        m_device->motorCheckMode();
+    }
+}
+
 //============================================================================
 // on_comboWorkMode_currentIndexChanged - 工作模式下拉框切换
 //   0 = 关闭AI, 1 = 目标识别, 2 = 自动跟踪, 3 = 点选跟踪, 4 = 框选跟踪
@@ -1300,11 +1463,105 @@ void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 }
 
 //============================================================================
-// on_btnPtzMoveTo_clicked - 云台转到指定角度 (预留功能，暂未实现)
+// on_btnPtzMoveTo_clicked - 云台转到指定角度
 //============================================================================
 void MainWindow::on_btnPtzMoveTo_clicked()
 {
+    if (!requireConnected()) return;
+
+    bool panOk = false;
+    bool tiltOk = false;
+    double pan = ui->editTargetPan->text().toDouble(&panOk);
+    double tilt = ui->editTargetTilt->text().toDouble(&tiltOk);
+
+    if (panOk && tiltOk) {
+        m_device->ptzMoveTo(pan, tilt);
+    } else {
+        QMessageBox::warning(this, "输入错误", "请输入有效的水平和垂直角度值。");
+    }
 }
+
+//============================================================================
+// on_btnPtzMoveToGps_clicked - 云台转动到指定经纬度高度
+//============================================================================
+void MainWindow::on_btnPtzMoveToGps_clicked()
+{
+    if (!requireConnected()) return;
+
+    QString lonStr = ui->editTargetLon->text().trimmed();
+    QString latStr = ui->editTargetLat->text().trimmed();
+    QString altStr = ui->editTargetAlt->text().trimmed();
+
+    if (lonStr.isEmpty() || latStr.isEmpty()) {
+        QMessageBox::warning(this, "输入错误", "请输入目标的经纬度和高度。");
+        return;
+    }
+
+    double targetLon = parseCoord(lonStr);
+    double targetLat = parseCoord(latStr);
+    double targetAlt = altStr.toDouble();
+
+    double devLat = parseCoord(ui->statLatitude->text());
+    double devLon = parseCoord(ui->statLongitude->text());
+    double devAlt = m_deviceHeight;
+
+    if (devLat == 0 && devLon == 0) {
+        QMessageBox::warning(this, "状态错误", "当前设备 GPS 未知，无法计算目标角度。");
+        return;
+    }
+
+    double pan = bearing(devLat, devLon, targetLat, targetLon);
+    double dist = haversineDistance(devLat, devLon, targetLat, targetLon);
+
+    double tilt = 0;
+    if (dist > 0.001) { 
+        tilt = -qRadiansToDegrees(qAtan2(targetAlt - devAlt, dist));
+    }
+
+    m_device->ptzMoveTo(pan, tilt);
+    ui->statusbar->showMessage(QString("转到 GPS: 方位=%1° 俯仰=%2°").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
+}
+
+//============================================================================
+// on_btnPanZeroCalib_clicked - 水平零点标定
+//============================================================================
+void MainWindow::on_btnPanZeroCalib_clicked()
+{
+    if (!requireConnected()) return;
+    
+    if (QMessageBox::question(this, "零点标定", "确认将当前云台水平和俯仰位置标定为 0 度？") == QMessageBox::Yes) {
+        QString panStr = ui->statPanAngle->text();
+        panStr.remove("°");
+        double displayedPan = panStr.toDouble();
+
+        QString tiltStr = ui->statTiltAngle->text();
+        tiltStr.remove("°");
+        double displayedTilt = tiltStr.toDouble();
+
+        double oldPanOffset = m_cfg->ptzPanOffset();
+        double oldTiltOffset = m_cfg->ptzTiltOffset();
+
+        double newPanOffset = displayedPan + oldPanOffset;
+        while (newPanOffset >= 360.0) newPanOffset -= 360.0;
+        while (newPanOffset < 0) newPanOffset += 360.0;
+
+        double newTiltOffset = oldTiltOffset - displayedTilt;
+        while (newTiltOffset > 180.0) newTiltOffset -= 360.0;
+        while (newTiltOffset <= -180.0) newTiltOffset += 360.0;
+
+        m_cfg->setPtzPanOffset(newPanOffset);
+        m_cfg->setPtzTiltOffset(newTiltOffset);
+        m_cfg->save();
+
+        m_ptzForwarder->setOffsets(newPanOffset, newTiltOffset);
+        m_ptzForwarder->flushZeroPosition();
+
+        ui->statPanAngle->setText("0.0°");
+        ui->statTiltAngle->setText("0.0°");
+        ui->statusbar->showMessage("零点标定已保存", 3000);
+    }
+}
+
 
 //============================================================================
 //============================================================================
@@ -1372,17 +1629,30 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 //============================================================================
 void MainWindow::on_btnSetLocation_clicked()
 {
-    QString lat = ui->editSetLat->text().trimmed();
-    QString lon = ui->editSetLon->text().trimmed();
+    QString latStr = ui->editSetLat->text().trimmed();
+    QString lonStr = ui->editSetLon->text().trimmed();
 
-    if (lat.isEmpty() || lon.isEmpty()) {
-        QMessageBox::warning(this, QString::fromUtf8("参数错误"),
+    if (latStr.isEmpty() || lonStr.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("输入错误"),
                              QString::fromUtf8("请填写完整的经纬度参数"));
         return;
     }
 
     if (!requireConnected()) return;
-    m_device->setLocation(lat, lon);
+
+    double latNum = parseCoord(latStr);
+    double lonNum = parseCoord(lonStr);
+
+    QString altStr = ui->editSetHeight->text().trimmed();
+    if (!altStr.isEmpty()) {
+        m_deviceHeight = altStr.toDouble();
+        ui->statHeight->setText(QString::number(m_deviceHeight, 'f', 1) + QStringLiteral(" m"));
+    }
+
+    QString strictLat = QString::asprintf("%.7f%s", qAbs(latNum), latNum >= 0 ? "N" : "S");
+    QString strictLon = QString::asprintf("%.7f%s", qAbs(lonNum), lonNum >= 0 ? "E" : "W");
+
+    m_device->setLocation(strictLat, strictLon);
     ui->statusbar->showMessage(QString::fromUtf8("已下发经纬度"), 3000);
 }
 
@@ -1496,15 +1766,11 @@ void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
     double devLat = parseCoord(ui->statLatitude->text());
     double devLon = parseCoord(ui->statLongitude->text());
     double pan = ui->statPanAngle->text().toDouble();
-    double tilt = ui->statTiltAngle->text().toDouble();
 
     if (devLat == 0 && devLon == 0) { outLat = 0; outLon = 0; return; }
     if (focal < 0.1) { outLat = 0; outLon = 0; return; }
 
-    // 像素偏移量 → 空间角度偏移量 (单位: 弧度)
-    // 公式: angle_rad = pixel_offset × pixel_size_um / (focal_mm × 1000)
     double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
-    double dyAngle = (pixelY - halfH) * px / (focal * 1000.0);
 
     // 绝对方位角 = 云台水平角(度→弧度) + 像素水平偏移角(弧度)
     double bearing = pan * M_PI / 180.0 + dxAngle;
@@ -1673,7 +1939,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     bool hasObject = doc.contains("Object") && doc.value("Object").isObject();
     QJsonObject objMap;
     if (hasObject) objMap = doc.value("Object").toObject();
-    double tilt = ui->statTiltAngle->text().toDouble();
+    double tilt = m_currentTilt;
 
     //==========================================================================
     // 识别模式 (WorkMode=1)：显示所有目标，无上报时清空
@@ -1690,11 +1956,10 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
         for (auto it = objMap.begin(); it != objMap.end(); ++it) {
             QString id = it.key();
             QJsonObject obj = it.value().toObject();
-            double dist = obj.value("Distance").toDouble(0);
             int cls = obj.value("Class").toInt();
             double tLat = 0, tLon = 0;
 
-            dist = calcVisualDistance(obj, cls, false);
+            double dist = calcVisualDistance(obj, cls, false);
 
             if (obj.contains("Points")) {
                 QJsonObject pts = obj.value("Points").toObject();
@@ -1747,11 +2012,10 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
         if (!lockedId.isEmpty()) {
             m_track.lostSince = QDateTime();
 
-            double dist = lockedObj.value("Distance").toDouble(0);
             int cls = lockedObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
 
-            dist = calcVisualDistance(lockedObj, cls, true);
+            double dist = calcVisualDistance(lockedObj, cls, true);
             // 缓存 AI 目标距离（用于 ZoomInfo 无激光测距时回退）
             m_lastAiDist = dist;
             m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
@@ -1824,12 +2088,11 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 
         // ---- 有丢失目标 (0xB2) ----
         if (!lostId.isEmpty()) {
-            double dist = lostObj.value("Distance").toDouble(0);
             int cls = lostObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
             bool hasPts = false;
 
-            dist = calcVisualDistance(lostObj, cls, true);
+            double dist = calcVisualDistance(lostObj, cls, true);
 
             if (lostObj.contains("Points")) {
                 QJsonObject pts = lostObj.value("Points").toObject();

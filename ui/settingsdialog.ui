@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>450</width>
-    <height>600</height>
+    <height>791</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,10 +22,12 @@
      <property name="title">
       <string>通信与协议配置</string>
      </property>
-     <layout class="QFormLayout" name="formLayout_comm">
+     <layout class="QGridLayout" name="gridLayout_comm">
       <item row="0" column="0">
        <widget class="QLabel" name="label">
-        <property name="text"><string>云台协议:</string></property>
+        <property name="text">
+         <string>云台协议:</string>
+        </property>
        </widget>
       </item>
       <item row="0" column="1">
@@ -35,93 +37,190 @@
         <item><property name="text"><string>N-MD</string></property></item>
        </widget>
       </item>
-      
-      <item row="1" column="0">
+      <item row="0" column="2">
        <widget class="QLabel" name="label_2">
-        <property name="text"><string>云台地址:</string></property>
+        <property name="text">
+         <string>云台地址:</string>
+        </property>
        </widget>
       </item>
-      <item row="1" column="1">
+      <item row="0" column="3">
        <widget class="QSpinBox" name="spinPtzAddress">
         <property name="minimum"><number>1</number></property>
         <property name="maximum"><number>255</number></property>
        </widget>
       </item>
-      
-      <item row="2" column="0">
+
+      <item row="1" column="0">
        <widget class="QLabel" name="label_3">
-        <property name="text"><string>可见光协议:</string></property>
+        <property name="text">
+         <string>可见光协议:</string>
+        </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="1" column="1">
        <widget class="QComboBox" name="comboVisProtocol">
         <item><property name="text"><string>VISCA</string></property></item>
        </widget>
       </item>
-      
-      <item row="3" column="0">
+      <item row="1" column="2">
        <widget class="QLabel" name="label_4">
-        <property name="text"><string>可见光地址:</string></property>
+        <property name="text">
+         <string>可见光地址:</string>
+        </property>
        </widget>
       </item>
-      <item row="3" column="1">
+      <item row="1" column="3">
        <widget class="QSpinBox" name="spinVisAddress">
         <property name="minimum"><number>1</number></property>
         <property name="maximum"><number>255</number></property>
        </widget>
       </item>
-      
-      <item row="4" column="0">
+
+      <item row="2" column="0">
        <widget class="QLabel" name="label_5">
-        <property name="text"><string>红外协议:</string></property>
+        <property name="text">
+         <string>红外协议:</string>
+        </property>
        </widget>
       </item>
-      <item row="4" column="1">
+      <item row="2" column="1">
        <widget class="QComboBox" name="comboIrProtocol">
         <item><property name="text"><string>Pelco-D</string></property></item>
         <item><property name="text"><string>IRAY</string></property></item>
        </widget>
       </item>
-      
-      <item row="5" column="0">
+      <item row="2" column="2">
        <widget class="QLabel" name="label_6">
-        <property name="text"><string>红外地址:</string></property>
+        <property name="text">
+         <string>红外地址:</string>
+        </property>
        </widget>
       </item>
-      <item row="5" column="1">
+      <item row="2" column="3">
        <widget class="QSpinBox" name="spinIrAddress">
         <property name="minimum"><number>1</number></property>
         <property name="maximum"><number>255</number></property>
        </widget>
       </item>
-      
-      <item row="6" column="0">
+
+      <item row="3" column="0">
        <widget class="QLabel" name="label_7">
-        <property name="text"><string>串口服务器 IP:</string></property>
+        <property name="text">
+         <string>转台 IP:</string>
+        </property>
        </widget>
       </item>
-      <item row="6" column="1">
+      <item row="3" column="1">
        <widget class="QLineEdit" name="editSerialIp">
         <property name="placeholderText"><string>192.168.1.66</string></property>
        </widget>
       </item>
-      
-      <item row="7" column="0">
+      <item row="3" column="2">
        <widget class="QLabel" name="label_8">
-        <property name="text"><string>串口服务器端口:</string></property>
+        <property name="text">
+         <string>转台端口:</string>
+        </property>
        </widget>
       </item>
-       <item row="7" column="1">
-        <widget class="QSpinBox" name="spinSerialPort">
-         <property name="minimum"><number>1</number></property>
-         <property name="maximum"><number>65535</number></property>
-         <property name="value"><number>4001</number></property>
-        </widget>
-       </item>
+      <item row="3" column="3">
+       <widget class="QSpinBox" name="spinSerialPort">
+        <property name="minimum"><number>1</number></property>
+        <property name="maximum"><number>65535</number></property>
+        <property name="value"><number>4001</number></property>
+       </widget>
+      </item>
+
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_16">
+        <property name="text">
+         <string>电机协议:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QComboBox" name="comboMotorProtocol">
+        <item><property name="text"><string>Pelco-D</string></property></item>
+        <item><property name="text"><string>MODBUS-RTU</string></property></item>
+        <item><property name="text"><string>STM32-TCP-V4.0</string></property></item>
+       </widget>
+      </item>
+      <item row="4" column="2">
+       <widget class="QLabel" name="label_17">
+        <property name="text">
+         <string>电机串口:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="3">
+       <widget class="QComboBox" name="comboMotorPort"/>
+      </item>
+
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_18">
+        <property name="text">
+         <string>模拟服务器端口:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QSpinBox" name="spinMockServerPort">
+        <property name="minimum"><number>1</number></property>
+        <property name="maximum"><number>65535</number></property>
+        <property name="value"><number>5001</number></property>
+       </widget>
+      </item>
+      <item row="5" column="2">
+       <widget class="QLabel" name="label_22">
+        <property name="text">
+         <string>电机TCP IP:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="3">
+       <widget class="QLineEdit" name="editMotorTcpIp">
+        <property name="placeholderText"><string>192.168.1.55</string></property>
+       </widget>
+      </item>
+
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_23">
+        <property name="text">
+         <string>电机TCP 端口:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QSpinBox" name="spinMotorTcpPort">
+        <property name="minimum"><number>1</number></property>
+        <property name="maximum"><number>65535</number></property>
+        <property name="value"><number>5000</number></property>
+       </widget>
+      </item>
+      <item row="6" column="2">
+       <widget class="QLabel" name="label_motor_channel">
+        <property name="text">
+         <string>下发通道:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="3">
+       <widget class="QComboBox" name="comboMotorCommandChannel">
+        <item><property name="text"><string>Pelco-D</string></property></item>
+        <item><property name="text"><string>串口</string></property></item>
+       </widget>
+      </item>
+      <item row="7" column="0" colspan="4">
+       <layout class="QHBoxLayout" name="horizontalLayout_enabled">
+        <item><widget class="QCheckBox" name="checkSerialServerEnabled"><property name="text"><string>模拟串口服务器</string></property></widget></item>
+        <item><widget class="QCheckBox" name="checkTurntableIpEnabled"><property name="text"><string>转台IP连接</string></property></widget></item>
+        <item><widget class="QCheckBox" name="checkMotorSerialEnabled"><property name="text"><string>电机串口连接</string></property></widget></item>
+       </layout>
+      </item>
       </layout>
      </widget>
     </item>
-    
+
    <item>
     <widget class="QGroupBox" name="groupCloseAction">
      <property name="title">
@@ -130,20 +229,33 @@
      <layout class="QFormLayout" name="formLayout_closeAction">
       <item row="0" column="0">
        <widget class="QLabel" name="label_15">
-        <property name="text"><string>关闭按钮操作:</string></property>
+        <property name="text">
+         <string>关闭按钮操作:</string>
+        </property>
        </widget>
       </item>
       <item row="0" column="1">
        <widget class="QComboBox" name="comboCloseAction">
-        <item><property name="text"><string>每次询问</string></property></item>
-        <item><property name="text"><string>退出程序</string></property></item>
-        <item><property name="text"><string>最小化到托盘</string></property></item>
+        <item>
+         <property name="text">
+          <string>每次询问</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>退出程序</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>最小化到托盘</string>
+         </property>
+        </item>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-    
    <item>
     <widget class="QGroupBox" name="groupCamera">
      <property name="title">
@@ -152,204 +264,340 @@
      <layout class="QFormLayout" name="formLayout_camera">
       <item row="0" column="0">
        <widget class="QLabel" name="label_9">
-        <property name="text"><string>可见光像元尺寸:</string></property>
+        <property name="text">
+         <string>可见光像元尺寸:</string>
+        </property>
        </widget>
       </item>
       <item row="0" column="1">
        <widget class="QDoubleSpinBox" name="spinVisPixelSize">
-        <property name="suffix"><string> μm</string></property>
-        <property name="decimals"><number>2</number></property>
-        <property name="minimum"><double>0.1</double></property>
-        <property name="maximum"><double>50.0</double></property>
+        <property name="suffix">
+         <string> μm</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>50.000000000000000</double>
+        </property>
        </widget>
       </item>
-      
       <item row="1" column="0">
        <widget class="QLabel" name="label_10">
-        <property name="text"><string>可见光物理分辨率:</string></property>
+        <property name="text">
+         <string>可见光物理分辨率:</string>
+        </property>
        </widget>
       </item>
       <item row="1" column="1">
        <widget class="QLineEdit" name="editVisResolution">
-        <property name="placeholderText"><string>2688x1520</string></property>
+        <property name="placeholderText">
+         <string>2688x1520</string>
+        </property>
        </widget>
       </item>
-      
       <item row="2" column="0">
        <widget class="QLabel" name="label_11">
-        <property name="text"><string>可见光最小焦距:</string></property>
+        <property name="text">
+         <string>可见光最小焦距:</string>
+        </property>
        </widget>
       </item>
       <item row="2" column="1">
        <widget class="QDoubleSpinBox" name="spinVisMinFocal">
-        <property name="suffix"><string> mm</string></property>
-        <property name="minimum"><double>1.0</double></property>
-        <property name="maximum"><double>1000.0</double></property>
+        <property name="suffix">
+         <string> mm</string>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1000.000000000000000</double>
+        </property>
        </widget>
       </item>
-      
       <item row="3" column="0">
        <widget class="QLabel" name="label_12">
-        <property name="text"><string>红外像元尺寸:</string></property>
+        <property name="text">
+         <string>红外像元尺寸:</string>
+        </property>
        </widget>
       </item>
       <item row="3" column="1">
        <widget class="QDoubleSpinBox" name="spinIrPixelSize">
-        <property name="suffix"><string> μm</string></property>
-        <property name="decimals"><number>2</number></property>
-        <property name="minimum"><double>0.1</double></property>
-        <property name="maximum"><double>50.0</double></property>
+        <property name="suffix">
+         <string> μm</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>50.000000000000000</double>
+        </property>
        </widget>
       </item>
-      
       <item row="4" column="0">
        <widget class="QLabel" name="label_13">
-        <property name="text"><string>红外物理分辨率:</string></property>
+        <property name="text">
+         <string>红外物理分辨率:</string>
+        </property>
        </widget>
       </item>
       <item row="4" column="1">
        <widget class="QLineEdit" name="editIrResolution">
-        <property name="placeholderText"><string>640x512</string></property>
+        <property name="placeholderText">
+         <string>640x512</string>
+        </property>
        </widget>
       </item>
-      
       <item row="5" column="0">
        <widget class="QLabel" name="label_14">
-        <property name="text"><string>红外最小焦距:</string></property>
+        <property name="text">
+         <string>红外最小焦距:</string>
+        </property>
        </widget>
       </item>
       <item row="5" column="1">
        <widget class="QDoubleSpinBox" name="spinIrMinFocal">
-        <property name="suffix"><string> mm</string></property>
-        <property name="minimum"><double>1.0</double></property>
-        <property name="maximum"><double>1000.0</double></property>
+        <property name="suffix">
+         <string> mm</string>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1000.000000000000000</double>
+        </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   
    <item>
     <widget class="QGroupBox" name="groupTargetRefs">
      <property name="title">
       <string>视觉测距参考尺寸</string>
      </property>
-      <layout class="QFormLayout" name="formLayout_targetRefs">
-       <item row="0" column="0">
-        <widget class="QLabel" name="labelRef_ren">
-         <property name="text"><string>人</string></property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_2_161">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>1.70</double></property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="labelRef_che">
-         <property name="text"><string>车</string></property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_2_162">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>4.50</double></property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="labelRef_chuan">
-         <property name="text"><string>船</string></property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_3_163">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>10.00</double></property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="labelRef_wurenji">
-         <property name="text"><string>无人机</string></property>
-        </widget>
-       </item>
-       <item row="3" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_4_164">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>0.35</double></property>
-        </widget>
-       </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="labelRef_feiji">
-         <property name="text"><string>飞机</string></property>
-        </widget>
-       </item>
-       <item row="4" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_5_161">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>15.00</double></property>
-        </widget>
-       </item>
-       <item row="5" column="0">
-        <widget class="QLabel" name="labelRef_zhishengji">
-         <property name="text"><string>直升机</string></property>
-        </widget>
-       </item>
-       <item row="5" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_5_162">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>10.00</double></property>
-        </widget>
-       </item>
-       <item row="6" column="0">
-        <widget class="QLabel" name="labelRef_niao">
-         <property name="text"><string>鸟</string></property>
-        </widget>
-       </item>
-       <item row="6" column="1">
-        <widget class="QDoubleSpinBox" name="spinRef_6_163">
-         <property name="decimals"><number>2</number></property>
-         <property name="minimum"><double>0.1</double></property>
-         <property name="maximum"><double>100.0</double></property>
-         <property name="singleStep"><double>0.05</double></property>
-         <property name="suffix"><string> m</string></property>
-         <property name="value"><double>0.35</double></property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
+     <layout class="QFormLayout" name="formLayout_targetRefs">
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelRef_ren">
+        <property name="text">
+         <string>人</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_2_161">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.700000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="labelRef_che">
+        <property name="text">
+         <string>车</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_2_162">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>4.500000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="labelRef_chuan">
+        <property name="text">
+         <string>船</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_3_163">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>10.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="labelRef_wurenji">
+        <property name="text">
+         <string>无人机</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_4_164">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.350000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="labelRef_feiji">
+        <property name="text">
+         <string>飞机</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_5_161">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>15.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="labelRef_zhishengji">
+        <property name="text">
+         <string>直升机</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_5_162">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>10.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="labelRef_niao">
+        <property name="text">
+         <string>鸟</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QDoubleSpinBox" name="spinRef_6_163">
+        <property name="suffix">
+         <string> m</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.350000000000000</double>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Save</set>
      </property>
     </widget>
    </item>

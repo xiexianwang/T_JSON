@@ -149,6 +149,12 @@ public:
     quint16 serialPort() const { return m_serialPort; }    // 串口服务器端口
     void setSerialIp(const QString& ip) { m_serialIp = ip; }
     void setSerialPort(quint16 port) { m_serialPort = port; }
+    quint16 mockServerPort() const { return m_mockServerPort; }
+    double ptzPanOffset() const { return m_ptzPanOffset; }
+    void setPtzPanOffset(double offset) { m_ptzPanOffset = offset; }
+    double ptzTiltOffset() const { return m_ptzTiltOffset; }
+    void setPtzTiltOffset(double offset) { m_ptzTiltOffset = offset; }
+    void setMockServerPort(quint16 port) { m_mockServerPort = port; }
 
     CloseAction closeAction() const { return m_closeAction; }
     void setCloseAction(CloseAction action) { m_closeAction = action; }
@@ -161,6 +167,22 @@ public:
     void setAutoZoomEnabled(bool enabled) { m_autoZoomEnabled = enabled; }
     bool posResetEnabled() const { return m_posResetEnabled; }
     void setPosResetEnabled(bool enabled) { m_posResetEnabled = enabled; }
+    QString motorCommandChannel() const { return m_motorCommandChannel; }
+    void setMotorCommandChannel(const QString& channel) { m_motorCommandChannel = channel; }
+    QString motorProtocol() const { return m_motorProtocol; }
+    void setMotorProtocol(const QString& proto) { m_motorProtocol = proto; }
+    QString motorComPort() const { return m_motorComPort; }
+    void setMotorComPort(const QString& port) { m_motorComPort = port; }
+    bool serialServerEnabled() const { return m_serialServerEnabled; }
+    void setSerialServerEnabled(bool enabled) { m_serialServerEnabled = enabled; }
+    bool turntableIpEnabled() const { return m_turntableIpEnabled; }
+    void setTurntableIpEnabled(bool enabled) { m_turntableIpEnabled = enabled; }
+    bool motorSerialEnabled() const { return m_motorSerialEnabled; }
+    void setMotorSerialEnabled(bool enabled) { m_motorSerialEnabled = enabled; }
+    QString motorTcpIp() const { return m_motorTcpIp; }
+    void setMotorTcpIp(const QString& ip) { m_motorTcpIp = ip; }
+    quint16 motorTcpPort() const { return m_motorTcpPort; }
+    void setMotorTcpPort(quint16 port) { m_motorTcpPort = port; }
 
 signals:
     void ptzConfigChanged();     // PTZ 配置变更时发射
@@ -172,12 +194,23 @@ private:
     LensConfig m_lens;           // 镜头配置实例
     CameraConfig m_cam;          // 相机参数配置实例
     QString m_serialIp = "192.168.1.66";   // 串口服务器 IP 地址
-    quint16 m_serialPort = 4001;           // 串口服务器端口号
+    quint16 m_serialPort = 4001;
+    quint16 m_mockServerPort = 5001;
+    double m_ptzPanOffset = 0.0;
+    double m_ptzTiltOffset = 0.0;           // 串口服务器端口号
     CloseAction m_closeAction = Ask;
     bool m_captureUploadEnabled = false;
     bool m_digitalZoomEnabled = false;
     bool m_autoZoomEnabled = false;
     bool m_posResetEnabled = false;
+    QString m_motorCommandChannel = "Pelco-D";
+    QString m_motorProtocol = "Pelco-D";
+    QString m_motorComPort = "COM1";
+    bool m_serialServerEnabled = true;
+    bool m_turntableIpEnabled = true;
+    bool m_motorSerialEnabled = true;
+    QString m_motorTcpIp = "192.168.1.55";
+    quint16 m_motorTcpPort = 5000;
 };
 
 #endif // CONFIGMANAGER_H

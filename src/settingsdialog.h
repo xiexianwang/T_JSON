@@ -26,6 +26,7 @@ public:
 
 private slots:
     void on_buttonBox_accepted();
+    void updateProtocolControls();
 
 private:
     Ui::SettingsDialog *ui;

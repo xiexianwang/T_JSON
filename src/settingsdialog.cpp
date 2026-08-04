@@ -7,14 +7,20 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
 #include "configmanager.h"
+#include <QSerialPortInfo>
 
 SettingsDialog::SettingsDialog(ConfigManager *cfg, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::SettingsDialog)
     , m_cfg(cfg)
 {
+    qDebug() << "SettingsDialog: calling setupUi";
     ui->setupUi(this);
+    connect(ui->comboMotorProtocol, &QComboBox::currentTextChanged, this, &SettingsDialog::updateProtocolControls);
+    qDebug() << "SettingsDialog: calling loadSettings";
     loadSettings();
+    updateProtocolControls(); // Initial call
+    qDebug() << "SettingsDialog: constructor finished";
 }
 
 SettingsDialog::~SettingsDialog()
@@ -24,37 +30,42 @@ SettingsDialog::~SettingsDialog()
 
 void SettingsDialog::loadSettings()
 {
-    // ---- 云台参数 ----
     ui->comboPtzProtocol->setCurrentText(m_cfg->ptz().protocol);
     ui->spinPtzAddress->setValue(m_cfg->ptz().address);
 
-    // ---- 可见光通道 ----
     ui->comboVisProtocol->setCurrentText(m_cfg->lens().visProtocol);
     ui->spinVisAddress->setValue(m_cfg->lens().visAddress);
 
-    // ---- 红外通道 ----
     ui->comboIrProtocol->setCurrentText(m_cfg->lens().irProtocol);
     ui->spinIrAddress->setValue(m_cfg->lens().irAddress);
 
-    // ---- 串口连接 ----
     ui->editSerialIp->setText(m_cfg->serialIp());
     ui->spinSerialPort->setValue(m_cfg->serialPort());
+    ui->spinMockServerPort->setValue(m_cfg->mockServerPort());
+    ui->checkSerialServerEnabled->setChecked(m_cfg->serialServerEnabled());
+    ui->checkTurntableIpEnabled->setChecked(m_cfg->turntableIpEnabled());
+    ui->checkMotorSerialEnabled->setChecked(m_cfg->motorSerialEnabled());
+    ui->editMotorTcpIp->setText(m_cfg->motorTcpIp());
+    ui->spinMotorTcpPort->setValue(m_cfg->motorTcpPort());
 
-    // ---- 关闭按钮行为 ----
+    for (const auto& info : QSerialPortInfo::availablePorts())
+        ui->comboMotorPort->addItem(info.portName());
+
+    ui->comboMotorCommandChannel->setCurrentText(m_cfg->motorCommandChannel());
+    ui->comboMotorProtocol->setCurrentText(m_cfg->motorProtocol());
+    ui->comboMotorPort->setCurrentText(m_cfg->motorComPort());
+
     ui->comboCloseAction->setCurrentIndex(static_cast<int>(m_cfg->closeAction()));
 
-    // ---- 可见光相机参数 ----
     const auto& cam = m_cfg->cam();
     ui->spinVisPixelSize->setValue(cam.visPixelSize);
     ui->editVisResolution->setText(QString("%1x%2").arg(cam.visResX).arg(cam.visResY));
     ui->spinVisMinFocal->setValue(cam.visMinFocal);
 
-    // ---- 红外相机参数 ----
     ui->spinIrPixelSize->setValue(cam.irPixelSize);
     ui->editIrResolution->setText(QString("%1x%2").arg(cam.irResX).arg(cam.irResY));
     ui->spinIrMinFocal->setValue(cam.irMinFocal);
 
-    // ---- 视觉测距参考尺寸 ----
     auto loadRef = [&](const char* name, int ml, int cc) {
         auto *s = findChild<QDoubleSpinBox*>(name);
         if (s) s->setValue(cam.targetRefSize(ml, cc));
@@ -85,6 +96,17 @@ void SettingsDialog::saveSettings()
     // ---- 串口连接 ----
     m_cfg->setSerialIp(ui->editSerialIp->text());
     m_cfg->setSerialPort(static_cast<quint16>(ui->spinSerialPort->value()));
+    m_cfg->setMockServerPort(static_cast<quint16>(ui->spinMockServerPort->value()));
+    m_cfg->setSerialServerEnabled(ui->checkSerialServerEnabled->isChecked());
+    m_cfg->setTurntableIpEnabled(ui->checkTurntableIpEnabled->isChecked());
+    m_cfg->setMotorSerialEnabled(ui->checkMotorSerialEnabled->isChecked());
+    m_cfg->setMotorTcpIp(ui->editMotorTcpIp->text());
+    m_cfg->setMotorTcpPort(static_cast<quint16>(ui->spinMotorTcpPort->value()));
+
+    // ---- 电机协议 ----
+    m_cfg->setMotorCommandChannel(ui->comboMotorCommandChannel->currentText());
+    m_cfg->setMotorProtocol(ui->comboMotorProtocol->currentText());
+    m_cfg->setMotorComPort(ui->comboMotorPort->currentText());
 
     // ---- 关闭按钮行为 ----
     m_cfg->setCloseAction(static_cast<ConfigManager::CloseAction>(ui->comboCloseAction->currentIndex()));
@@ -122,6 +144,22 @@ void SettingsDialog::saveSettings()
     saveRef("spinRef_6_163", 6, 0xA3);
 
     m_cfg->save();
+}
+
+void SettingsDialog::updateProtocolControls()
+{
+    QString protocol = ui->comboMotorProtocol->currentText();
+    bool isModbus = (protocol == "MODBUS-RTU");
+    bool isTcp = (protocol == "STM32-TCP-V4.0");
+    bool isPelco = (protocol == "Pelco-D");
+
+    // Motor COM Port and Command Channel are only for MODBUS-RTU
+    ui->comboMotorPort->setEnabled(isModbus);
+    ui->comboMotorCommandChannel->setEnabled(isModbus);
+    
+    // TCP settings for STM32-TCP-V4.0
+    ui->editMotorTcpIp->setEnabled(isTcp);
+    ui->spinMotorTcpPort->setEnabled(isTcp);
 }
 
 void SettingsDialog::on_buttonBox_accepted()

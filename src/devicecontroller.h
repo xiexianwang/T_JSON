@@ -11,11 +11,15 @@
 
 #include <QObject>
 #include <QByteArray>
+#include <QSerialPort>
 #include "tjsonclient.h"
 #include "configmanager.h"
 
-// 协议构建器：纯静态工具类，用于组装各类底层串口通信协议的数据包
-// 当前支持：Pelco-D（云台控制/红外镜头）、VISCA（可见光镜头变倍/变焦）
+#include <QTcpSocket>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+// 协议构建器... (省略注释)
 class ProtocolBuilder {
 public:
     // Pelco-D 协议组包
@@ -117,7 +121,8 @@ public:
     // ================= 云台控制 (Pelco-D) =================
     void ptzMove(PtzDir dir);               // 云台向指定方向运动
     void ptzStop();                         // 云台停止运动
-
+    void ptzMoveTo(double pan, double tilt);// 云台转动到绝对角度
+    
     // ================= 框选跟踪 =================
     void setBoxTrack(int centerX, int centerY, int width, int height);  // 设置跟踪框
     void setPointTrack(int centerX, int centerY);                       // 点选跟踪
@@ -134,6 +139,18 @@ public:
     void posReset(bool enable);             // 位置归零
     void setWiper(bool enable);             // 雨刷开关
 
+    // 雨刷电机指令（根据配置协议自动选择 Pelco-D 或 MODBUS-RTU）
+    void motorStart();                      // 启动
+    void motorStop();                       // 停止
+    void motorJogLeft();                    // 左转(JOG-)
+    void motorJogRight();                   // 右转(JOG+)
+    void motorZeroCalib();                  // 零点校准
+    void motorReturnZero();                 // 回到绝对位置零点
+    void motorCheckMode();                  // 查询当前模式（手动/自动）
+    void motorToggleMode();                 // 切换模式（手动↔自动）
+    void motorToggleSilentMode();           // 切换静音/狂暴模式
+    void motorSetCurrent(int ma);           // 设置电机电流并固化
+
     // ================= 镜头控制 (VISCA / Pelco-D) =================
     // target: 0=可见光(VISCA), 1=红外(Pelco-D)
     void lensZoomIn(int target);            // 变倍放大
@@ -145,14 +162,37 @@ public:
     // ================= 串口透传通用网关 =================
     void sendTransparentData(const QString& serialType, const QByteArray& data);  // 通用透传
 
+    // ================= 电机串口管理 =================
+    bool openMotorSerial(const QString& portName);
+    void closeMotorSerial();
+    bool isMotorSerialOpen() const;
+    
+    // ================= 电机 TCP 管理 (STM32-TCP-V4.0) =================
+    void openMotorTcp();
+    void closeMotorTcp();
+    bool isMotorTcpOpen() const;
+
 signals:
     void commandSent(const QString& serialType, const QByteArray& data);  // 指令已发送通知
+    void motorModeResult(bool isManual);  // 电机模式查询结果: true=手动, false=自动
+    void motorSilentResult(bool isSilent); // 静音模式切换结果: true=静音, false=狂暴
+    void motorSerialError(const QString& msg);
 
 private:
     TJsonClient* m_client;          // 网络客户端（非拥有指针）
     ConfigManager* m_cfg;           // 配置管理器（非拥有指针）
+    QSerialPort* m_motorSerial = nullptr;  // 电机串口（MODBUS-RTU 直连）
+    QTcpSocket* m_motorTcpSocket = nullptr; // 电机 TCP Socket (STM32-TCP-V4.0)
+    bool m_motorTcpIsAuto = false;          // 记录当前是否是自动模式，用于 ToggleMode
+    bool m_motorModbusIsAuto = false;       // Modbus 模式记录
+    bool m_motorTcpIsSilent = false;        // 记录当前是否是静音模式
+    int m_motorTcpSeq = 0;                  // 命令序列号
+
     int m_lastLensTarget = 0;       // 最近一次镜头操作的目标（0=可见光, 1=红外）
     bool m_lastLensIsZoom = true;   // 最近一次镜头操作是否为变倍（true=变倍, false=变焦）
+    void sendModbus(const QByteArray& pkt);
+    void sendPelcoDWiper(const QByteArray& pkt);
+    void sendMotorTcpV4(const QJsonObject& json);
 };
 
 #endif // DEVICECONTROLLER_H

@@ -1,0 +1,1031 @@
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 1 of 19
+Standard Number
+TF-0002
+Version
+1
+Revision
+1
+Release Date
+July 7, 2003
+Key words:
+D protocol, serial, extended, Sync byte, 0xFF, Advanced Feature Set, Extended Response
+PELCO “D” PROTOCOL
+MANUAL
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 2 of 19
+TABLE OF CONTENTS
+DOCUMENT HISTORY......................................................................................................................................................................3
+LEGAL NOTICES................................................................................................................................................................................4
+NOTICE OF DISCLAIMER ......................................................................................................................................................................4
+PROPRIETARY NOTICE.........................................................................................................................................................................4
+QUESTIONS...........................................................................................................................................................................................4
+WHAT THIS MANUAL COVERS ....................................................................................................................................................5
+THE BYTE FORMAT..........................................................................................................................................................................5
+THE MESSAGE FORMAT.................................................................................................................................................................5
+The Standard Command Set ...............................................................................................................................................................6
+Extended Commands ..........................................................................................................................................................................7
+Advanced Feature Set .........................................................................................................................................................................8
+Creating Labels....................................................................................................................................................................................9
+EXAMPLE MESSAGES...........................................................................................................................................................................9
+Responses ..........................................................................................................................................................................................10
+Opcode Descriptions.........................................................................................................................................................................11
+APPENDIX A.......................................................................................................................................................................................17
+ADVANCED FEATURE COMMANDS....................................................................................................................................................17
+INDEX...................................................................................................................................................................................................19
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 3 of 19
+Document History
+1. Initial Release, 7/07/03
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 4 of 19
+LEGAL NOTICES
+NOTICE OF DISCLAIMER
+Pelco makes no claims, expressed or implied, regarding the usefulness of this protocol, it’s
+implementation, or it’s correctness.  Any use of this protocol is the sole responsibility of the agency
+implementing the protocol.  The contents of this document and the function of the protocol are subject to
+change without notice.
+PROPRIETARY NOTICE
+The contents of this document are considered to be the property of Pelco.  Users of this protocol agree to
+use the protocol only in the interests of Pelco.  Any use of this protocol to Pelco’s detriment is
+prohibited.
+Those receiving this protocol cannot redistribute the protocol without the expressed written consent of
+Pelco.
+QUESTIONS
+Questions regarding this protocol, it’s implementation, use, and distribution should be addressed to:
+Pelco
+(559) 292-1981 Voice
+3500 Pelco Way
+(559) 292-1018 FAX
+Clovis, California, USA  93612-5699
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 5 of 19
+WHAT THIS MANUAL COVERS
+This manual describes the minimum requirements for implementing the Pelco “D” protocol.  This protocol is
+used to communicate between a controlling device (e.g. a matrix switching system) and a receiver/driver (e.g. a
+dome drive).
+Not all devices will be able to accommodate all of the features available in this protocol.  This protocol is
+designed to cover the feature sets of a wide variety of equipment.
+THE BYTE FORMAT
+Transmitters will format a single character and receivers will be able to decipher a single character
+as: 1 start bit, 8 data bits, 1 stop bit, and no parity.
+THE MESSAGE FORMAT
+The format for a message is:
+Byte 1
+Byte 2
+Byte 3
+Byte 4
+Byte 5
+Byte 6
+Byte 7
+Sync Byte
+Address
+Command 1
+Command 2
+Data 1
+Data 2
+Checksum
+Note that values in this document prefixed with “0x” are hexadecimal numbers.
+The synchronization byte (Sync Byte) is always 0xFF.
+The Address is the logical address of the receiver/driver device being controlled.
+The Checksum is calculated by performing the 8 bit (modulo 256) sum of the payload bytes (bytes 2 through 6)
+in the message.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 6 of 19
+THE STANDARD COMMAND SET
+Command 1 and 2 are represented as follows:
+Bit 7
+Bit 6
+Bit 5
+Bit 4
+Bit 3
+Bit 2
+Bit 1
+Bit 0
+Command 1
+Sense
+Reserved
+Reserved
+Auto /
+Manual
+Scan
+Camera
+On / Off
+Iris
+Close
+Iris
+Open
+Focus
+Near
+Command 2
+Focus
+Far
+Zoom
+Wide
+Zoom
+Tele
+Down
+Up
+Left
+Right
+Always 0
+A value of ‘1’ entered in the bit location for the function desired will enable that function. A value of ‘0’
+entered in the same bit location will disable or ‘stop’ the function.
+The sense bit (command 1 bit 7) indicates the meaning of bits 4 and 3.  If the sense bit is on (value of ‘1’), and
+bits 4 and 3 are on, the command will enable auto-scan and turn the camera on.  If the sense bit is off (value of
+‘0’), and bits 4 and 3 are on the command will enable manual scan and turn the camera off.  Of course, if either
+bit 4 or bit 3 are off then no action will be taken for those features.
+The reserved bits (6 and 5) should be set to 0.
+Byte 5 contains the pan speed.  Pan speed is in the range of  ‘0x00’ to ‘0x3F’ (high speed) and ‘0x40’ for
+“turbo” speed.  Turbo speed is the maximum speed the device can obtain and is considered separately because it
+is not generally a smooth step from high speed to turbo.  That is, going from one speed to the next usually looks
+smooth and will provide for smooth motion with the exception of going into and out of turbo speed.  A pan
+speed value of ‘0x00’ results in very slow motion, not cessation of motion.  To stop pan motion both the Left
+and Right direction bits must be turned off – set to ‘0’ – regardless of the value set in the pan speed byte.
+Byte 6 contains the tilt speed.  Tilt speed is in the range of  ‘0x00’ to ‘0x3F’ (maximum speed).  Turbo speed is
+not allowed for the tilt axis. A tilt speed value of ‘0x00’ results in very slow motion, not cessation of motion.
+To stop tilt motion both the Down and Up direction bits must be turned off – set to ‘0’ – regardless of the value
+set in the tilt speed byte.
+Byte 7 is the checksum.  The checksum is the 8 bit (modulo 256) sum of the payload bytes (bytes 2 through 6)
+in the message.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 7 of 19
+EXTENDED COMMANDS
+In addition to the “PTZ” commands shown above, there are control commands that allow access to the more
+advanced features of some equipment.  Bytes 3 and 4 can be thought of as the command’s opcodes.
+Command
+Byte 3
+Byte 4
+Byte 5
+Byte 6
+Response Type
+Set Preset
+00
+0x03
+00
+Preset id
+General
+Clear Preset
+00
+0x05
+00
+Preset id
+General
+Go To Preset
+00
+0x07
+00
+Preset id
+General
+Flip (180° about)
+00
+0x07
+00
+0x21
+General
+Go To Zero Pan
+00
+0x07
+00
+0x22
+General
+Set Auxiliary
+00
+0x09
+00
+01 to 08
+General
+Clear Auxiliary
+00
+0x0B
+00
+01 to 08
+General
+Remote Reset
+00
+0x0F
+00
+00
+General
+Set Zone Start
+00
+0x11
+00
+01 to 08
+General
+Set Zone End
+00
+0x13
+00
+01 to 08
+General
+Write Character to
+Screen
+00
+0x15
+Column 00 to
+0x27
+ASCII Value
+General
+Clear Screen
+00
+0x17
+00
+00
+General
+Alarm Acknowledge
+00
+0x19
+00
+01 to 08
+General
+Zone Scan On
+00
+0x1B
+00
+00
+General
+Zone Scan Off
+00
+0x1D
+00
+00
+General
+Set Pattern Start
+00
+0x1F
+00
+Pattern id
+General
+Set Pattern Stop
+00
+0x21
+00
+00
+General
+Run Pattern
+00
+0x23
+00
+Pattern id
+General
+Set Zoom Speed
+00
+0x25
+00
+00 to 03
+General
+Set Focus Speed
+00
+0x27
+00
+00 to 03
+General
+Reset Camera to
+defaults
+00
+0x29
+00
+00
+General
+Auto-focus auto/on/off
+00
+0x2B
+00
+00-02
+General
+Auto Iris auto/on/off
+00
+0x2D
+00
+00-02
+General
+AGC auto/on/off
+00
+0x2F
+00
+00-02
+General
+Backlight
+compensation on/off
+00
+0x31
+00
+01-02
+General
+Auto white balance
+on/off
+00
+0x33
+00
+01-02
+General
+Enable device phase
+delay mode
+00
+0x35
+00
+00
+General
+Set shutter speed
+00
+0x37
+Any
+Any
+General
+Adjust line lock phase
+delay
+00-01
+0x39
+Any
+Any
+General
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 8 of 19
+Command
+Byte 3
+Byte 4
+Byte 5
+Byte 6
+Response Type
+Adjust white balance
+(R-B)
+00-01
+0x3B
+Any
+Any
+General
+Adjust white balance
+(M-G)
+00-01
+0x3D
+Any
+Any
+General
+Adjust gain
+00-01
+0x3F
+Any
+Any
+General
+Adjust auto-iris level
+00-01
+0x41
+Any
+Any
+General
+Adjust auto-iris peak
+value
+00-01
+0x43
+Any
+Any
+General
+Query1
+00
+0x45
+Any
+Any
+See “Responses” part
+of this document.
+ADVANCED FEATURE SET
+Command
+Byte 3
+Byte 4
+Byte 5
+Byte 6
+Response Type
+Reserved Opcode
+00
+0x47
+00
+00
+Not Applicable
+Set Zero Position
+00
+0x49
+00
+00
+General
+Set Pan Position
+00
+0x4B
+Pan position
+MSB
+Pan position
+LSB
+General
+Set Tilt Position
+00
+0x4D
+Tilt position
+MSB
+Tilt position
+LSB
+General
+Set Zoom Position
+00
+0x4F
+Zoom position
+MSB
+Zoom
+position LSB
+General
+Query Pan Position
+00
+0x51
+00
+00
+Extended (0x59)
+Query Tilt Position
+00
+0x53
+00
+00
+Extended (0x5B)
+Query Zoom Position
+00
+0x55
+00
+00
+Extended (0x5D)
+Reserved Opcode
+00
+0x57
+00
+00
+Not Applicable
+Query Pan Response
+00
+0x59
+Pan position
+MSB
+Pan position
+LSB
+Not Applicable
+Query Tilt Response
+00
+0x5B
+Tilt position
+MSB
+Tilt position
+LSB
+Not Applicable
+Query Zoom Response
+00
+0x5D
+Zoom position
+MSB
+Zoom
+position LSB
+Not Applicable
+Set Magnification
+00
+0x5F
+Mag position
+MSB
+Mag position
+LSB
+General
+Query Magnification
+00
+0x61
+00
+00
+Extended (0x63)
+Query Magnification
+Response
+00
+0x63
+Mag position
+MSB
+Mag position
+LSB
+Not Applicable
+Reserved Opcode
+00
+0x65
+00
+00
+Not Applicable
+                                                 
+1 This command can only be used in a point to point application.  A device being queried will respond to any address. If more than one
+device hears this command, multiple devices will transmit at the same time.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 9 of 19
+Command
+Byte 3
+Byte 4
+Byte 5
+Byte 6
+Response Type
+Reserved Opcode
+00
+0x67
+00
+00
+Not Applicable
+Reserved Opcode
+00
+0x69
+00
+00
+Not Applicable
+Reserved Opcode
+00
+0x6B
+00
+00
+Not Applicable
+Reserved Opcode
+00
+0x6D
+00
+00
+Not Applicable
+Reserved Opcode
+00
+0x6F
+00
+00
+Not Applicable
+Reserved Opcode
+00
+0x71
+00
+00
+Not Applicable
+CREATING LABELS
+Many devices have the ability to display labels on the video.  Labels that identify the preset or zone being
+scanned are common.  There is a special technique to establish a label that is associated with either a preset or a
+zone.  First, send the label to the receiver/driver using the “Write Character to Screen” command.  After the
+label is on the screen, set the preset or zone.  That will establish the label and associate it with the preset.
+Reference the detailed information in the “Opcode Descriptions” section of this manual.
+EXAMPLE MESSAGES
+Message to send
+Message
+Receiver 1, Camera on
+0xFF, 0x01, 0x88, 0x00, 0x00, 0x00, 0x89
+Receiver 1, Camera off
+0xFF, 0x01, 0x08, 0x00, 0x00, 0x00, 0x09
+Receiver 2, Pan Left
+0xFF, 0x02, 0x00, 0x04, 0x20, 0x00, 0x26
+Receiver 2, Stop
+0xFF, 0x02, 0x00, 0x00, 0x20, 0x00, 0x22
+Receiver 10, Camera on, Focus far, Tilt Down
+0xFF, 0x0A, 0x88, 0x90, 0x20, 0x00, 0x42
+Note:  the checksum calculation for the last message looks like this:
+0xFF
+1111 1111
+Sync byte is not used for the checksum
+0x0A
+0000 1010
+0x88
+1000 1000
+Subtotal
+1001 0010
+0x92
+0x90
+1001 0000
+Subtotal
+0010 0010
+0x22
+(modulo 256 allows the high bit to roll off)
+0x20
+0010 0000
+Subtotal
+0100 0010
+0x42
+0x00
+0000 0000
+0100 0010
+0x42
+Final checksum value
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 10 of 19
+RESPONSES
+Devices that receive a “D” protocol command may generate a response.  The response formats are described
+below.
+The General Response
+The General Response has the following format.  Note that each block represents 1 byte.
+Byte 1
+Byte 2
+Byte 3
+Byte 4
+Sync
+Address
+Alarm Information
+Checksum
+The alarm information is formatted as follows:
+Bit 7
+Bit 6
+Bit 5
+Bit 4
+Bit 3
+Bit 2
+Bit 1
+Bit 0
+None
+Alarm 7
+Alarm 6
+Alarm 5
+Alarm 4
+Alarm 3
+Alarm 2
+Alarm 1
+If the bit is on (1) then the alarm is active.  If the bit is off (0) then the alarm is inactive.
+The checksum is the sum of the transmitted command’s checksum and the alarm information.
+The Query (0x45) Response
+The response to the Query command is:
+Byte 1
+Byte 2
+Bytes 3 to 17
+Byte 18
+Sync (1 byte)
+Address (1 byte)
+Part Number (15 bytes)
+Checksum (1 byte)
+The address is the address of the device responding to the query. The part number is the ASCII text string
+containing the program number of the device being queried.
+The checksum is the 8 bit (modulo 256) sum of the transmitted query command’s checksum, the address of the
+response, and the 15-byte part number.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 11 of 19
+The Extended Response
+The Extended Response has the following format.  Note that each block represents 1 byte
+Byte 1
+Byte 2
+Byte 3
+Byte 4
+Byte 5
+Byte 6
+Byte 7
+Sync
+Address
+Future Use
+“opcode”
+Data1
+Data2
+Checksum
+The address is the address of the device that is responding.
+The Future Use byte should always be set to 0.
+Opcode, Data1 and Data2 are dependent on the type of response.  See the opcode description section of this
+document for the details of a particular response.
+The checksum is the 8 bit (modulo 256) sum of all the bytes excluding the Sync byte.
+OPCODE DESCRIPTIONS
+Please note that this is not an exhaustive list, the most commonly used commands have been described for
+clarity of implementation.
+Set Preset (0x03)
+Clear Preset (0x05)
+Go To Preset (0x07)
+The parameter in byte 6 of these commands is the ID of the preset to be acted on.  Valid preset IDs begin at 1.
+Most devices support at least 32 presets.  Refer to the manual of the device under use for information about
+what range of presets are valid for that equipment.
+Write Character To Screen (0x15)
+The parameter in byte 5 of this command indicates the column to write to.  This parameter is interpreted as
+follows:
+Columns 0-19 are used to receive zone labels.  2
+Columns 20-39 are used to receive preset labels. 3
+                                                 
+2 For Spectra III and Spectra III SE only, characters written to these positions are not written directly to the screen.   Once the
+SET_ZONE_START (opcode 0x11) command is received, the characters are displayed.
+3 For Spectra III and Spectra III SE only, characters written to these positions are not written directly to the screen.  However, if
+characters are written to these columns and no SET_PRESET (opcode 0x03) command is received within 250 milliseconds, the
+characters will be displayed on the screen beginning at the first column of the second row of the display.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 12 of 19
+Set Pattern Start (0x1F)
+Run Pattern (0x23)
+The parameter in byte 6 of these commands indicates the pattern to be set/run.  Spectra III and Spectra III SE
+interpret this byte as follows:
+Value
+Action
+0 or 1
+Sets/runs pattern 1
+2
+Sets/runs pattern 2
+3
+Sets/runs pattern 3
+4
+Sets/runs pattern 4
+Spectra II and Esprit interpret this byte as follows:
+Value
+Action
+0
+Sets/runs the single
+“long pattern”
+1
+Sets/runs the first    
+“short pattern”
+2
+Sets/runs the second
+“short pattern”
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 13 of 19
+Reserved Opcode (0x47)
+For Pelco internal use only.
+Set Zero Position (0x49)
+This command is used to set the pan position that the unit uses as a zero reference point for the azimuth on-
+screen display.  The unit’s current pan position when this command is received becomes the zero reference
+point.  This command performs the same function as the “Set Azimuth Zero” menu item.
+Set Pan Position (0x4B)
+This command is used to set the pan position of the device.  The position is given in hundredths of a degree and
+has a range from 0 to 35999  (decimal).  Example:  the value to use to set the pan position to 45 degrees is 4500.
+Note that the value used here is always the “absolute” pan position.  It does not take into account any
+adjustment to the screen display that may have been made by using the “Set Zero Position”, opcode (0x49)
+command or the “Set Azimuth Zero” menu item.
+Set Tilt Position (0x4D)
+This command is used to set the tilt position of the device.  The position is given in hundredths of a degree and
+has a range from 0 to 35999 (decimal). Generally these values are interpreted as follows:
+Zero degrees indicates that the device is pointed horizontally (at the horizon).  Ninety degrees indicates that the
+device is pointed straight down.
+Examples:
+1)  the value used to set the tilt position to 45 degrees below the horizon, is 4500.
+2)  the value used to set the tilt position 30 degrees above the horizon, is 33000.
+Note that different equipment will have different ranges of motion.  To determine the abilities of a specific
+piece of equipment, refer to that device’s operation manual.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 14 of 19
+Set Zoom Position (0x4F)
+This command is used to set the zoom position of the device.  The position is given as a ratio based on the
+device’s Zoom Limit setting.  The position is calculated as follows:
+Position = (desired_zoom_position / zoom_limit) * 65535
+Where desired_zoom_position and zoom_limit are given in units of magnification.
+Example:  Given that the zoom limit of the device’s camera is X184, calculate the value needed to set the zoom
+position to X5:
+Position = (5 / 184) * 65535  = approximately 1781
+Query Pan Position (0x51)
+This command is used to query the current pan position of the device.  The response to this command uses
+opcode 0x59.  See the description of opcode 0x59 for more information.
+Query Tilt Position (0x53)
+This command is used to query the current tilt position of the device.  The response to this command uses
+opcode 0x5B.  See the description of opcode 0x5B for more information.
+Query Zoom Position (0x55)
+This command is used to query the current zoom position of the device.  The response to this command uses
+opcode 0x5D.  See the description of opcode 0x5D for more information.
+Reserved Opcode (0x57)
+For Pelco internal use only.
+Query Pan Position Response (0x59)
+The position is given in hundredths of a degree and has a range from 0 to 35999  (decimal).
+Example:  a position value of 4500 indicates 45 degrees.  Note that the value returned is always the “absolute”
+pan position.  It does not take into account any adjustment to the screen display that may have been made by
+using the “Set Zero Position”, opcode (0x49) command or the “Set Azimuth Zero” menu item.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 15 of 19
+Query Tilt Position Response (0x5B)
+The position is given in hundredths of a degree and has a range from 0 to 35999 (decimal).  Refer to examples
+listed in description of the “Set Tilt Position”, opcode 0x4D command.
+Query Zoom Position Response (0x5D)
+The position is given as a ratio based on the device’s Zoom Limit setting.  This value can be converted into
+units of magnification by using the following formula:
+current_magnification = (position / 65535) * zoom_limit
+Where current_zoom_position and zoom_limit are given in units of magnification.
+Example:  Given that the zoom limit of the device’s camera is X184, position value is 1781, calculate the
+current magnification:
+Current magnification = (1781 / 65535) * 184 = approximately X5.
+Note:  This message is sent in response to the Query Zoom  Position (0x55) command.
+Set Magnification (0x5F)
+This command is used to set the zoom position of the device.  The position is given in hundredths of units of
+magnification.  Example:  a value of 500 means X5.
+Query Magnification (0x61)
+This command is used to query the current zoom position of the device.  The response to this command uses
+opcode 0x63.  See the description of opcode 0x63 for more information.
+Query Magnification Response (0x63)
+The value returned is given in hundredths of units of magnification.  Example:  a value of 500 means X5.
+Reserved Opcode (0x65)
+For Pelco internal use only.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 16 of 19
+Reserved Opcode (0x67)
+For Pelco internal use only.
+Reserved Opcode (0x69)
+For Pelco internal use only.
+Reserved Opcode (0x6B)
+For Pelco internal use only.
+Reserved Opcode (0x6D)
+For Pelco internal use only.
+Reserved Opcode (0x6F)
+For Pelco internal use only.
+Reserved Opcode (0x71)
+For Pelco internal use only.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 17 of 19
+Appendix A
+Advanced Feature Commands
+Equipment Compatibility4
+Spectra III,
+Spectra III  SE
+v1.20 and later
+Esprit ES3xC,
+ES3xPC  v3.05
+and later
+Reserved
+Opcode (0x47)
+No
+No
+Set Zero Position
+(0x49)
+Yes
+Yes
+Set Pan Position
+(0x4B)
+Yes
+Yes
+Set Tilt Position
+(0x4D)
+Yes
+Yes
+Set Zoom
+Position (0x4F)
+Yes
+No
+Query Pan
+Position (0x51)
+Yes
+Yes
+Query Tilt
+Position (0x53)
+Yes
+Yes
+Query Zoom
+Position (0x55)
+Yes
+No
+Reserved
+Opcode (0x57)
+No
+No
+Query Pan
+Response (0x59)
+Yes
+Yes
+Query Tilt
+Response (0x5B)
+Yes
+Yes
+Query Zoom
+Response (0x5D)
+Yes
+No
+Set
+Magnification
+(0x5F)
+Yes
+Yes
+Query
+Magnification
+(0x61)
+Yes
+Yes
+                                                 
+4 Pelco products not listed in this table do not implement the ‘Advanced Feature’ command set and will not be modified to
+accommodate these features in the future.
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 18 of 19
+Query
+Magnification
+Response (0x63)
+Yes
+Yes
+Reserved
+Opcode (0x65)
+No
+No
+Reserved
+Opcode (0x67)
+No
+No
+Reserved
+Opcode (0x69)
+No
+No
+Reserved
+Opcode (0x6B)
+No
+No
+Reserved
+Opcode (0x6D)
+No
+No
+Reserved
+Opcode (0x6F)
+No
+No
+Reserved
+Opcode (0x71)
+No
+No
+PELCO Engineering Design Standard
+Document Title:  Pelco “D” Protocol Manual
+Version:  1     Revision:  1
+PELCO
+Page 19 of 19
+INDEX
+A
+Address................................................................................................4, 5
+ADVANCED FEATURE SET........................................................................8
+Appendix A...........................................................................................17
+Autoscan..................................................................................................6
+B
+Byte 1 ......................................................................................................5
+Byte 2 ......................................................................................................5
+Byte 3 ......................................................................................................5
+Byte 4 ......................................................................................................5
+Byte 5 ..................................................................................................5, 6
+Byte 6 ......................................................................................................5
+Byte 7 ..................................................................................................5, 6
+C
+Camera off...............................................................................................6
+Camera on ...............................................................................................6
+Checksum........................................................................................5, 6, 9
+Command 1.........................................................................................5, 6
+Command 2.........................................................................................5, 6
+CREATING LABELS...................................................................................9
+D
+Data 1 ......................................................................................................5
+Data 2 ......................................................................................................5
+Document History...................................................................................3
+E
+Example Messages..................................................................................9
+EXTENDED COMMANDS...........................................................................7
+L
+Legal Notices ..........................................................................................4
+M
+Manual scan ............................................................................................6
+N
+Notice of Disclaimer............................................................................... 4
+O
+OPCODE DESCRIPTIONS ......................................................................... 11
+P
+Pan speed ................................................................................................ 6
+Phone....................................................................................................... 4
+Proprietary Notice................................................................................... 4
+Q
+Questions................................................................................................. 4
+R
+RESPONSES ............................................................................................ 10
+S
+Sense bit.................................................................................................. 6
+Synchronization...................................................................................... 5
+T
+THE BYTE FORMAT ................................................................................. 5
+THE MESSAGE FORMAT........................................................................... 5
+THE STANDARD COMMAND SET.............................................................. 6
+Tilt speed................................................................................................. 6
+Turbo speed............................................................................................. 6
+W
+WHAT THIS MANUAL COVERS.................................................................. 5

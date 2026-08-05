@@ -27,10 +27,10 @@ DeviceContext::~DeviceContext()
     delete m_state;
 }
 
-void DeviceContext::startConnection()
+void DeviceContext::startConnection(const QString& ip, quint16 port)
 {
     if (m_cfg) {
-        m_tcp->connectToDevice(m_cfg->deviceIp(), m_cfg->devicePort());
+        m_tcp->connectToDevice(ip, port);
         // 这里的 RTSP url 获取逻辑依赖于 MainWindow，后续可通过 Config 统一获取
     }
 }
@@ -38,8 +38,8 @@ void DeviceContext::startConnection()
 void DeviceContext::stopConnection()
 {
     if (m_tcp->isConnected()) {
-        m_tcp->disconnectFromDevice();
+        m_tcp->disconnectDevice();
     }
-    m_video->stop();
+    m_video->closeStream();
     m_motor->closeMotorSerial();
 }

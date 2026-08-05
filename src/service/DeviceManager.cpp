@@ -1,11 +1,11 @@
 #include "DeviceManager.h"
 #include <QMutex>
 
-Q_GLOBAL_STATIC(DeviceManager, deviceManagerInstance)
+
 
 DeviceManager* DeviceManager::instance()
 {
-    return deviceManagerInstance;
+    static DeviceManager instance; return &instance;
 }
 
 DeviceManager::DeviceManager(QObject *parent)

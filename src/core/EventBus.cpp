@@ -2,11 +2,11 @@
 #include <QMutex>
 #include <QMutexLocker>
 
-Q_GLOBAL_STATIC(EventBus, eventBusInstance)
+
 
 EventBus* EventBus::instance()
 {
-    return eventBusInstance;
+    static EventBus instance; return &instance;
 }
 
 EventBus::EventBus(QObject *parent)

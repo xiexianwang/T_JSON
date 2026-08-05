@@ -24,7 +24,7 @@ public:
     QString deviceId() const { return m_deviceId; }
 
     // 启动与停止网络和视频连接
-    void startConnection();
+    void startConnection(const QString& ip, quint16 port);
     void stopConnection();
 
     // 模块访问器

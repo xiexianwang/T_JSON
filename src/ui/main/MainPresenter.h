@@ -25,7 +25,7 @@ public:
     ~MainPresenter() override;
 
     // --- 供 View 调用的命令接口 ---
-    void connectToDevice();
+    void connectToDevice(const QString& ip, quint16 port);
     void disconnectDevice();
     void ptzMove(int direction);
     void ptzStop();

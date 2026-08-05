@@ -36,10 +36,10 @@ void MainPresenter::setupEventBus()
     // });
 }
 
-void MainPresenter::connectToDevice()
+void MainPresenter::connectToDevice(const QString& ip, quint16 port)
 {
     if (DeviceContext* ctx = DeviceManager::instance()->getDevice(m_currentDeviceId)) {
-        ctx->startConnection();
+        ctx->startConnection(ip, port);
     }
 }
 
@@ -54,7 +54,7 @@ void MainPresenter::ptzMove(int direction)
 {
     if (DeviceContext* ctx = DeviceManager::instance()->getDevice(m_currentDeviceId)) {
         if (ctx->motorController()) {
-            ctx->motorController()->ptzMove(direction);
+            ctx->motorController()->ptzMove(static_cast<PtzDir>(direction));
         }
     }
 }

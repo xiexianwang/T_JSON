@@ -2115,13 +2115,7 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
 }
 
 // 视觉法距离估算：已知目标参考尺寸，用像素大小反推距离
-// 公式：距离(m) = 参考尺寸(m) × 焦距(mm) × 1000 / (目标像素数 × 像元尺寸(μm))
-double MainWindow::GeoCalculator::estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize)
-{
-    if (boxPixels <= 0 || focalMm < 0.1 || pixelSizeUm <= 0 || refSize <= 0)
-        return 0.0;
-    return qBound(1.0, refSize * focalMm * 1000.0 / (boxPixels * pixelSizeUm), 10000.0);
-}
+
 
 //============================================================================
 // resizeEvent - 窗口缩放时重新布局
@@ -2355,3 +2349,4 @@ int MainWindow::currentAlgoModel() const
 {
     return m_currentAlgoModel;
 }
+

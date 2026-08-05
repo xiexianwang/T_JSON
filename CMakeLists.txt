@@ -31,6 +31,8 @@ qt_add_executable(T-JSON
     src/main.cpp
     src/core/GeoCalculator.cpp
     src/core/GeoCalculator.h
+    src/core/JsonFrameParser.cpp
+    src/core/JsonFrameParser.h
     src/core/DeviceState.h
     src/core/EventBus.cpp
     src/core/EventBus.h
@@ -43,6 +45,7 @@ qt_add_executable(T-JSON
     src/ui/components/VideoGridWidget.cpp
     src/ui/components/VideoGridWidget.h
     src/mainwindow.cpp
+    src/mainwindow_json.cpp
     src/mainwindow.h
     ui/mainwindow.ui
     src/tjsonclient.cpp

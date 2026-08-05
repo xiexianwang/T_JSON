@@ -110,7 +110,10 @@ private slots:
     void onVideoSelection(int cx, int cy, int pw, int ph); // 视频画面框选
 
 private:
-    Ui::MainWindow *ui;             // UI 设计器生成的界面对象
+    Ui::MainWindow *ui;
+public:
+    Ui::MainWindow* getUi() const { return ui; }
+private:             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
             MainPresenter *m_presenter;
     VideoGridWidget *m_videoGrid;

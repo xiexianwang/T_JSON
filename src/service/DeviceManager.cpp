@@ -5,7 +5,7 @@
 
 DeviceManager* DeviceManager::instance()
 {
-    static DeviceManager instance; return &instance;
+    static DeviceManager* instance = new DeviceManager(); return instance;
 }
 
 DeviceManager::DeviceManager(QObject *parent)

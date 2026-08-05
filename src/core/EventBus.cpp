@@ -6,7 +6,7 @@
 
 EventBus* EventBus::instance()
 {
-    static EventBus instance; return &instance;
+    static EventBus* instance = new EventBus(); return instance;
 }
 
 EventBus::EventBus(QObject *parent)

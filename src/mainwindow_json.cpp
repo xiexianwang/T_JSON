@@ -307,8 +307,8 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
 {
     QString latStr = doc.value("Latitude").toString();
     QString lonStr = doc.value("Longitude").toString();
-    double lat = parseCoord(latStr);
-    double lon = parseCoord(lonStr);
+    double lat = GeoCalculator::parseCoord(latStr);
+    double lon = GeoCalculator::parseCoord(lonStr);
     double alt = doc.value("Height").toDouble(0);
     double pan = doc.value("PTZInfoH").toDouble(0);
     double tilt = doc.value("PTZInfoV").toDouble(0);
@@ -372,8 +372,8 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     camInfo.resY = isVis ? camCfg.visResY : camCfg.irResY;
 
     DevicePose devPose;
-    devPose.lat = parseCoord(ui->statLatitude->text());
-    devPose.lon = parseCoord(ui->statLongitude->text());
+    devPose.lat = GeoCalculator::parseCoord(ui->statLatitude->text());
+    devPose.lon = GeoCalculator::parseCoord(ui->statLongitude->text());
     devPose.panDeg = ui->statPanAngle->text().toDouble();
 
     bool hasObject = doc.contains("Object") && doc.value("Object").isObject();
@@ -474,7 +474,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 // 计算速度（米/秒）
                 double speed = 0;
                 if (m_track.prevTime.isValid()) {
-                    double dist_m = haversineDistance(m_track.prevLat, m_track.prevLon, tLat, tLon);
+                    double dist_m = GeoCalculator::haversineDistance(m_track.prevLat, m_track.prevLon, tLat, tLon);
                     double dt_s = m_track.prevTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
                     if (dt_s > 0) speed = dist_m / dt_s;
                 }
@@ -491,7 +491,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                         m_track.plotHeading = -1;
 
                     double outBearing = 0;
-                    if (shouldPlotTrackPoint(tLat, tLon,
+                    if (GeoCalculator::shouldPlotTrackPoint(tLat, tLon,
                                              m_track.plotLat, m_track.plotLon,
                                              m_track.plotHeading, m_track.plotTime,
                                              &outBearing)) {

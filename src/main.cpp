@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("LSS");                  // 设置组织名（用于 QSettings 路径）
     a.setApplicationName("LSS Video Manager");     // 设置应用名
     // a.setStyle(QStyleFactory::create("Fusion"));   // 注释掉 Fusion，让 QSS 完全接管控件绘制
-    MainWindow w;                                  // 创建主窗口
+    // Instance of main window\n    MainWindow w; // FORCE RECOMPILE 2                                  // 创建主窗口
     w.show();                                      // 显示主窗口
     return QApplication::exec();                   // 进入 Qt 事件循环
 }

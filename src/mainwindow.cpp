@@ -36,6 +36,7 @@
 //============================================================================
 // 构造函数：初始化所有子模块、建立信号-槽连接、配置 UI
 //============================================================================
+// FORCE RECOMPILE
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -57,7 +58,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupUiStyles();
 
     // Replace old single videoWidget with VideoGridWidget
-    m_videoGrid->hide();
+    ui->videoWidget->hide();
     m_videoGrid = new VideoGridWidget(ui->widgetDisplay);
     if (ui->widgetDisplay->layout()) {
         ui->widgetDisplay->layout()->addWidget(m_videoGrid);
@@ -1194,12 +1195,12 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
         return;
     }
 
-    double targetLon = parseCoord(lonStr);
-    double targetLat = parseCoord(latStr);
+    double targetLon = GeoCalculator::parseCoord(lonStr);
+    double targetLat = GeoCalculator::parseCoord(latStr);
     double targetAlt = altStr.toDouble();
 
-    double devLat = parseCoord(ui->statLatitude->text());
-    double devLon = parseCoord(ui->statLongitude->text());
+    double devLat = GeoCalculator::parseCoord(ui->statLatitude->text());
+    double devLon = GeoCalculator::parseCoord(ui->statLongitude->text());
     double devAlt = m_deviceHeight;
 
     if (devLat == 0 && devLon == 0) {
@@ -1207,8 +1208,8 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
         return;
     }
 
-    double pan = bearing(devLat, devLon, targetLat, targetLon);
-    double dist = haversineDistance(devLat, devLon, targetLat, targetLon);
+    double pan = GeoCalculator::bearing(devLat, devLon, targetLat, targetLon);
+    double dist = GeoCalculator::haversineDistance(devLat, devLon, targetLat, targetLon);
 
     double tilt = 0;
     if (dist > 0.001) { 
@@ -1344,8 +1345,8 @@ void MainWindow::on_btnSetLocation_clicked()
 
     if (!requireConnected()) return;
 
-    double latNum = parseCoord(latStr);
-    double lonNum = parseCoord(lonStr);
+    double latNum = GeoCalculator::parseCoord(latStr);
+    double lonNum = GeoCalculator::parseCoord(lonStr);
 
     QString altStr = ui->editSetHeight->text().trimmed();
     if (!altStr.isEmpty()) {
@@ -1478,8 +1479,8 @@ void MainWindow::updateMapLayout()
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
         m_mapContainer->setMask(QRegion(0, 0, 280, 280, QRegion::Ellipse));
         m_mapWidget->setGeometry(0, 0, 280, 280);
-        double lat = parseCoord(ui->statLatitude->text());
-        double lon = parseCoord(ui->statLongitude->text());
+        double lat = GeoCalculator::parseCoord(ui->statLatitude->text());
+        double lon = GeoCalculator::parseCoord(ui->statLongitude->text());
         if (lat != 0 || lon != 0)
             m_mapWidget->setCircularClip(true, lat, lon, 12);
         else
@@ -1618,4 +1619,8 @@ int MainWindow::currentAlgoModel() const
     return m_currentAlgoModel;
 }
 
-\nvoid MainWindow::refreshStyle(QWidget *w) {\n    w->style()->unpolish(w);\n    w->style()->polish(w);\n}\n
+
+void MainWindow::refreshStyle(QWidget *w) {
+    w->style()->unpolish(w);
+    w->style()->polish(w);
+}

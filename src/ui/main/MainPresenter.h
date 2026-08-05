@@ -29,6 +29,18 @@ public:
     void disconnectDevice();
     void ptzMove(int direction);
     void ptzStop();
+
+    // --- 提取的业务按钮逻辑 ---
+    void on_btnConnect_clicked();
+    void on_btnCancelConnect_clicked();
+    void on_btnVideoConnect_clicked();
+    void on_btnVideoDisconnect_clicked();
+    void on_btnPtzMoveTo_clicked();
+    void on_btnPtzMoveToGps_clicked();
+    void on_btnPanZeroCalib_clicked();
+    void on_btnSetLocation_clicked();
+    void on_btnGetImageParams_clicked();
+
     
     // 过渡期接口：为了不一次性引发几百个编译错误，提供底层组件的访问器
     DeviceController* motorController() const;

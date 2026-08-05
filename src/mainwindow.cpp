@@ -787,20 +787,10 @@ void MainWindow::setupUiStyles()
 //============================================================================
 void MainWindow::on_btnConnect_clicked()
 {
-    if (m_presenter->tcpClient()->isConnected()) {
-        m_presenter->tcpClient()->disconnectDevice();
-    } else {
-        if (!m_cfg->turntableIpEnabled()) {
-             ui->statusbar->showMessage(QString::fromUtf8("转台IP连接已禁用"), 3000);
-             return;
-        }
-        QString ip = ui->lineEditIp->text();
-        m_presenter->tcpClient()->connectToDevice(ip, 8089);
-        ui->btnConnect->setText(QString::fromUtf8("连接中..."));
-        ui->btnConnect->setEnabled(false);
-        ui->btnCancelConnect->setVisible(true);
-    }
+    m_presenter->on_btnConnect_clicked();
 }
+
+
 
 //============================================================================
 // on_btnCancelConnect_clicked - 取消正在进行的连接
@@ -808,12 +798,10 @@ void MainWindow::on_btnConnect_clicked()
 //============================================================================
 void MainWindow::on_btnCancelConnect_clicked()
 {
-    m_presenter->tcpClient()->disconnectDevice();
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("已取消连接"), 3000);
+    m_presenter->on_btnCancelConnect_clicked();
 }
+
+
 
 //============================================================================
 // on_btnVideoConnect_clicked - 连接 RTSP 视频流
@@ -821,17 +809,10 @@ void MainWindow::on_btnCancelConnect_clicked()
 //============================================================================
 void MainWindow::on_btnVideoConnect_clicked()
 {
-    QString url = ui->lineEditRtsp->text().trimmed();
-    if (url.isEmpty()) {
-        QMessageBox::warning(this, "RTSP", "请输入 RTSP 地址");
-        return;
-    }
-    m_rtspEverOpened = true;
-    m_presenter->videoStream()->openStream(url);
-    ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
-    ui->statusbar->showMessage(QString::fromUtf8("正在连接 RTSP 视频流..."));
+    m_presenter->on_btnVideoConnect_clicked();
 }
+
+
 
 //============================================================================
 // on_btnVideoDisconnect_clicked - 断开 RTSP 视频流
@@ -839,13 +820,10 @@ void MainWindow::on_btnVideoConnect_clicked()
 //============================================================================
 void MainWindow::on_btnVideoDisconnect_clicked()
 {
-    if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
-    m_videoGrid->repaint();
-    m_presenter->videoStream()->closeStream();
-    ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("开启"));
-    ui->statusbar->showMessage(QString::fromUtf8("视频已断开"), 3000);
+    m_presenter->on_btnVideoDisconnect_clicked();
 }
+
+
 
 //============================================================================
 // onRtspFrame - 收到一帧 RTSP 视频图像
@@ -1165,108 +1143,30 @@ void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 //============================================================================
 void MainWindow::on_btnPtzMoveTo_clicked()
 {
-    if (!requireConnected()) return;
-
-    bool panOk = false;
-    bool tiltOk = false;
-    double pan = ui->editTargetPan->text().toDouble(&panOk);
-    double tilt = ui->editTargetTilt->text().toDouble(&tiltOk);
-
-    if (panOk && tiltOk) {
-        m_presenter->motorController()->ptzMoveTo(pan, tilt);
-    } else {
-        QMessageBox::warning(this, "输入错误", "请输入有效的水平和垂直角度值。");
-    }
+    m_presenter->on_btnPtzMoveTo_clicked();
 }
+
+
 
 //============================================================================
 // on_btnPtzMoveToGps_clicked - 云台转动到指定经纬度高度
 //============================================================================
 void MainWindow::on_btnPtzMoveToGps_clicked()
 {
-    if (!requireConnected()) return;
-
-    QString lonStr = ui->editTargetLon->text().trimmed();
-    QString latStr = ui->editTargetLat->text().trimmed();
-    QString altStr = ui->editTargetAlt->text().trimmed();
-
-    if (lonStr.isEmpty() || latStr.isEmpty()) {
-        QMessageBox::warning(this, "输入错误", "请输入目标的经纬度和高度。");
-        return;
-    }
-
-    double targetLon = GeoCalculator::parseCoord(lonStr);
-    double targetLat = GeoCalculator::parseCoord(latStr);
-    double targetAlt = altStr.toDouble();
-
-    double devLat = GeoCalculator::parseCoord(ui->statLatitude->text());
-    double devLon = GeoCalculator::parseCoord(ui->statLongitude->text());
-    double devAlt = m_deviceHeight;
-
-    if (devLat == 0 && devLon == 0) {
-        QMessageBox::warning(this, "状态错误", "当前设备 GPS 未知，无法计算目标角度。");
-        return;
-    }
-
-    double pan = GeoCalculator::bearing(devLat, devLon, targetLat, targetLon);
-    double dist = GeoCalculator::haversineDistance(devLat, devLon, targetLat, targetLon);
-
-    double tilt = 0;
-    if (dist > 0.001) { 
-        tilt = -qRadiansToDegrees(qAtan2(targetAlt - devAlt, dist));
-    }
-
-    m_presenter->motorController()->ptzMoveTo(pan, tilt);
-    ui->statusbar->showMessage(QString("转到 GPS: 方位=%1° 俯仰=%2°").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
+    m_presenter->on_btnPtzMoveToGps_clicked();
 }
+
+
 
 //============================================================================
 // on_btnPanZeroCalib_clicked - 水平零点标定
 //============================================================================
 void MainWindow::on_btnPanZeroCalib_clicked()
 {
-    if (!requireConnected()) return;
-    
-    if (QMessageBox::question(this, "零点标定", "确认将当前云台水平和俯仰位置标定为 0 度？") == QMessageBox::Yes) {
-        if (m_cfg->softwarePtzCalibrationEnabled()) {
-            // 开启了模拟串口服务器，使用软件偏置
-            QString panStr = ui->statPanAngle->text();
-            panStr.remove("°");
-            double displayedPan = panStr.toDouble();
-
-            QString tiltStr = ui->statTiltAngle->text();
-            tiltStr.remove("°");
-            double displayedTilt = tiltStr.toDouble();
-
-            double oldPanOffset = m_cfg->ptzPanOffset();
-            double oldTiltOffset = m_cfg->ptzTiltOffset();
-
-            double newPanOffset = displayedPan + oldPanOffset;
-            while (newPanOffset >= 360.0) newPanOffset -= 360.0;
-            while (newPanOffset < 0) newPanOffset += 360.0;
-
-            double newTiltOffset = oldTiltOffset - displayedTilt;
-            while (newTiltOffset > 180.0) newTiltOffset -= 360.0;
-            while (newTiltOffset <= -180.0) newTiltOffset += 360.0;
-
-            m_cfg->setPtzPanOffset(newPanOffset);
-            m_cfg->setPtzTiltOffset(newTiltOffset);
-            m_cfg->save();
-
-            m_presenter->ptzForwarder()->setOffsets(newPanOffset, newTiltOffset);
-            m_presenter->ptzForwarder()->flushZeroPosition();
-
-            ui->statPanAngle->setText("0.0°");
-            ui->statTiltAngle->setText("0.0°");
-            ui->statusbar->showMessage("零点标定(软件偏置)已保存", 3000);
-        } else {
-            // 未开启模拟串口服务器，直接通过 PELCO-D 透传标定指令
-            m_presenter->motorController()->ptzSetZero();
-            ui->statusbar->showMessage("零点标定指令(Pelco-D)已下发", 3000);
-            // 这里不强制改 UI，让后续设备主动上报的新角度来刷新 UI
-        }
-    }
+    m_presenter->on_btnPanZeroCalib_clicked();
 }
+
+
 
 //============================================================================
 //============================================================================
@@ -1334,32 +1234,10 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 //============================================================================
 void MainWindow::on_btnSetLocation_clicked()
 {
-    QString latStr = ui->editSetLat->text().trimmed();
-    QString lonStr = ui->editSetLon->text().trimmed();
-
-    if (latStr.isEmpty() || lonStr.isEmpty()) {
-        QMessageBox::warning(this, QString::fromUtf8("输入错误"),
-                             QString::fromUtf8("请填写完整的经纬度参数"));
-        return;
-    }
-
-    if (!requireConnected()) return;
-
-    double latNum = GeoCalculator::parseCoord(latStr);
-    double lonNum = GeoCalculator::parseCoord(lonStr);
-
-    QString altStr = ui->editSetHeight->text().trimmed();
-    if (!altStr.isEmpty()) {
-        m_deviceHeight = altStr.toDouble();
-        ui->statHeight->setText(QString::number(m_deviceHeight, 'f', 1) + QStringLiteral(" m"));
-    }
-
-    QString strictLat = QString::asprintf("%.7f%s", qAbs(latNum), latNum >= 0 ? "N" : "S");
-    QString strictLon = QString::asprintf("%.7f%s", qAbs(lonNum), lonNum >= 0 ? "E" : "W");
-
-    m_presenter->motorController()->setLocation(strictLat, strictLon);
-    ui->statusbar->showMessage(QString::fromUtf8("已下发经纬度"), 3000);
+    m_presenter->on_btnSetLocation_clicked();
 }
+
+
 
 //============================================================================
 // on_btnGetImageParams_clicked - 查询设备当前图像参数
@@ -1367,10 +1245,10 @@ void MainWindow::on_btnSetLocation_clicked()
 //============================================================================
 void MainWindow::on_btnGetImageParams_clicked()
 {
-    if (!requireConnected()) return;
-    m_presenter->motorController()->queryImageParams();
-    ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
+    m_presenter->on_btnGetImageParams_clicked();
 }
+
+
 
 
 

@@ -113,12 +113,11 @@ private:
     Ui::MainWindow *ui;
 public:
     Ui::MainWindow* getUi() const { return ui; }
-    static void refreshStyle(QWidget *w);
+                static void refreshStyle(QWidget *w);
 private:             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
             MainPresenter *m_presenter;
-    VideoGridWidget *m_videoGrid;
-    MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
+        MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
 

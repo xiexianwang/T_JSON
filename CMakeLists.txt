@@ -72,7 +72,7 @@ qt_add_executable(T-JSON
 # 重命名输出 exe（任务管理器显示为 LSSVideoManager.exe）
 set_target_properties(T-JSON PROPERTIES OUTPUT_NAME "LSSVideoManager")
 
-target_include_directories(T-JSON PRIVATE "${FFMPEG_INCLUDE_DIR}")
+target_include_directories(T-JSON PRIVATE "${FFMPEG_INCLUDE_DIR}" src)
 
 target_link_libraries(T-JSON
     PRIVATE

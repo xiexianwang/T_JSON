@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QMap>
+#include <QList>
 #include <QString>
 #include "DeviceContext.h"
 #include "configmanager.h"

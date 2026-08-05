@@ -1,7 +1,7 @@
-//============================================================================
-// mainwindow.cpp - T-JSON Ö÷´°¿ÚÊµÏÖ
-// °üº¬Ö÷´°¿ÚµÄ¹¹Ôì/Îö¹¹¡¢UI ÑùÊ½³õÊ¼»¯¡¢ÐÅºÅ-²ÛÁ¬½Ó£¬
-// ÒÔ¼°ÍêÕûµÄ JSON Ö¡½âÎö¡¢×´Ì¬¸üÐÂ¡¢µØÍ¼×ø±ê×ª»»¡¢ÔÆÌ¨¾µÍ·¿ØÖÆÂß¼­¡£
+ï»¿//============================================================================
+// mainwindow.cpp - T-JSON ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÚµÄ¹ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½UI ï¿½ï¿½Ê½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½-ï¿½ï¿½ï¿½ï¿½ï¿½Ó£ï¿½
+// ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ JSON Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½Â¡ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½
 //============================================================================
 #include "mainwindow.h"
 #include "core/GeoCalculator.h"
@@ -35,7 +35,7 @@ static double haversineDistance(double lat1, double lon1, double lat2, double lo
 static double bearing(double lat1, double lon1, double lat2, double lon2);
 
 //============================================================================
-// ¸¨Öúº¯Êý£ºË¢ÐÂ¿Ø¼þµÄ QSS ¶¯Ì¬ÊôÐÔ
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½Â¿Ø¼ï¿½ï¿½ï¿½ QSS ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 static void refreshStyle(QWidget *w) {
     w->style()->unpolish(w);
@@ -43,20 +43,20 @@ static void refreshStyle(QWidget *w) {
 }
 
 //============================================================================
-// ¹¹Ôìº¯Êý£º³õÊ¼»¯ËùÓÐ×ÓÄ£¿é¡¢½¨Á¢ÐÅºÅ-²ÛÁ¬½Ó¡¢ÅäÖÃ UI
+// ï¿½ï¿½ï¿½ìº¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½é¡¢ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½-ï¿½ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½ UI
 //============================================================================
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_cfg(new ConfigManager(this))
-    , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP ÊÓÆµÀ­Á÷Ïß³Ì
-    , m_updatingFromDevice(false)            // ·ÀµÝ¹é¸üÐÂ³õÊ¼¹Ø±Õ
-    , m_currentVisZoom(1.0)                  // Ä¬ÈÏ¿É¼û¹â±¶ÂÊ 1.0
-    , m_currentIrZoom(1.0)                   // Ä¬ÈÏºìÍâ±¶ÂÊ 1.0
-    , m_currentTilt(0.0)                     // Ä¬ÈÏ¸©Ñö½Ç 0
-    , m_currentPipShow(0)                    // Ä¬ÈÏÏÔÊ¾Ä£Ê½£º´óÍ¼¿É¼û¹â
+    , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½
+    , m_updatingFromDevice(false)            // ï¿½ï¿½ï¿½Ý¹ï¿½ï¿½ï¿½Â³ï¿½Ê¼ï¿½Ø±ï¿½
+    , m_currentVisZoom(1.0)                  // Ä¬ï¿½Ï¿É¼ï¿½ï¿½â±¶ï¿½ï¿½ 1.0
+    , m_currentIrZoom(1.0)                   // Ä¬ï¿½Ïºï¿½ï¿½â±¶ï¿½ï¿½ 1.0
+    , m_currentTilt(0.0)                     // Ä¬ï¿½Ï¸ï¿½ï¿½ï¿½ï¿½ï¿½ 0
+    , m_currentPipShow(0)                    // Ä¬ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½É¼ï¿½ï¿½ï¿½
     , m_workModeInitialized(false)
-    , m_currentResX(m_cfg->cam().visResX)    // Ä¬ÈÏ¿É¼û¹â·Ö±æÂÊ
+    , m_currentResX(m_cfg->cam().visResX)    // Ä¬ï¿½Ï¿É¼ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½
     , m_currentResY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
     for (auto *b : {ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close})
         b->setIconSize(QSize(18, 18));
 
-    // Îªµ¼º½À¸°´Å¥ÉèÖÃ SVG Í¼±ê£¨Í¼Æ¬ÔÚÉÏ£¬ÎÄ×ÖÔÚÏÂ£©
+    // Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½ SVG Í¼ï¿½ê£¨Í¼Æ¬ï¿½ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½
     auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
         btn->setIcon(QIcon(svgPath));
         btn->setIconSize(QSize(18, 18));
@@ -85,7 +85,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupNavBtn(ui->btnNavLog, QStringLiteral(":/log.svg"));
     setupNavBtn(ui->btnNavSettings, QStringLiteral(":/gear.svg"));
 
-    // µ¼º½°´Å¥»¥³â×é
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     auto *navGroup = new QButtonGroup(this);
     navGroup->setExclusive(true);
     navGroup->addButton(ui->btnNavMonitor, 0);
@@ -94,18 +94,18 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
 
-    // ¸ù¾ÝÅäÖÃ×Ô¶¯³õÊ¼»¯Á¬½Ó
-    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "´®¿Ú") {
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "ä¸²å£") {
         m_presenter->motorController()->openMotorSerial(m_cfg->motorComPort());
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
         m_presenter->motorController()->openMotorTcp();
     }
 
     connect(m_presenter->ptzForwarder(), &PtzForwarder::ptzAnglesUpdated, this, [this](double, double) {
-        // ×ªÌ¨½Ç¶ÈÒÑ¸ÄÓÃ 8089 ¶Ë¿Ú JSON Êý¾Ý¸üÐÂ
+        // ×ªÌ¨ï¿½Ç¶ï¿½ï¿½Ñ¸ï¿½ï¿½ï¿½ 8089 ï¿½Ë¿ï¿½ JSON ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½ï¿½
     });
 
-    // PTZ Forwarder start£¨ÑÓ³Ùµ½ÊÂ¼þÑ­»·Æô¶¯ºó£©
+    // PTZ Forwarder startï¿½ï¿½ï¿½Ó³Ùµï¿½ï¿½Â¼ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     QTimer::singleShot(0, this, [this]() {
         if (m_cfg->serialServerEnabled()) {
             m_presenter->ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
@@ -114,20 +114,20 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
 
-    // ÃÔÄãµØÍ¼£ºÈÝÆ÷ ¡ú MapWidget ¡ú ¸²¸Ç²ã
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ MapWidget ï¿½ï¿½ ï¿½ï¿½ï¿½Ç²ï¿½
     m_mapContainer = new QWidget(ui->widgetDisplay);
     m_mapContainer->setVisible(false);
     m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
     m_mapWidget = new MapWidget(m_mapContainer);
     m_mapWidget->setGeometry(0, 0, 280, 280);
-    // Í¸Ã÷¸²¸Ç²ã£ºÃÔÄãÄ£Ê½À¹½ØÊó±ê£¨ÍÏ×§ÒÆ¶¯£¬Ë«»÷Õ¹¿ª£©
+    // Í¸ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ã£ºï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê£¨ï¿½ï¿½×§ï¿½Æ¶ï¿½ï¿½ï¿½Ë«ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½
     m_mapOverlay = new QWidget(m_mapContainer);
     m_mapOverlay->setGeometry(0, 0, 280, 280);
     m_mapOverlay->setCursor(Qt::OpenHandCursor);
     m_mapOverlay->installEventFilter(this);
 
-    // PiP ¶ÀÁ¢¶Ô»°¿ò£º´óµØÍ¼Ê±ÊÓÆµÏÔÊ¾ÓÚ´Ë
-    // ±£³Ö 2566:1520 ¿í¸ß±È£¬ÖÃ¶¥ÏÔÊ¾£¬¸ß¶ÈÐè¼ÓÉÏ±êÌâÀ¸22px
+    // PiP ï¿½ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ò£º´ï¿½ï¿½Í¼Ê±ï¿½ï¿½Æµï¿½ï¿½Ê¾ï¿½Ú´ï¿½
+    // ï¿½ï¿½ï¿½ï¿½ 2566:1520 ï¿½ï¿½ß±È£ï¿½ï¿½Ã¶ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ß¶ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½22px
     m_pipDialog = new QDialog(this, Qt::FramelessWindowHint | Qt::Tool);
     m_pipDialog->setAttribute(Qt::WA_ShowWithoutActivating);
     int pipW = 380;
@@ -156,7 +156,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
 
-    // MapWidget ¹¤¾ßÀ¸ÐÅºÅ ¡ú MainWindow
+    // MapWidget ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ ï¿½ï¿½ MainWindow
     connect(m_mapWidget, &MapWidget::miniRequested,
             this, [this]() { toggleMapMode(); });
     connect(m_mapWidget, &MapWidget::closeRequested,
@@ -166,34 +166,34 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnMapToggle, &QPushButton::clicked,
             this, [this]() { toggleMap(); });
 
-    // Ê×´Î²¼¾Ö
+    // ï¿½×´Î²ï¿½ï¿½ï¿½
     updateMapLayout();
 
-    // ÏµÍ³²ÎÊýÂÖÑ¯£º500ms ÖÜÆÚ²éÑ¯Éè±¸ ImageSetting
+    // ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½500ms ï¿½ï¿½ï¿½Ú²ï¿½Ñ¯ï¿½è±¸ ImageSetting
     m_sysParamTimer = new QTimer(this);
     m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
 
-    // AIInfo ³¬Ê±ÇåÀí£ºÉè±¸ÎÞÄ¿±êÊ±²»·¢Ö¡£¬2 ÃëÎÞ¸üÐÂÔòÇå³ý²ÐÁô±ê¼Ç
+    // AIInfo ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ä¿ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½2 ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     m_aiCleanupTimer = new QTimer(this);
     m_aiCleanupTimer->setInterval(1000);
     connect(m_aiCleanupTimer, &QTimer::timeout, this, &MainWindow::onAiCleanupTimeout);
     m_aiCleanupTimer->start();
 
-    // »Ö¸´ÉÏ´ÎµÄ¿ª¹Ø×´Ì¬
+    // ï¿½Ö¸ï¿½ï¿½Ï´ÎµÄ¿ï¿½ï¿½ï¿½×´Ì¬
     ui->checkDigitalZoom->setChecked(m_cfg->digitalZoomEnabled());
     ui->checkAutoZoom->setChecked(m_cfg->autoZoomEnabled());
     ui->checkCaptureUpload->setChecked(m_cfg->captureUploadEnabled());
     ui->checkPosReset->setChecked(m_cfg->posResetEnabled());
 
-    // ³õÊ¼»¯¿òÑ¡ÆôÓÃ×´Ì¬
+    // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½×´Ì¬
     int wm = ui->comboWorkMode->currentIndex();
     ui->videoWidget->setSelectionEnabled(wm == 3 || wm == 4);
 
     //============================================================================
-    // RTSP ÊÓÆµÁ÷ÐÅºÅÁ¬½Ó
-    // RtspThread ÔÚ¹¤×÷Ïß³ÌÖÐÀ­Á÷½âÂë£¬Í¨¹ýÐÅºÅ½«Ö¡Êý¾Ý´«»ØÖ÷Ïß³Ì
-    // VideoWidget µÄ selectionFinished ÐÅºÅÓÃÓÚ¿òÑ¡¸ú×Ù
+    // RTSP ï¿½ï¿½Æµï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½
+    // RtspThread ï¿½Ú¹ï¿½ï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë£¬Í¨ï¿½ï¿½ï¿½ÅºÅ½ï¿½Ö¡ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½
+    // VideoWidget ï¿½ï¿½ selectionFinished ï¿½Åºï¿½ï¿½ï¿½ï¿½Ú¿ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½
     //============================================================================
     connect(m_presenter->videoStream(), &RtspThread::frameReady, this, &MainWindow::onRtspFrame);
     connect(m_presenter->videoStream(), &RtspThread::streamOpened, this, &MainWindow::onRtspOpened);
@@ -201,8 +201,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->videoWidget, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
 
     //============================================================================
-    // T-JSON Ð­ÒéÐÅºÅÁ¬½Ó
-    // TJsonClient ¹ÜÀí TCP ³¤Á¬½Ó¡¢ÐÄÌø±£»î¡¢JSON Ö¡ÊÕ·¢Óë×Ô¶¯ÖØÁ¬
+    // T-JSON Ð­ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½
+    // TJsonClient ï¿½ï¿½ï¿½ï¿½ TCP ï¿½ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î¡¢JSON Ö¡ï¿½Õ·ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½
     //============================================================================
     connect(m_presenter->tcpClient(), &TJsonClient::deviceConnected, this, &MainWindow::onDeviceConnected);
     connect(m_presenter->tcpClient(), &TJsonClient::deviceDisconnected, this, &MainWindow::onDeviceDisconnected);
@@ -211,30 +211,30 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_presenter->tcpClient(), &TJsonClient::imageSnapped, this, &MainWindow::onImageSnapped);
     connect(m_presenter->tcpClient(), &TJsonClient::ackReceived, this, &MainWindow::onAckReceived);
     
-    // ×Ô¶¯ÖØÁ¬ÐÅºÅ£ºÃ¿´ÎÖØÁ¬³¢ÊÔÊ±¸üÐÂ°´Å¥ÎÄ±¾Óë×´Ì¬À¸ÌáÊ¾
+    // ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÅºÅ£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â°ï¿½Å¥ï¿½Ä±ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê¾
     connect(m_presenter->tcpClient(), &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
         Q_UNUSED(maxRetries);
-        ui->btnConnect->setText(QString::fromUtf8("ÖØÁ¬ÖÐ(´ÎÊý:%1)").arg(attempt));
+        ui->btnConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½:%1)").arg(attempt));
         ui->btnConnect->setEnabled(false);
         ui->btnConnect->setProperty("state", "reconnecting");
         refreshStyle(ui->btnConnect);
         ui->btnCancelConnect->setVisible(true);
-        ui->statusbar->showMessage(QString::fromUtf8("ÍøÂç²¨¶¯£¬ÕýÔÚ½øÐÐµÚ %1 ´Î×Ô¶¯Ì½²âÖØÁ¬...").arg(attempt));
+        ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½ç²¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½Ðµï¿½ %1 ï¿½ï¿½ï¿½Ô¶ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...").arg(attempt));
     });
-    // ÖØÁ¬Ê§°Ü£º»Ö¸´°´Å¥³õÊ¼×´Ì¬
+    // ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Å¥ï¿½ï¿½Ê¼×´Ì¬
     connect(m_presenter->tcpClient(), &TJsonClient::reconnectFailed, this, [this]() {
-        ui->btnConnect->setText(QString::fromUtf8("Á¬½ÓÉè±¸"));
+        ui->btnConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½è±¸"));
         ui->btnConnect->setEnabled(true);
         ui->btnConnect->setProperty("state", QVariant());
         refreshStyle(ui->btnConnect);
         ui->btnCancelConnect->setVisible(false);
-        ui->statusbar->showMessage(QString::fromUtf8("ÖØÁ¬Ê§°Ü£¬ÒÑ·ÅÆúÁ¬½Ó"), 5000);
+        ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½Ñ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), 5000);
     });
 
     //============================================================================
-    // ÔÆÌ¨°Ë·½Ïò¿ØÖÆ (»ùÓÚ Pelco-D Ð­Òé)
-    // °´ÏÂ°´Å¥ ¡ú ·¢ËÍ³ÖÐø×ª¶¯Ö¸Áî£»ÊÍ·Å°´Å¥ ¡ú ·¢ËÍÍ£Ö¹Ö¸Áî
-    // °Ë¸ö°´Å¥·Ö±ð¶ÔÓ¦ Up/Down/Left/Right ¼°ËÄ¸ö¶Ô½ÇÏß·½Ïò
+    // ï¿½ï¿½Ì¨ï¿½Ë·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ Pelco-D Ð­ï¿½ï¿½)
+    // ï¿½ï¿½ï¿½Â°ï¿½Å¥ ï¿½ï¿½ ï¿½ï¿½ï¿½Í³ï¿½ï¿½ï¿½×ªï¿½ï¿½Ö¸ï¿½î£»ï¿½Í·Å°ï¿½Å¥ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Í£Ö¹Ö¸ï¿½ï¿½
+    // ï¿½Ë¸ï¿½ï¿½ï¿½Å¥ï¿½Ö±ï¿½ï¿½Ó¦ Up/Down/Left/Right ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½Ô½ï¿½ï¿½ß·ï¿½ï¿½ï¿½
     //============================================================================
     auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
         connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_presenter->motorController()->ptzMove(dir); });
@@ -251,9 +251,9 @@ MainWindow::MainWindow(QWidget *parent)
     connectPtzBtn(ui->btnPtzBottomRight, PtzDir::DownRight);
 
     //============================================================================
-    // ÔÆÌ¨ËÙ¶È¿ØÖÆ
-    // »¬¿éÓëÊýÖµÊäÈë¿òË«Ïò°ó¶¨£¬Öµ¸Ä±äÊ±±£´æµ½ÅäÖÃ³Ö¾Ã»¯
-    // Ë®Æ½Óë´¹Ö±ËÙ¶ÈÊ¹ÓÃÏàÍ¬µÄÊýÖµ
+    // ï¿½ï¿½Ì¨ï¿½Ù¶È¿ï¿½ï¿½ï¿½
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½Ë«ï¿½ï¿½ó¶¨£ï¿½Öµï¿½Ä±ï¿½Ê±ï¿½ï¿½ï¿½æµ½ï¿½ï¿½ï¿½Ã³Ö¾Ã»ï¿½
+    // Ë®Æ½ï¿½ë´¹Ö±ï¿½Ù¶ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½Öµ
     //============================================================================
     ui->sliderSpeed->setValue(m_cfg->ptz().panSpeed);
     ui->spinSpeed->setValue(m_cfg->ptz().panSpeed);
@@ -267,10 +267,10 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // ¾µÍ·¿ØÖÆ (Zoom ±ä±¶ / Focus µ÷½¹)
-    // °´ÏÂ°´Å¥ ¡ú ³ÖÐø±ä±¶/µ÷½¹£»ÊÍ·Å°´Å¥ ¡ú Í£Ö¹
+    // ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ (Zoom ï¿½ä±¶ / Focus ï¿½ï¿½ï¿½ï¿½)
+    // ï¿½ï¿½ï¿½Â°ï¿½Å¥ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ä±¶/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·Å°ï¿½Å¥ ï¿½ï¿½ Í£Ö¹
     // op Öµ: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut
-    // ¾µÍ·Ä¿±ê¸ù¾ÝÏÔÊ¾Ä£Ê½×Ô¶¯ÅÐ¶Ï£ºPipShow 1/4=ºìÍâ(target=1)£¬ÆäÓà=¿É¼û¹â(target=0)
+    // ï¿½ï¿½Í·Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½Ô¶ï¿½ï¿½Ð¶Ï£ï¿½PipShow 1/4=ï¿½ï¿½ï¿½ï¿½(target=1)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½=ï¿½É¼ï¿½ï¿½ï¿½(target=0)
     //============================================================================
     auto connectLensBtn = [this](QPushButton* btn, int op) {
         connect(btn, &QPushButton::pressed, this, [this, op]() {
@@ -290,8 +290,8 @@ MainWindow::MainWindow(QWidget *parent)
     connectLensBtn(ui->btnFocusOut, 3);
 
     //============================================================================
-    // ¾µÍ·ËÙ¶È¿ØÖÆ (±ä±¶ËÙ¶È / µ÷½¹ËÙ¶È)
-    // »¬¿éÓëÊýÖµÊäÈë¿òË«Ïò°ó¶¨£¬Öµ¸Ä±äÊ±×Ô¶¯±£´æÅäÖÃ
+    // ï¿½ï¿½Í·ï¿½Ù¶È¿ï¿½ï¿½ï¿½ (ï¿½ä±¶ï¿½Ù¶ï¿½ / ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½)
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½Ë«ï¿½ï¿½ó¶¨£ï¿½Öµï¿½Ä±ï¿½Ê±ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     //============================================================================
     ui->sliderZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
     ui->spinZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
@@ -303,8 +303,8 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // Ô¤ÖÃÎ»¿ØÖÆ (µ÷ÓÃ/ÉèÖÃ/É¾³ý)
-    // Í¨¹ý spinPreset Ñ¡ÔñÔ¤ÖÃÎ»±àºÅ£¬µ÷ÓÃ DeviceController ÖÐµÄÐ­Òé·â×°
+    // Ô¤ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/É¾ï¿½ï¿½)
+    // Í¨ï¿½ï¿½ spinPreset Ñ¡ï¿½ï¿½Ô¤ï¿½ï¿½Î»ï¿½ï¿½Å£ï¿½ï¿½ï¿½ï¿½ï¿½ DeviceController ï¿½Ðµï¿½Ð­ï¿½ï¿½ï¿½×°
     //============================================================================
     connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
@@ -320,8 +320,8 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // ¸½¼Ó¹¦ÄÜ¿ª¹Ø (Êý×Ö±ä±¶ / ×Ô¶¯±ä½¹ / ×¥ÅÄÉÏ´« / Î»ÖÃ¹éÁã)
-    // Ã¿¸ö CheckBox Ö±Á¬¶ÔÓ¦µÄÉè±¸Ö¸Áî
+    // ï¿½ï¿½ï¿½Ó¹ï¿½ï¿½Ü¿ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½Ö±ä±¶ / ï¿½Ô¶ï¿½ï¿½ä½¹ / ×¥ï¿½ï¿½ï¿½Ï´ï¿½ / Î»ï¿½Ã¹ï¿½ï¿½ï¿½)
+    // Ã¿ï¿½ï¿½ CheckBox Ö±ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½è±¸Ö¸ï¿½ï¿½
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkDigitalZoom->blockSignals(true); ui->checkDigitalZoom->setChecked(!checked); ui->checkDigitalZoom->blockSignals(false); return; }
@@ -363,11 +363,11 @@ MainWindow::MainWindow(QWidget *parent)
         });
     });
     connect(m_presenter->motorController(), &DeviceController::motorModeResult, this, [this](bool isManual) {
-        ui->statWiperStatus->setText(isManual ? "ÊÖ¶¯" : "×Ô¶¯");
+        ui->statWiperStatus->setText(isManual ? "ï¿½Ö¶ï¿½" : "ï¿½Ô¶ï¿½");
     });
     connect(m_presenter->motorController(), &DeviceController::motorSerialError, this, [this](const QString& msg) {
-        ui->statWiperStatus->setText("¹ÊÕÏ");
-        qWarning() << "µç»ú´®¿Ú´íÎó:" << msg;
+        ui->statWiperStatus->setText("ï¿½ï¿½ï¿½ï¿½");
+        qWarning() << "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½:" << msg;
     });
     connect(ui->btnWiperLeft, &QPushButton::pressed, this, [this]() {
         if (!requireMotorReady()) return;
@@ -401,13 +401,13 @@ MainWindow::MainWindow(QWidget *parent)
         m_presenter->motorController()->motorToggleSilentMode();
     });
     connect(m_presenter->motorController(), &DeviceController::motorSilentResult, this, [this](bool isSilent) {
-        ui->btnWiperSilent->setText(isSilent ? "¿ñ±©Ä£Ê½" : "¾²ÒôÄ£Ê½");
-        ui->statusbar->showMessage(isSilent ? "µç»úÒÑÇÐ»»Îª£º¾²ÒôÄ£Ê½ (StealthChop)" : "µç»úÒÑÇÐ»»Îª£º¿ñ±©Ä£Ê½ (SpreadCycle)", 3000);
+        ui->btnWiperSilent->setText(isSilent ? "ï¿½ï¿½Ä£Ê½" : "ï¿½ï¿½ï¿½ï¿½Ä£Ê½");
+        ui->statusbar->showMessage(isSilent ? "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ (StealthChop)" : "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Îªï¿½ï¿½ï¿½ï¿½Ä£Ê½ (SpreadCycle)", 3000);
     });
     connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, [this]() {
         int ma = ui->editWiperCurrent->text().toInt();
         m_presenter->motorController()->motorSetCurrent(ma);
-        ui->statusbar->showMessage(QString("ÕýÔÚÏÂ·¢²¢¹Ì»¯µç»úµçÁ÷: %1 mA").arg(ma), 3000);
+        ui->statusbar->showMessage(QString("ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½Ì»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: %1 mA").arg(ma), 3000);
     });
 
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
@@ -416,24 +416,24 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // Ö¸ÁîÈÕÖ¾´°¿Ú
-    // ÊµÊ±ÏÔÊ¾ËùÓÐÏÂ·¢¸øÉè±¸µÄÖ¸ÁîÄÚÈÝ£¬·½±ãµ÷ÊÔÓëÐ­Òé·ÖÎö
+    // Ö¸ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½
+    // ÊµÊ±ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð­ï¿½ï¿½ï¿½ï¿½ï¿½
     //============================================================================
     m_logDialog = new CmdLogDialog(this);
     connect(m_presenter->motorController(), &DeviceController::commandSent, m_logDialog, &CmdLogDialog::appendLog);
 
     //============================================================================
-    // ÏµÍ³ÍÐÅÌ
-    // ¹Ø±Õ´°¿ÚÊ±×îÐ¡»¯µ½ÍÐÅÌ£¬ÓÒ¼ü²Ëµ¥¿ÉÍË³ö³ÌÐò
+    // ÏµÍ³ï¿½ï¿½ï¿½ï¿½
+    // ï¿½Ø±Õ´ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì£ï¿½ï¿½Ò¼ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½
     //============================================================================
     m_trayIcon = new QSystemTrayIcon(this);
     m_trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
-    m_trayIcon->setToolTip(QStringLiteral("LSSÊÓÆµ¹ÜÀí¿Í»§¶Ë"));
+    m_trayIcon->setToolTip(QStringLiteral("LSSï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½"));
 
     m_trayMenu = new QMenu(this);
-    m_trayMenu->addAction(QStringLiteral("ÏÔÊ¾Ö÷´°¿Ú"), this, &MainWindow::onTrayShow);
+    m_trayMenu->addAction(QStringLiteral("ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), this, &MainWindow::onTrayShow);
     m_trayMenu->addSeparator();
-    m_trayMenu->addAction(QStringLiteral("ÍË³ö"), this, &MainWindow::onTrayExit);
+    m_trayMenu->addAction(QStringLiteral("ï¿½Ë³ï¿½"), this, &MainWindow::onTrayExit);
 
     m_trayIcon->setContextMenu(m_trayMenu);
     connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
@@ -447,10 +447,10 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 //============================================================================
-// Îö¹¹º¯Êý£ºÊÍ·Å UI ×ÊÔ´
-// ×ÓÄ£¿é¶ÔÏó (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
-// ¾ùÒÔ MainWindow Îª¸¸¶ÔÏó£¬ÓÉ Qt ¶ÔÏóÊ÷×Ô¶¯Îö¹¹
-// Îö¹¹Ç°Í£Ö¹ RTSP Ïß³Ì£ºÉèÖÃÍ£Ö¹±êÖ¾ºó FFmpeg ÖÐ¶Ï»Øµ÷»áÊ¹Æä¿ìËÙ·µ»Ø
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ UI ï¿½ï¿½Ô´
+// ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
+// ï¿½ï¿½ï¿½ï¿½ MainWindow Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Qt ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½Ç°Í£Ö¹ RTSP ï¿½ß³Ì£ï¿½ï¿½ï¿½ï¿½ï¿½Í£Ö¹ï¿½ï¿½Ö¾ï¿½ï¿½ FFmpeg ï¿½Ð¶Ï»Øµï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½Ù·ï¿½ï¿½ï¿½
 //============================================================================
 MainWindow::~MainWindow()
 {
@@ -467,7 +467,7 @@ MainWindow::~MainWindow()
 }
 
 //============================================================================
-// ±êÌâÀ¸°´Å¥
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥
 //============================================================================
 
 void MainWindow::on_btnMenu_Min_clicked()
@@ -497,28 +497,28 @@ void MainWindow::on_btnMenu_Close_clicked()
     }
 
     QDialog dlg(this);
-    dlg.setWindowTitle(QStringLiteral("¹Ø±ÕÌáÊ¾"));
+    dlg.setWindowTitle(QStringLiteral("ï¿½Ø±ï¿½ï¿½ï¿½Ê¾"));
     dlg.setFixedSize(300, 160);
     dlg.setWindowFlags((dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint));
 
     auto *layout = new QVBoxLayout(&dlg);
 
-    // Radio °´Å¥ÐÐ£º×ó¶ÔÆëÍË³ö³ÌÐò£¬ÓÒ¶ÔÆë×îÐ¡»¯µ½ÍÐÅÌ
+    // Radio ï¿½ï¿½Å¥ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò¶ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     auto *radioLayout = new QHBoxLayout();
-    auto *radioExit = new QRadioButton(QStringLiteral("ÍË³ö³ÌÐò"), &dlg);
-    auto *radioMin = new QRadioButton(QStringLiteral("×îÐ¡»¯µ½ÍÐÅÌ"), &dlg);
+    auto *radioExit = new QRadioButton(QStringLiteral("ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½"), &dlg);
+    auto *radioMin = new QRadioButton(QStringLiteral("ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), &dlg);
     radioMin->setChecked(true);
     radioLayout->addWidget(radioExit);
     radioLayout->addStretch();
     radioLayout->addWidget(radioMin);
     layout->addLayout(radioLayout);
 
-    // µ×²¿ÐÐ£º¼Ç×¡Ñ¡Ôñ£¨×ó£©+ È·ÈÏ£¨ÓÒ£©
+    // ï¿½×²ï¿½ï¿½Ð£ï¿½ï¿½ï¿½×¡Ñ¡ï¿½ï¿½ï¿½ï¿½+ È·ï¿½Ï£ï¿½ï¿½Ò£ï¿½
     auto *bottomLayout = new QHBoxLayout();
-    auto *cbRemember = new QCheckBox(QStringLiteral("¼Ç×¡±¾´ÎÑ¡Ôñ"), &dlg);
+    auto *cbRemember = new QCheckBox(QStringLiteral("ï¿½ï¿½×¡ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½"), &dlg);
     bottomLayout->addWidget(cbRemember);
     bottomLayout->addStretch();
-    auto *btnConfirm = new QPushButton(QStringLiteral("È·ÈÏ"), &dlg);
+    auto *btnConfirm = new QPushButton(QStringLiteral("È·ï¿½ï¿½"), &dlg);
     btnConfirm->setFixedWidth(80);
     bottomLayout->addWidget(btnConfirm);
     layout->addLayout(bottomLayout);
@@ -542,7 +542,7 @@ void MainWindow::on_btnMenu_Close_clicked()
 }
 
 //============================================================================
-// ÏµÍ³ÍÐÅÌ
+// ÏµÍ³ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -562,7 +562,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (m_trayIcon->isVisible()) {
         hide();
         m_trayIcon->showMessage(QStringLiteral("LSS Video Manager"),
-                                QStringLiteral("³ÌÐòÒÑ×îÐ¡»¯µ½ÏµÍ³ÍÐÅÌ"),
+                                QStringLiteral("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½"),
                                 QSystemTrayIcon::Information, 2000);
         event->ignore();
     } else {
@@ -596,11 +596,11 @@ void MainWindow::onTrayExit()
 }
 
 //============================================================================
-// µ¼º½°´Å¥
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥
 //============================================================================
 
-void MainWindow::on_btnNavMonitor_clicked()  { /* µ±Ç°Ò³Ãæ */ }
-void MainWindow::on_btnNavPlayback_clicked() { /* Ô¤Áô */ }
+void MainWindow::on_btnNavMonitor_clicked()  { /* ï¿½ï¿½Ç°Ò³ï¿½ï¿½ */ }
+void MainWindow::on_btnNavPlayback_clicked() { /* Ô¤ï¿½ï¿½ */ }
 void MainWindow::on_btnNavLog_clicked()      {
     if (m_logDialog->isVisible()) {
         m_logDialog->hide();
@@ -614,8 +614,8 @@ void MainWindow::on_btnNavSettings_clicked() {
     SettingsDialog dlg(m_cfg, this);
     dlg.exec();
 
-    // µç»úÐ­Òé±ä¸üºóÖØÐÂ´ò¿ª´®¿Ú
-    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "´®¿Ú") {
+    // ï¿½ï¿½ï¿½Ð­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â´ò¿ª´ï¿½ï¿½ï¿½
+    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "ä¸²å£") {
         m_presenter->motorController()->openMotorSerial(m_cfg->motorComPort());
         m_presenter->motorController()->closeMotorTcp();
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
@@ -627,17 +627,17 @@ void MainWindow::on_btnNavSettings_clicked() {
     }
     updateMotorButtons();
 
-    // ÖØÆô PTZ ×ª·¢·þÎñ
+    // ï¿½ï¿½ï¿½ï¿½ PTZ ×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if (m_cfg->serialServerEnabled()) {
         m_presenter->ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
     } else {
-        // Ó¦¸ÃÒ²Í£Ö¹Ëü£¬µ«Ä¿Ç°Ã»ÓÐÍ£Ö¹·½·¨¡£¼ÙÉè start ×ã¹»»òÕßÊÇµ¥´Î´¥·¢¡£
+        // Ó¦ï¿½ï¿½Ò²Í£Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ç°Ã»ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ start ï¿½ã¹»ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½
         // Let's assume PtzForwarder doesn't have stop or it doesn't matter for now.
     }
 }
 
 //============================================================================
-// changeEvent - ´°¿Ú×´Ì¬±ä»¯Ê±¸üÐÂ×î´ó»¯°´Å¥Í¼±ê
+// changeEvent - ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ä»¯Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ó»¯°ï¿½Å¥Í¼ï¿½ï¿½
 //============================================================================
 
 void MainWindow::changeEvent(QEvent *event)
@@ -648,14 +648,14 @@ void MainWindow::changeEvent(QEvent *event)
             ? QStringLiteral(":/qss/blacksoft/restore.png")
             : QStringLiteral(":/qss/blacksoft/maximize.png")));
         ui->btnMenu_Max->setToolTip(max
-            ? QString::fromUtf8("´°¿Ú»¯")
-            : QString::fromUtf8("×î´ó»¯"));
+            ? QString::fromUtf8("ï¿½ï¿½ï¿½Ú»ï¿½")
+            : QString::fromUtf8("ï¿½ï¿½ï¿½"));
     }
     QMainWindow::changeEvent(event);
 }
 
 //============================================================================
-// nativeEvent - À¹½Ø Windows ÏûÏ¢ÊµÏÖ×Ô¶¨Òå±êÌâÀ¸
+// nativeEvent - ï¿½ï¿½ï¿½ï¿½ Windows ï¿½ï¿½Ï¢Êµï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
@@ -674,8 +674,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
                 rc = reinterpret_cast<RECT*>(msg->lParam);
             }
             if (IsZoomed(msg->hwnd)) {
-                // ×î´ó»¯Ê± Windows »áÔÚËÄ±ßÌí¼Ó²»¿É¼û±ß¿òµ¼ÖÂÄÚÈÝÆ«ÒÆ
-                // ²¹³¥±ß¿ò¿í¶ÈÊ¹¿Í»§ÇøÌîÂú¹¤×÷Çø
+                // ï¿½ï¿½ï¿½Ê± Windows ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Ó²ï¿½ï¿½É¼ï¿½ï¿½ß¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ß¿ï¿½ï¿½ï¿½Ê¹ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 int border = GetSystemMetrics(SM_CXSIZEFRAME)
                            + GetSystemMetrics(SM_CXPADDEDBORDER);
                 rc->left   += border;
@@ -688,7 +688,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         }
 
         case WM_NCHITTEST: {
-            // GET_X_LPARAM ·µ»ØÎïÀíÏñËØ×ø±ê£¬Ðè / devicePixelRatioF() ×ªÎª Qt Âß¼­×ø±ê
+            // GET_X_LPARAM ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê£¬ï¿½ï¿½ / devicePixelRatioF() ×ªÎª Qt ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½
             POINT nativePt = { GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam) };
             ScreenToClient(msg->hwnd, &nativePt);
             qreal dpr = devicePixelRatioF();
@@ -755,7 +755,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 }
 
 //============================================================================
-// setupUiStyles - ¼ÓÔØ²¢Ó¦ÓÃ QSS ÑùÊ½±í
+// setupUiStyles - ï¿½ï¿½ï¿½Ø²ï¿½Ó¦ï¿½ï¿½ QSS ï¿½ï¿½Ê½ï¿½ï¿½
 //============================================================================
 void MainWindow::setupUiStyles()
 {
@@ -771,7 +771,7 @@ void MainWindow::setupUiStyles()
         qWarning() << "[QSS] FAILED to open :/style.qss";
     }
 
-    // QScrollArea viewport Ä¬ÈÏ¼Ì³ÐÏµÍ³ÍÐÅÌÉ«£¬Ç¿ÖÆÉèÎª°µºÚ
+    // QScrollArea viewport Ä¬ï¿½Ï¼Ì³ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
     if (ui->scrollAreaControl) {
         ui->scrollAreaControl->viewport()->setAutoFillBackground(true);
         QPalette pal = ui->scrollAreaControl->viewport()->palette();
@@ -781,8 +781,8 @@ void MainWindow::setupUiStyles()
 }
 
 //============================================================================
-// on_btnConnect_clicked - Á¬½Ó/¶Ï¿ªÉè±¸°´Å¥
-// ÒÑÁ¬½ÓÊ±µã»÷Îª¶Ï¿ª£»Î´Á¬½ÓÊ±¶ÁÈ¡ IP ºÍ¶Ë¿Ú·¢Æð TCP Á¬½Ó
+// on_btnConnect_clicked - ï¿½ï¿½ï¿½ï¿½/ï¿½Ï¿ï¿½ï¿½è±¸ï¿½ï¿½Å¥
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Îªï¿½Ï¿ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½È¡ IP ï¿½Í¶Ë¿Ú·ï¿½ï¿½ï¿½ TCP ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::on_btnConnect_clicked()
 {
@@ -790,51 +790,51 @@ void MainWindow::on_btnConnect_clicked()
         m_presenter->tcpClient()->disconnectDevice();
     } else {
         if (!m_cfg->turntableIpEnabled()) {
-             ui->statusbar->showMessage(QString::fromUtf8("×ªÌ¨IPÁ¬½ÓÒÑ½ûÓÃ"), 3000);
+             ui->statusbar->showMessage(QString::fromUtf8("×ªÌ¨IPï¿½ï¿½ï¿½ï¿½ï¿½Ñ½ï¿½ï¿½ï¿½"), 3000);
              return;
         }
         QString ip = ui->lineEditIp->text();
         m_presenter->tcpClient()->connectToDevice(ip, 8089);
-        ui->btnConnect->setText(QString::fromUtf8("Á¬½ÓÖÐ..."));
+        ui->btnConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..."));
         ui->btnConnect->setEnabled(false);
         ui->btnCancelConnect->setVisible(true);
     }
 }
 
 //============================================================================
-// on_btnCancelConnect_clicked - È¡ÏûÕýÔÚ½øÐÐµÄÁ¬½Ó
-// Ö±½Ó¶Ï¿ª TCP Á¬½Ó²¢»Ö¸´°´Å¥×´Ì¬
+// on_btnCancelConnect_clicked - È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½
+// Ö±ï¿½Ó¶Ï¿ï¿½ TCP ï¿½ï¿½ï¿½Ó²ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Å¥×´Ì¬
 //============================================================================
 void MainWindow::on_btnCancelConnect_clicked()
 {
     m_presenter->tcpClient()->disconnectDevice();
-    ui->btnConnect->setText(QString::fromUtf8("Á¬½ÓÉè±¸"));
+    ui->btnConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½è±¸"));
     ui->btnConnect->setEnabled(true);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("ÒÑÈ¡ÏûÁ¬½Ó"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), 3000);
 }
 
 //============================================================================
-// on_btnVideoConnect_clicked - Á¬½Ó RTSP ÊÓÆµÁ÷
-// ´ÓÊäÈë¿ò»ñÈ¡ RTSP URL ºó½»¸ø RtspThread ½øÐÐÀ­Á÷
+// on_btnVideoConnect_clicked - ï¿½ï¿½ï¿½ï¿½ RTSP ï¿½ï¿½Æµï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ RTSP URL ï¿½ó½»¸ï¿½ RtspThread ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::on_btnVideoConnect_clicked()
 {
     QString url = ui->lineEditRtsp->text().trimmed();
     if (url.isEmpty()) {
-        QMessageBox::warning(this, "RTSP", "ÇëÊäÈë RTSP µØÖ·");
+        QMessageBox::warning(this, "RTSP", "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ RTSP ï¿½ï¿½Ö·");
         return;
     }
     m_rtspEverOpened = true;
     m_presenter->videoStream()->openStream(url);
     ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("Á¬½ÓÖÐ..."));
-    ui->statusbar->showMessage(QString::fromUtf8("ÕýÔÚÁ¬½Ó RTSP ÊÓÆµÁ÷..."));
+    ui->btnVideoConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..."));
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ RTSP ï¿½ï¿½Æµï¿½ï¿½..."));
 }
 
 //============================================================================
-// on_btnVideoDisconnect_clicked - ¶Ï¿ª RTSP ÊÓÆµÁ÷
-// Í£Ö¹À­Á÷Ïß³Ì¡¢Çå³ýÊÓÆµ»­Ãæ¡¢»Ö¸´°´Å¥×´Ì¬
+// on_btnVideoDisconnect_clicked - ï¿½Ï¿ï¿½ RTSP ï¿½ï¿½Æµï¿½ï¿½
+// Í£Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ß³Ì¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½æ¡¢ï¿½Ö¸ï¿½ï¿½ï¿½Å¥×´Ì¬
 //============================================================================
 void MainWindow::on_btnVideoDisconnect_clicked()
 {
@@ -842,13 +842,13 @@ void MainWindow::on_btnVideoDisconnect_clicked()
     ui->videoWidget->repaint();
     m_presenter->videoStream()->closeStream();
     ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("¿ªÆô"));
-    ui->statusbar->showMessage(QString::fromUtf8("ÊÓÆµÒÑ¶Ï¿ª"), 3000);
+    ui->btnVideoConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½"));
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½Æµï¿½Ñ¶Ï¿ï¿½"), 3000);
 }
 
 //============================================================================
-// onRtspFrame - ÊÕµ½Ò»Ö¡ RTSP ÊÓÆµÍ¼Ïñ
-// ½«½âÂëºóµÄ QImage ´«µÝ¸ø VideoWidget ½øÐÐäÖÈ¾
+// onRtspFrame - ï¿½Õµï¿½Ò»Ö¡ RTSP ï¿½ï¿½ÆµÍ¼ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ QImage ï¿½ï¿½ï¿½Ý¸ï¿½ VideoWidget ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾
 //============================================================================
 void MainWindow::onRtspFrame(const QImage &frame)
 {
@@ -856,59 +856,59 @@ void MainWindow::onRtspFrame(const QImage &frame)
 }
 
 //============================================================================
-// onRtspOpened - RTSP ÊÓÆµÁ÷³É¹¦´ò¿ª
-// ¸üÐÂ°´Å¥ÎÄ±¾Óë×´Ì¬À¸ÌáÊ¾
+// onRtspOpened - RTSP ï¿½ï¿½Æµï¿½ï¿½ï¿½É¹ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½Â°ï¿½Å¥ï¿½Ä±ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê¾
 //============================================================================
 void MainWindow::onRtspOpened()
 {
     ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("ÒÑÁ¬½Ó"));
-    ui->statusbar->showMessage(QString::fromUtf8("RTSP ÊÓÆµÒÑÁ¬½Ó"), 3000);
+    ui->btnVideoConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"));
+    ui->statusbar->showMessage(QString::fromUtf8("RTSP ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), 3000);
 }
 
 //============================================================================
-// onRtspError - RTSP ÊÓÆµÁ÷´íÎó´¦Àí
-// Çå³ý»­Ãæ¡¢»Ö¸´°´Å¥£¬²¢ÔÚ×´Ì¬À¸ÏÔÊ¾´íÎóÐÅÏ¢
+// onRtspError - RTSP ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ¡¢ï¿½Ö¸ï¿½ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 //============================================================================
 void MainWindow::onRtspError(const QString &msg)
 {
     ui->videoWidget->clearFrame();
     if (m_presenter->videoStream()->isRunning()) {
-        // Ïß³Ì»¹ÔÚÔËÐÐËµÃ÷ÊÇ×Ô¶¯ÖØÁ¬ÖÐ£¬±£³Ö°´Å¥ÔÚ"ÖØÁ¬ÖÐ..."×´Ì¬
-        ui->btnVideoConnect->setText(QString::fromUtf8("ÖØÁ¬ÖÐ..."));
+        // ï¿½ß³Ì»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½Ö°ï¿½Å¥ï¿½ï¿½"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..."×´Ì¬
+        ui->btnVideoConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..."));
         ui->statusbar->showMessage(msg.isEmpty()
-            ? QString::fromUtf8("RTSP ¶Ï¿ª£¬ÕýÔÚÖØÁ¬...")
-            : QString::fromUtf8("RTSP ÖØÁ¬Ê§°Ü£¬¼ÌÐøÖØÊÔ..."));
+            ? QString::fromUtf8("RTSP ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...")
+            : QString::fromUtf8("RTSP ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..."));
     } else {
-        // Ïß³ÌÒÑÍË³ö£¬°´Å¥»Ö¸´"¿ªÆô"ÈÃÓÃ»§ÊÖ¶¯ÔÙÊÔ
+        // ï¿½ß³ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½Å¥ï¿½Ö¸ï¿½"ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½
         ui->btnVideoConnect->setEnabled(true);
-        ui->btnVideoConnect->setText(QString::fromUtf8("¿ªÆô"));
+        ui->btnVideoConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½"));
         ui->statusbar->showMessage(msg);
     }
 }
 
 //============================================================================
-// onVideoSelection - ÓÃ»§ÔÚÊÓÆµ»­ÃæÉÏµÄ¿òÑ¡²Ù×÷
-// ½«¿òÑ¡µÄÏñËØ×ø±êÓë¿í¸ß·¢ËÍ¸øÉè±¸£¬ÓÃÓÚ¿òÑ¡¸ú×ÙÄ£Ê½
-// cx, cy Îª¿òÑ¡ÇøÓòÖÐÐÄÏñËØ×ø±ê£¬pw, ph Îª¿ò¿í¸ß
+// onVideoSelection - ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ÏµÄ¿ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß·ï¿½ï¿½Í¸ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ä£Ê½
+// cx, cy Îªï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê£¬pw, ph Îªï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
 {
     int wm = ui->comboWorkMode->currentIndex();
     if (wm != 3 && wm != 4) {
-        ui->statusbar->showMessage(QString::fromUtf8("½öÔÚµãÑ¡¸ú×Ù»ò¿òÑ¡¸ú×ÙÄ£Ê½ÏÂÖ§³Ö¿òÑ¡"), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½Úµï¿½Ñ¡ï¿½ï¿½ï¿½Ù»ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Ö§ï¿½Ö¿ï¿½Ñ¡"), 3000);
         return;
     }
 
     if (wm == 3) {
         ui->statusbar->showMessage(
-            QString::fromUtf8("µãÑ¡¸ú×Ù: ÏñËØÖÐÐÄ(%1,%2)")
+            QString::fromUtf8("ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(%1,%2)")
                 .arg(cx).arg(cy));
         if (!requireConnected()) return;
         m_presenter->motorController()->setPointTrack(cx, cy);
     } else {
         ui->statusbar->showMessage(
-            QString::fromUtf8("¿òÑ¡¸ú×Ù: ÏñËØÖÐÐÄ(%1,%2) ¿í%3¸ß%4")
+            QString::fromUtf8("ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(%1,%2) ï¿½ï¿½%3ï¿½ï¿½%4")
                 .arg(cx).arg(cy).arg(pw).arg(ph));
         if (!requireConnected()) return;
         m_presenter->motorController()->setBoxTrack(cx, cy, pw, ph);
@@ -916,121 +916,121 @@ void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
 }
 
 //============================================================================
-// onDeviceConnected - Éè±¸Á¬½Ó³É¹¦»Øµ÷
-// ¸üÐÂ°´Å¥ÑùÊ½ÎªºìÉ«"¶Ï¿ªÁ¬½Ó"£¬×Ô¶¯²éÑ¯Éè±¸µ±Ç°Í¼Ïñ²ÎÊý
+// onDeviceConnected - ï¿½è±¸ï¿½ï¿½ï¿½Ó³É¹ï¿½ï¿½Øµï¿½
+// ï¿½ï¿½ï¿½Â°ï¿½Å¥ï¿½ï¿½Ê½Îªï¿½ï¿½É«"ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½Ñ¯ï¿½è±¸ï¿½ï¿½Ç°Í¼ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::onDeviceConnected()
 {
-    ui->btnConnect->setText(QString::fromUtf8("¶Ï¿ªÁ¬½Ó"));
+    ui->btnConnect->setText(QString::fromUtf8("ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", "connected");
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("ÒÑÁ¬½Óµ½Éè±¸"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½è±¸"), 3000);
 
     m_workModeInitialized = false;
     m_displayModeInitialized = false;
     m_algoModelInitialized = false;
-    // Á¬½Ó³É¹¦ºó×Ô¶¯ÇëÇóÒ»´ÎÍ¼Ïñ²ÎÊý£¬ÒÔ±ã UI ÓëÉè±¸×´Ì¬Í¬²½
+    // ï¿½ï¿½ï¿½Ó³É¹ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ UI ï¿½ï¿½ï¿½è±¸×´Ì¬Í¬ï¿½ï¿½
     m_presenter->motorController()->queryImageParams();
 
-    // Á¬½ÓºóÍ¬²½ËùÓÐ»º´æ¿ª¹Ø×´Ì¬£¬È·±£Éè±¸Óë UI Ò»ÖÂ
+    // ï¿½ï¿½ï¿½Óºï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½æ¿ªï¿½ï¿½×´Ì¬ï¿½ï¿½È·ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ UI Ò»ï¿½ï¿½
     m_presenter->motorController()->setDigitalZoom(m_cfg->digitalZoomEnabled());
     m_presenter->motorController()->setAutoZoom(m_cfg->autoZoomEnabled());
     m_presenter->motorController()->setCaptureUpload(m_cfg->captureUploadEnabled());
     m_presenter->motorController()->posReset(m_cfg->posResetEnabled());
 
-    // Æô¶¯ÏµÍ³²ÎÊý¶¨Ê±ÏÂ·¢
+    // ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Â·ï¿½
     m_sysParamTimer->start();
 
-    // Ê×´ÎÁ¬½ÓÉè±¸Ê±×Ô¶¯´ò¿ª RTSP£¬ºóÐø²»ÔÙ¸²¸ÇÓÃ»§²Ù×÷
+    // ï¿½×´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸Ê±ï¿½Ô¶ï¿½ï¿½ï¿½ RTSPï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¸ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
     if (!m_rtspEverOpened) {
         QString rtspUrl = ui->lineEditRtsp->text().trimmed();
         if (!rtspUrl.isEmpty()) {
             m_rtspEverOpened = true;
             ui->btnVideoConnect->setEnabled(false);
-            ui->btnVideoConnect->setText(QString::fromUtf8("Á¬½ÓÖÐ..."));
+            ui->btnVideoConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..."));
             m_presenter->videoStream()->openStream(rtspUrl);
         }
     }
 }
 
 //============================================================================
-// onDeviceDisconnected - Éè±¸¶Ï¿ª»Øµ÷
-// »Ö¸´Á¬½Ó°´Å¥µÄ³õÊ¼Íâ¹Û
+// onDeviceDisconnected - ï¿½è±¸ï¿½Ï¿ï¿½ï¿½Øµï¿½
+// ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ó°ï¿½Å¥ï¿½Ä³ï¿½Ê¼ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::onDeviceDisconnected()
 {
-    ui->btnConnect->setText(QString::fromUtf8("Á¬½ÓÉè±¸"));
+    ui->btnConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½è±¸"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", QVariant());
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("Éè±¸ÒÑ¶Ï¿ª"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½è±¸ï¿½Ñ¶Ï¿ï¿½"), 3000);
 
-    // Í£Ö¹ÏµÍ³²ÎÊý¶¨Ê±ÏÂ·¢
+    // Í£Ö¹ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Â·ï¿½
     m_sysParamTimer->stop();
 }
 
-// 200ms ÖÜÆÚ²éÑ¯ÏµÍ³²ÎÊý£¨½öÁ¬½Ó×´Ì¬Ê±ÏÂ·¢£©
+// 200ms ï¿½ï¿½ï¿½Ú²ï¿½Ñ¯ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬Ê±ï¿½Â·ï¿½ï¿½ï¿½
 void MainWindow::onSysParamTimerTimeout()
 {
     if (m_presenter->tcpClient()->isConnected()) m_presenter->motorController()->queryImageParams();
 }
 
 //============================================================================
-// onErrorOccurred - Á¬½Ó´íÎó´¦Àí
-// ·ÇÖØÁ¬Ê±µ¯¿òÏÔÊ¾´íÎó£»ÖØÁ¬ÖÐÖ»ÔÚ×´Ì¬À¸ÌáÊ¾£¬¼ÌÐø×Ô¶¯ÖØÁ¬
+// onErrorOccurred - ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::onErrorOccurred(const QString& errorMsg)
 {
     if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
-        ui->statusbar->showMessage(QString::fromUtf8("ÖØÁ¬Ê§°Ü£¬%1").arg(errorMsg), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½%1").arg(errorMsg), 3000);
         return;
     }
 
-    ui->btnConnect->setText(QString::fromUtf8("Á¬½ÓÉè±¸"));
+    ui->btnConnect->setText(QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½è±¸"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", QVariant());
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    QMessageBox::warning(this, QString::fromUtf8("Á¬½Ó´íÎó"), errorMsg);
+    QMessageBox::warning(this, QString::fromUtf8("ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½"), errorMsg);
 }
 
 //============================================================================
-// onAckReceived - ´¦ÀíÉè±¸·µ»ØµÄ ACK Ó¦´ð
-// ACK ×´Ì¬Âë:
-//   0 = Ö´ÐÐÕý³£, 1 = °ü²»ÍêÕû, 2 = Ð­ÒéÄÚÈÝ´íÎó
-// SetDigitalZoom/SetCaptureState/SetPosReset ÕâÈý¸öÖ¸ÁîÉè±¸¹Ì¶¨»Ø 1£¬°´³É¹¦´¦Àí
+// onAckReceived - ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½Øµï¿½ ACK Ó¦ï¿½ï¿½
+// ACK ×´Ì¬ï¿½ï¿½:
+//   0 = Ö´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, 1 = ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, 2 = Ð­ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½
+// SetDigitalZoom/SetCaptureState/SetPosReset ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½è±¸ï¿½Ì¶ï¿½ï¿½ï¿½ 1ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::onAckReceived(quint8 statusCode)
 {
     if (statusCode == 0) {
-        ui->statusbar->showMessage(QString::fromUtf8("[ACK] Ö¸ÁîÖ´ÐÐ³É¹¦"), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("[ACK] Ö¸ï¿½ï¿½Ö´ï¿½Ð³É¹ï¿½"), 3000);
         return;
     }
     if (statusCode == 1) {
-        // SetDigitalZoom/SetCaptureState/SetPosReset Éè±¸¹Ì¶¨»Ø 1£¬ÊÓÎª³É¹¦
+        // SetDigitalZoom/SetCaptureState/SetPosReset ï¿½è±¸ï¿½Ì¶ï¿½ï¿½ï¿½ 1ï¿½ï¿½ï¿½ï¿½Îªï¿½É¹ï¿½
         if (m_lastAckFrameType == FrameType::SetDigitalZoom
             || m_lastAckFrameType == FrameType::SetCaptureState
             || m_lastAckFrameType == FrameType::SetPosReset) {
-            ui->statusbar->showMessage(QString::fromUtf8("[ACK] Ö¸ÁîÖ´ÐÐ³É¹¦"), 3000);
+            ui->statusbar->showMessage(QString::fromUtf8("[ACK] Ö¸ï¿½ï¿½Ö´ï¿½Ð³É¹ï¿½"), 3000);
             return;
         }
-        ui->statusbar->showMessage(QString::fromUtf8("[ACK] °ü²»ÍêÕû"), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("[ACK] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), 3000);
         return;
     }
     QString msg;
     switch (statusCode) {
-    case 2: msg = QString::fromUtf8("Ð­ÒéÄÚÈÝ´íÎó"); break;
-    default: msg = QString::fromUtf8("Î´Öª×´Ì¬Âë: %1").arg(statusCode);
+    case 2: msg = QString::fromUtf8("Ð­ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½"); break;
+    default: msg = QString::fromUtf8("Î´Öª×´Ì¬ï¿½ï¿½: %1").arg(statusCode);
     }
     ui->statusbar->showMessage(QString::fromUtf8("[ACK] %1").arg(msg), 3000);
 }
 
 //============================================================================
-// onJsonReceived - ÊÕµ½Éè±¸ÍÆËÍµÄ JSON Êý¾ÝÖ¡
-// ½«ÍêÕû JSON ÎÄµµ½»ÓÉ updateStatusFromJson ½øÐÐ½âÎöÓë UI Ë¢ÐÂ
+// onJsonReceived - ï¿½Õµï¿½ï¿½è±¸ï¿½ï¿½ï¿½Íµï¿½ JSON ï¿½ï¿½ï¿½ï¿½Ö¡
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ JSON ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½ updateStatusFromJson ï¿½ï¿½ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½ UI Ë¢ï¿½ï¿½
 //============================================================================
 void MainWindow::onJsonReceived(const QJsonObject& doc)
 {
@@ -1038,9 +1038,9 @@ void MainWindow::onJsonReceived(const QJsonObject& doc)
 }
 
 //============================================================================
-// onImageSnapped - Éè±¸×¥ÅÄÍ¼Ïñ»Øµ÷
-// ½« JPEG Êý¾Ý±£´æµ½ snapshots Ä¿Â¼£¬ÎÄ¼þÃûÎª yyyyMMdd_HHmmss_zzz.jpg
-// ×´Ì¬À¸ÏÔÊ¾±£´æÂ·¾¶¼°Í¼ÏñÔÚ»­ÃæÖÐµÄÎ»ÖÃÐÅÏ¢
+// onImageSnapped - ï¿½è±¸×¥ï¿½ï¿½Í¼ï¿½ï¿½Øµï¿½
+// ï¿½ï¿½ JPEG ï¿½ï¿½ï¿½Ý±ï¿½ï¿½æµ½ snapshots Ä¿Â¼ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Îª yyyyMMdd_HHmmss_zzz.jpg
+// ×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½Ðµï¿½Î»ï¿½ï¿½ï¿½ï¿½Ï¢
 //============================================================================
 void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& location)
 {
@@ -1054,7 +1054,7 @@ void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& locatio
         f.write(jpegData);
         f.close();
         ui->statusbar->showMessage(
-            QString::fromUtf8("ÒÑ±£´æ×¥ÅÄ: %1  Î»ÖÃ: (%2,%3 %4x%5)")
+            QString::fromUtf8("ï¿½Ñ±ï¿½ï¿½ï¿½×¥ï¿½ï¿½: %1  Î»ï¿½ï¿½: (%2,%3 %4x%5)")
                 .arg(path)
                 .arg(location.x()).arg(location.y())
                 .arg(location.width()).arg(location.height()),
@@ -1063,11 +1063,11 @@ void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& locatio
 }
 
 //============================================================================
-// updateStatusFromJson - JSON Ö¡½âÎöÓë UI ×´Ì¬¸üÐÂ£¨ºËÐÄ·½·¨£©
-// ¸ù¾Ý ControlType ×Ö¶Î·Ö·¢´¦ÀíÈýÖÖÊý¾ÝÀàÐÍ£º
-//   AIInfo     ¡ú Ê¶±ð/¸ú×Ù½á¹û (Object ÁÐ±í¡¢ÍÑ°ÐÁ¿¡¢Ëø¶¨×´Ì¬µÈ)
-//   ZoomInfo   ¡ú ¾µÍ·±ä±¶ÐÅÏ¢¡¢GPS ×ø±ê¡¢ÔÆÌ¨½Ç¶È¡¢¼¤¹â²â¾à
-//   ImageSetting ¡ú Í¼Ïñ²ÎÊý (·Ö±æÂÊ/ÂëÂÊ/±àÂë/¹¤×÷Ä£Ê½/ÏÔÊ¾Ä£Ê½/Ëã·¨Ä£ÐÍ)
+// updateStatusFromJson - JSON Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ UI ×´Ì¬ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½Ä·ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ ControlType ï¿½Ö¶Î·Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½
+//   AIInfo     ï¿½ï¿½ Ê¶ï¿½ï¿½/ï¿½ï¿½ï¿½Ù½ï¿½ï¿½ (Object ï¿½Ð±ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½)
+//   ZoomInfo   ï¿½ï¿½ ï¿½ï¿½Í·ï¿½ä±¶ï¿½ï¿½Ï¢ï¿½ï¿½GPS ï¿½ï¿½ï¿½ê¡¢ï¿½ï¿½Ì¨ï¿½Ç¶È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//   ImageSetting ï¿½ï¿½ Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½Ö±ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½Ä£Ê½/ï¿½ï¿½Ê¾Ä£Ê½/ï¿½ã·¨Ä£ï¿½ï¿½)
 //============================================================================
 void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 {
@@ -1075,7 +1075,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
     CameraConfig& cam = m_cfg->cam();
 
     //==========================================================================
-    // 1) AIInfo - AI Ê¶±ðÓë¸ú×Ù½á¹ûÖ¡
+    // 1) AIInfo - AI Ê¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù½ï¿½ï¿½Ö¡
     //==========================================================================
     if (controlType == "AIInfo") {
         m_lastAiInfoTime = QDateTime::currentDateTime();
@@ -1084,15 +1084,15 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 
         if (workMode == 1) {
             //==================================================================
-            // Ê¶±ðÄ£Ê½ (WorkMode=1)£º
-            // ±éÀú Object ×Öµä£¬½«Ã¿¸öÄ¿±êµÄ ID/Àà±ð/¾àÀë/ÏñËØÎ»ÖÃ/ÍÑ°ÐÁ¿
-            // ÌîÈëÊ¶±ð½á¹û±í¸ñ tableIdentify
+            // Ê¶ï¿½ï¿½Ä£Ê½ (WorkMode=1)ï¿½ï¿½
+            // ï¿½ï¿½ï¿½ï¿½ Object ï¿½Öµä£¬ï¿½ï¿½Ã¿ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ ID/ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½/ï¿½Ñ°ï¿½ï¿½ï¿½
+            // ï¿½ï¿½ï¿½ï¿½Ê¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ tableIdentify
             //==================================================================
-            ui->lblIdentifyCount->setText(QString::fromUtf8("Ä¿±ê×ÜÊý: %1").arg(count));
-            ui->tableIdentify->setRowCount(0);  // Çå¿Õ¾ÉÊý¾Ý£¬ÖØÐÂÌî³ä
+            ui->lblIdentifyCount->setText(QString::fromUtf8("Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: %1").arg(count));
+            ui->tableIdentify->setRowCount(0);  // ï¿½ï¿½Õ¾ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-            // ¸ù¾Ýµ±Ç°ÏÔÊ¾Ä£Ê½ÅÐ¶ÏÊ¹ÓÃ¿É¼û¹â»¹ÊÇºìÍâ²ÎÊý
-            // combo Ë÷Òý: 0=´óÍ¼¿É¼û¹â, 1=ºìÍâ, 2=¿É¼û¹â, 3=ÈÚºÏ, 4=´óÍ¼ºìÍâ
+            // ï¿½ï¿½ï¿½Ýµï¿½Ç°ï¿½ï¿½Ê¾Ä£Ê½ï¿½Ð¶ï¿½Ê¹ï¿½Ã¿É¼ï¿½ï¿½â»¹ï¿½Çºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+            // combo ï¿½ï¿½ï¿½ï¿½: 0=ï¿½ï¿½Í¼ï¿½É¼ï¿½ï¿½ï¿½, 1=ï¿½ï¿½ï¿½ï¿½, 2=ï¿½É¼ï¿½ï¿½ï¿½, 3=ï¿½Úºï¿½, 4=ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½
             bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
             double px = isVis ? cam.visPixelSize : cam.irPixelSize;
             double fl = isVis ? cam.visMinFocal * m_currentVisZoom
@@ -1100,7 +1100,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
             int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
 
-            // Object ×Ö¶ÎÊÇÒ»¸ö×Öµä£¬key ÎªÄ¿±ê ID£¬value ÎªÄ¿±êÊôÐÔ
+            // Object ï¿½Ö¶ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Öµä£¬key ÎªÄ¿ï¿½ï¿½ IDï¿½ï¿½value ÎªÄ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if (doc.contains("Object") && doc.value("Object").isObject()) {
                 QJsonObject objMap = doc.value("Object").toObject();
                 for (auto it = objMap.begin(); it != objMap.end(); ++it) {
@@ -1127,7 +1127,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                         QString pos = QString("(%1,%2)").arg(l).arg(t);
                         ui->tableIdentify->setItem(r, 3, new QTableWidgetItem(pos));
 
-                        // ¼ÆËãÄ¿±êÖÐÐÄÏà¶ÔÓÚ»­ÃæÖÐÐÄµÄÍÑ°ÐÁ¿£¨ºÁ»¡¶È£©
+                        // ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½Ñ°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½
                         double cx = (l + r2) / 2.0, cy = (t + b) / 2.0;
                         QString miss = GeoCalculator::missMradStr(cx - halfW, cy - halfH, px, fl);
                         ui->tableIdentify->setItem(r, 4, new QTableWidgetItem(miss));
@@ -1136,15 +1136,15 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             }
         }
 
-        // Ê¶±ðÄ£Ê½Óë¸ú×ÙÄ£Ê½¶¼ÐèÒª¸üÐÂµØÍ¼ÉÏµÄÄ¿±ê±ê¼Ç
+        // Ê¶ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Âµï¿½Í¼ï¿½Ïµï¿½Ä¿ï¿½ï¿½ï¿½ï¿½
         if ((workMode == 1) || (workMode >= 2 && workMode <= 4))
             updateMapTargets(doc, workMode);
 
         //==================================================================
-        // ¸ú×ÙÄ£Ê½ (WorkMode=2~4)£º
-        //   2 = ×Ô¶¯¸ú×Ù, 3 = µãÑ¡¸ú×Ù, 4 = ²¨ÃÅ/¿òÑ¡¸ú×Ù
-        // ÏÔÊ¾Ëø¶¨×´Ì¬¡¢Ä¿±ê ID¡¢Àà±ð¡¢¾àÀë¡¢½Ç¶È¡¢ÏñËØ¿ò¡¢ÍÑ°ÐÁ¿
-        // Class=0xB1 ±íÊ¾Ëø¶¨£¬·ñÔòÎª¶ªÊ§
+        // ï¿½ï¿½ï¿½ï¿½Ä£Ê½ (WorkMode=2~4)ï¿½ï¿½
+        //   2 = ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½, 3 = ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½, 4 = ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½
+        // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ä¿ï¿½ï¿½ IDï¿½ï¿½ï¿½ï¿½ð¡¢¾ï¿½ï¿½ë¡¢ï¿½Ç¶È¡ï¿½ï¿½ï¿½ï¿½Ø¿ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½
+        // Class=0xB1 ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ê§
         //==================================================================
         if (workMode >= 2 && workMode <= 4) {
             bool hasObj = doc.contains("Object") && doc.value("Object").isObject()
@@ -1156,7 +1156,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 int cls = obj.value("Class").toInt();
 
                 bool locked = (cls == 0xB1);
-                QString statusText = locked ? QString::fromUtf8("Ëø¶¨ÖÐ") : QString::fromUtf8("¶ªÊ§");
+                QString statusText = locked ? QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½") : QString::fromUtf8("ï¿½ï¿½Ê§");
                 QString statusFull = QString::fromUtf8("×´Ì¬: %1").arg(statusText);
                 ui->lblTrackStatus->setText(statusFull);
                 ui->lblTrackStatus->setProperty("state", locked ? "locked" : "missed");
@@ -1166,7 +1166,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     double rawDist = obj.value("Distance").toDouble(0);
                     if (rawDist > 0)
                         ui->trackDistance->setText(QString::number(rawDist, 'f', 1) + QStringLiteral(" m"));
-                    // rawDist==0: ±£Áô calcVisualDistance ÉèÖÃµÄ¹ÀËãÖµ
+                    // rawDist==0: ï¿½ï¿½ï¿½ï¿½ calcVisualDistance ï¿½ï¿½ï¿½ÃµÄ¹ï¿½ï¿½ï¿½Öµ
                 } else
                     ui->trackDistance->clear();
 
@@ -1176,9 +1176,9 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     int r2 = pts.value("Right").toInt(), b = pts.value("Bottom").toInt();
                     int cx = (l + r2) / 2, cy = (t + b) / 2;
                     int pw = r2 - l, ph = b - t;
-                    ui->trackPos->setText(QString("(%1,%2) %3¡Á%4").arg(cx).arg(cy).arg(pw).arg(ph));
+                    ui->trackPos->setText(QString("(%1,%2) %3ï¿½ï¿½%4").arg(cx).arg(cy).arg(pw).arg(ph));
 
-                    // ¼ÆËãÍÑ°ÐÁ¿£ºÏñËØÆ«ÒÆ ¡Á ÏñÔª³ß´ç / ½¹¾à ¡ú ºÁ»¡¶È
+                    // ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ôªï¿½ß´ï¿½ / ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                     bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
                     double px = isVis ? cam.visPixelSize : cam.irPixelSize;
                     double fl = isVis ? cam.visMinFocal * m_currentVisZoom
@@ -1196,8 +1196,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     ui->trackMissDistance->clear();
                 }
             } else {
-                // ÎÞÄ¿±ê£ºÏÔÊ¾"Î´Ëø¶¨"²¢Çå¿ÕËùÓÐ¸ú×Ù×Ö¶Î
-                ui->lblTrackStatus->setText(QString::fromUtf8("×´Ì¬: Î´Ëø¶¨"));
+                // ï¿½ï¿½Ä¿ï¿½ê£ºï¿½ï¿½Ê¾"Î´ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½Ö¶ï¿½
+                ui->lblTrackStatus->setText(QString::fromUtf8("×´Ì¬: Î´ï¿½ï¿½ï¿½ï¿½"));
                 ui->lblTrackStatus->setProperty("state", "nolock");
                 refreshStyle(ui->lblTrackStatus);
                 ui->trackPos->clear();
@@ -1207,9 +1207,9 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         }
 
     //==========================================================================
-    // 2) ZoomInfo - ¾µÍ·±¶ÂÊÓëÉè±¸×´Ì¬Ö¡
-    // ¸üÐÂ±ä±¶±¶ÂÊ¡¢GPS ×ø±ê¡¢¸ß¶È¡¢¼¤¹â²â¾à¡¢ÔÆÌ¨Ë®Æ½/´¹Ö±½Ç
-    // Í¬Ê±´¥·¢¾µÍ·Í³¼ÆÐÅÏ¢¸üÐÂÓëµØÍ¼Éè±¸Î»ÖÃ¸üÐÂ
+    // 2) ZoomInfo - ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸×´Ì¬Ö¡
+    // ï¿½ï¿½ï¿½Â±ä±¶ï¿½ï¿½ï¿½Ê¡ï¿½GPS ï¿½ï¿½ï¿½ê¡¢ï¿½ß¶È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½à¡¢ï¿½ï¿½Ì¨Ë®Æ½/ï¿½ï¿½Ö±ï¿½ï¿½
+    // Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·Í³ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½è±¸Î»ï¿½Ã¸ï¿½ï¿½ï¿½
     //==========================================================================
     } else if (controlType == "ZoomInfo") {
         m_currentVisZoom = doc.value("ZoomInfo").toDouble(1.0);
@@ -1239,21 +1239,21 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             while (rawTilt > 180.0) rawTilt -= 360.0;
         }
 
-        ui->statPanAngle->setText(QString::number(rawPan, 'f', 1) + QStringLiteral("¡ã"));
+        ui->statPanAngle->setText(QString::number(rawPan, 'f', 1) + QStringLiteral("ï¿½ï¿½"));
         m_currentTilt = rawTilt;
-        ui->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("¡ã"));
+        ui->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("ï¿½ï¿½"));
 
         updateLensStats();
         updateMapDevicePosition(doc);
 
     //==========================================================================
-    // 3) ImageSetting - Í¼Ïñ²ÎÊýÅäÖÃÖ¡
-    // Éè±¸Ö÷¶¯ÍÆËÍ»òÏìÓ¦²éÑ¯£¬¸üÐÂ·Ö±æÂÊ/ÂëÂÊ/±àÂë/¹¤×÷Ä£Ê½/ÏÔÊ¾Ä£Ê½/Ëã·¨
-    // ²¢¸ù¾ÝÉè±¸µ±Ç°ÖµÍ¬²½ UI ÏÂÀ­¿ò£¬Í¬Ê±ÉèÖÃ m_updatingFromDevice ±êÖ¾
-    // ·ÀÖ¹ UI ±ä»¯ÔÙ´Î´¥·¢Éè±¸Ö¸ÁîÔì³ÉËÀÑ­»·
+    // 3) ImageSetting - Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¡
+    // ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½Â·Ö±ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½Ä£Ê½/ï¿½ï¿½Ê¾Ä£Ê½/ï¿½ã·¨
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ç°ÖµÍ¬ï¿½ï¿½ UI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ m_updatingFromDevice ï¿½ï¿½Ö¾
+    // ï¿½ï¿½Ö¹ UI ï¿½ä»¯ï¿½Ù´Î´ï¿½ï¿½ï¿½ï¿½è±¸Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
     //==========================================================================
     } else if (controlType == "ImageSetting") {
-        // Í¼Ïñ·Ö±æÂÊÓ³Éä±í
+        // Í¼ï¿½ï¿½Ö±ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½
         static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
         int imgSize = doc.value("ImageSize").toInt();
         ui->paramResolution->setText(imgSize >= 0 && imgSize < 4 ? resMap[imgSize] : QString::number(imgSize));
@@ -1265,32 +1265,32 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             }
         }
 
-        // Í¼ÏñÂëÂÊ
+        // Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         ui->paramBitrate->setText(QString("%1 Kb/s").arg(doc.value("ImageBit").toInt()));
 
-        // ±àÂë¸ñÊ½Ó³Éä±í
+        // ï¿½ï¿½ï¿½ï¿½ï¿½Ê½Ó³ï¿½ï¿½ï¿½
         static const char* codecMap[] = {"H264", "H265"};
         int codec = doc.value("ImageCode").toInt();
         ui->paramCodec->setText(codec >= 0 && codec < 2 ? codecMap[codec] : QString::number(codec));
 
-        // ¹¤×÷Ä£Ê½Ó³Éä±í
-        static const char* wmMap[] = {"¹Ø±ÕAI", "Ê¶±ð", "×Ô¶¯¸ú×Ù", "µãÑ¡¸ú×Ù", "²¨ÃÅ/¿òÑ¡¸ú×Ù"};
+        // ï¿½ï¿½ï¿½ï¿½Ä£Ê½Ó³ï¿½ï¿½ï¿½
+        static const char* wmMap[] = {"ï¿½Ø±ï¿½AI", "Ê¶ï¿½ï¿½", "ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½"};
         int wm = doc.value("WorkMode").toInt();
         ui->paramWorkMode->setText(wm >= 0 && wm < 5 ? QString::fromUtf8(wmMap[wm]) : QString::number(wm));
         m_previousWorkMode = wm;
 
-        // ÏÔÊ¾ÀàÐÍÓ³Éä±í (PIP = Picture-in-Picture)
-        static const char* pipMap[] = {"´óÍ¼¿É¼û¹â", "ºìÍâ", "¿É¼û¹â", "ÈÚºÏ", "´óÍ¼ºìÍâ"};
+        // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½ (PIP = Picture-in-Picture)
+        static const char* pipMap[] = {"ï¿½ï¿½Í¼ï¿½É¼ï¿½ï¿½ï¿½", "ï¿½ï¿½ï¿½ï¿½", "ï¿½É¼ï¿½ï¿½ï¿½", "ï¿½Úºï¿½", "ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½"};
         int pipRaw = doc.value("PipShow").toInt();
         int comboIdx = DeviceController::pipShowToComboIndex(pipRaw);
         ui->paramPipShow->setText(comboIdx >= 0 && comboIdx < 5 ? QString::fromUtf8(pipMap[comboIdx]) : QString::number(pipRaw));
 
-        // Ëã·¨Ä£ÐÍ±àÂë: ¸ß¶Î(´«¸ÐÆ÷)¡Á10 + µÍ¶Î(Ê¶±ðÀàÐÍ)
+        // ï¿½ã·¨Ä£ï¿½Í±ï¿½ï¿½ï¿½: ï¿½ß¶ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½10 + ï¿½Í¶ï¿½(Ê¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
         int model = doc.value("Model").toInt();
         int high = model / 10;
         int low  = model % 10;
-        static const char* highMap[] = {"¿É¼û¹â", "ºìÍâ"};
-        static const char* lowMap[]  = {"", "", "ÈË³µÊ¶±ð", "´¬Ê¶±ð", "ÎÞÈË»úÊ¶±ð", "·É»úÖ±Éý»úÊ¶±ð", "ÄñÊ¶±ð"};
+        static const char* highMap[] = {"ï¿½É¼ï¿½ï¿½ï¿½", "ï¿½ï¿½ï¿½ï¿½"};
+        static const char* lowMap[]  = {"", "", "ï¿½Ë³ï¿½Ê¶ï¿½ï¿½", "ï¿½ï¿½Ê¶ï¿½ï¿½", "ï¿½ï¿½ï¿½Ë»ï¿½Ê¶ï¿½ï¿½", "ï¿½É»ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Ê¶ï¿½ï¿½", "ï¿½ï¿½Ê¶ï¿½ï¿½"};
         QString modelStr;
         if (high >= 0 && high < 2)
             modelStr = QString::fromUtf8(highMap[high]);
@@ -1305,15 +1305,15 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         m_currentPipShow = DeviceController::pipShowToComboIndex(doc.value("PipShow").toInt());
         m_previousDisplayMode = m_currentPipShow;
 
-        // Í¬²½ UI ÏÂÀ­¿òµ½Éè±¸µ±Ç°Öµ£¬Í¬Ê±ÒÖÖÆÐÅºÅµÝ¹é
+        // Í¬ï¿½ï¿½ UI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ç°Öµï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ÅºÅµÝ¹ï¿½
         m_updatingFromDevice = true;
-        // Ê×´ÎÁ¬½ÓÊ±Í¬²½Ëã·¨Ä£ÐÍÏÂÀ­¿ò£¬ºóÐø²»ÔÙ¸²¸ÇÓÃ»§Ñ¡Ôñ
+        // ï¿½×´ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Í¬ï¿½ï¿½ï¿½ã·¨Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¸ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ñ¡ï¿½ï¿½
         if (!m_algoModelInitialized) {
             m_currentAlgoModel = model;
-            // ¸ß¶Î = ´«¸ÐÆ÷ÀàÐÍ (0=¿É¼û¹â, 1=ºìÍâ) ¡ú comboAlgoModel1
+            // ï¿½ß¶ï¿½ = ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (0=ï¿½É¼ï¿½ï¿½ï¿½, 1=ï¿½ï¿½ï¿½ï¿½) ï¿½ï¿½ comboAlgoModel1
             if (high >= 0 && high < ui->comboAlgoModel1->count())
                 ui->comboAlgoModel1->setCurrentIndex(high);
-            // µÍ¶Î = Ê¶±ðÀàÐÍ (2-6 ¡ú comboAlgoModel2 Ë÷Òý 0-4)
+            // ï¿½Í¶ï¿½ = Ê¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (2-6 ï¿½ï¿½ comboAlgoModel2 ï¿½ï¿½ï¿½ï¿½ 0-4)
             if (low >= 2 && low <= 6)
                 ui->comboAlgoModel2->setCurrentIndex(low - 2);
             m_algoModelInitialized = true;
@@ -1326,7 +1326,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 m_displayModeInitialized = true;
             }
         }
-        // Ê×´ÎÁ¬½ÓÊ±Í¬²½¹¤×÷Ä£Ê½ÏÂÀ­¿ò£¬ºóÐø²»ÔÙ¸²¸ÇÓÃ»§Ñ¡Ôñ
+        // ï¿½×´ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¸ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ñ¡ï¿½ï¿½
         if (!m_workModeInitialized && wm >= 0 && wm < ui->comboWorkMode->count()) {
             ui->comboWorkMode->setCurrentIndex(wm);
             m_workModeInitialized = true;
@@ -1336,11 +1336,11 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 }
 
 //============================================================================
-// updateLensStats - ¸üÐÂ¾µÍ·Í³¼ÆÊý¾Ý
-// ¸ù¾Ýµ±Ç°±ä±¶±¶ÂÊ¼ÆËã¿É¼û¹âÓëºìÍâµÄ£º
-//   - µ±Ç°½¹¾à (×îÐ¡½¹¾à ¡Á ±¶ÂÊ)
-//   - Ë®Æ½ÊÓ³¡½Ç (HFOV): 2 ¡Á arctan(´«¸ÐÆ÷¿í¶È / (2 ¡Á ½¹¾à))
-// ´«¸ÐÆ÷¿í¶È = ÏñÔª³ß´ç ¡Á Ë®Æ½·Ö±æÂÊ (µ¥Î»»»ËãÎª mm)
+// updateLensStats - ï¿½ï¿½ï¿½Â¾ï¿½Í·Í³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½Ýµï¿½Ç°ï¿½ä±¶ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½É¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½
+//   - ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
+//   - Ë®Æ½ï¿½Ó³ï¿½ï¿½ï¿½ (HFOV): 2 ï¿½ï¿½ arctan(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ / (2 ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½))
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ = ï¿½ï¿½Ôªï¿½ß´ï¿½ ï¿½ï¿½ Ë®Æ½ï¿½Ö±ï¿½ï¿½ï¿½ (ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½Îª mm)
 //============================================================================
 void MainWindow::updateLensStats()
 {
@@ -1356,29 +1356,29 @@ void MainWindow::updateLensStats()
 
     // HFOV = 2 * atan( sensor_width_mm / (2 * focal_mm) )
     double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
-    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("¡ã"));
+    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("ï¿½ï¿½"));
 
     ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalIR->setText(QString::number(irFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusIR->clear();
 
     double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
-    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2) + QStringLiteral("¡ã"));
+    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2) + QStringLiteral("ï¿½ï¿½"));
 }
 
 //============================================================================
 
 
 //============================================================================
-// requireConnected - Î´Á¬½ÓÊ±µ¯³öÌáÊ¾²¢·µ»Ø false
-// ËùÓÐÐèÒªÁ¬½ÓÉè±¸²ÅÄÜÖ´ÐÐµÄ UI ²Ù×÷¾ùÓ¦ÏÈµ÷ÓÃ´Ëº¯Êý
+// requireConnected - Î´ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ false
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ðµï¿½ UI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Èµï¿½ï¿½Ã´Ëºï¿½ï¿½ï¿½
 //============================================================================
 bool MainWindow::requireConnected()
 {
     if (!m_presenter->tcpClient()->isConnected()) {
         QMessageBox msgBox(this);
-        msgBox.setWindowTitle(QStringLiteral("ÌáÊ¾"));
-        msgBox.setText(QStringLiteral("ÇëÁ¬½ÓÉè±¸"));
+        msgBox.setWindowTitle(QStringLiteral("ï¿½ï¿½Ê¾"));
+        msgBox.setText(QStringLiteral("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸"));
         msgBox.setStandardButtons(QMessageBox::Ok);
         msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
         msgBox.exec();
@@ -1387,15 +1387,15 @@ bool MainWindow::requireConnected()
     return true;
 }
 
-// ¼ì²éµç»úÊÇ·ñ¾ÍÐ÷
-// MODBUS-RTU Ð­ÒéÊ±Ðè´®¿ÚÒÑ´ò¿ª£¬Pelco-D Ö±·¢¼´¿É
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+// MODBUS-RTU Ð­ï¿½ï¿½Ê±ï¿½è´®ï¿½ï¿½ï¿½Ñ´ò¿ª£ï¿½Pelco-D Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 bool MainWindow::requireMotorReady()
 {
     if (m_cfg->motorProtocol() == "MODBUS-RTU") {
-        if (m_cfg->motorCommandChannel() == "´®¿Ú" && !m_presenter->motorController()->isMotorSerialOpen()) {
+        if (m_cfg->motorCommandChannel() == "ä¸²å£" && !m_presenter->motorController()->isMotorSerialOpen()) {
             QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QStringLiteral("ÌáÊ¾"));
-            msgBox.setText(QStringLiteral("µç»ú´®¿ÚÎ´´ò¿ª£¬ÇëÔÚÉèÖÃÖÐÅäÖÃ"));
+            msgBox.setWindowTitle(QStringLiteral("ï¿½ï¿½Ê¾"));
+            msgBox.setText(QStringLiteral("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ò¿ª£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"));
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
             msgBox.exec();
@@ -1404,26 +1404,26 @@ bool MainWindow::requireMotorReady()
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
         if (!m_presenter->motorController()->isMotorTcpOpen()) {
             QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QStringLiteral("ÌáÊ¾"));
-            msgBox.setText(QStringLiteral("µç»ú TCP ÕýÔÚÁ¬½Ó»òÁ¬½ÓÊ§°Ü£¬Çë¼ì²éÅäÖÃ"));
+            msgBox.setWindowTitle(QStringLiteral("ï¿½ï¿½Ê¾"));
+            msgBox.setText(QStringLiteral("ï¿½ï¿½ï¿½ TCP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó»ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"));
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
-            // ÕâÀïÎÒÃÇÔÊÐíËü³¢ÊÔÈ¥ÖØÁ¬£¬²»Ö±½Ó return false
-            // µ«ÊÇÈç¹ûÊÇÒªÇ¿ÖÆµÄ»°¿ÉÒÔ return false; 
-            // ÎÒÃÇÔÚ DeviceController ÀïÃæÒÑ¾­ÓÐ sendMotorTcpV4 Ê±Èç¹û¶Ï¿ª»á×Ô¶¯³¢ÊÔÖØÁ¬Ò»´Î
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ return false
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÒªÇ¿ï¿½ÆµÄ»ï¿½ï¿½ï¿½ï¿½ï¿½ return false; 
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DeviceController ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ sendMotorTcpV4 Ê±ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
         }
     }
     return true;
 }
 
-// ¸üÐÂµç»ú¿ØÖÆ°´Å¥×´Ì¬
+// ï¿½ï¿½ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½Æ°ï¿½Å¥×´Ì¬
 void MainWindow::updateMotorButtons()
 {
     bool isModbus = (m_cfg->motorProtocol() == "MODBUS-RTU");
     bool isTcp = (m_cfg->motorProtocol() == "STM32-TCP-V4.0");
     bool isPelco = (m_cfg->motorProtocol() == "Pelco-D");
     
-    // Ö»ÓÐ Modbus ºÍ TCP È«¹¦ÄÜ¿ÉÓÃ£¬Pelco-D ½öÔÊÐíÓêË¢
+    // Ö»ï¿½ï¿½ Modbus ï¿½ï¿½ TCP È«ï¿½ï¿½ï¿½Ü¿ï¿½ï¿½Ã£ï¿½Pelco-D ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¢
     
     bool othersEnabled = !isPelco;
     ui->btnWiperLeft->setEnabled(othersEnabled);
@@ -1431,8 +1431,8 @@ void MainWindow::updateMotorButtons()
     ui->btnWiperZeroCalib->setEnabled(othersEnabled);
     ui->btnWiperMode->setEnabled(othersEnabled);
     
-    // ¿ñ±©/¾²ÒôÄ£Ê½½öÔÚ STM32-TCP-V4.0 ÏÂÓÐÐ§£¬»òÕßÈç¹ûÄúÏ£Íû Modbus Ò²ÓÐÔ¤Áô£¬¿ÉÒÔµ÷Õû
-    // ¸ù¾ÝÎÄµµ£¬action 6/7 ÊôÓÚ V4.0 TCP ½Ó¿Ú
+    // ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ STM32-TCP-V4.0 ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï£ï¿½ï¿½ Modbus Ò²ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½ï¿½
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½action 6/7 ï¿½ï¿½ï¿½ï¿½ V4.0 TCP ï¿½Ó¿ï¿½
     ui->btnWiperSilent->setEnabled(isTcp);
 
     if (isModbus && m_presenter->motorController()->isMotorSerialOpen()) {
@@ -1441,12 +1441,12 @@ void MainWindow::updateMotorButtons()
 }
 
 //============================================================================
-// on_comboWorkMode_currentIndexChanged - ¹¤×÷Ä£Ê½ÏÂÀ­¿òÇÐ»»
-//   0 = ¹Ø±ÕAI, 1 = Ä¿±êÊ¶±ð, 2 = ×Ô¶¯¸ú×Ù, 3 = µãÑ¡¸ú×Ù, 4 = ¿òÑ¡¸ú×Ù
+// on_comboWorkMode_currentIndexChanged - ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½
+//   0 = ï¿½Ø±ï¿½AI, 1 = Ä¿ï¿½ï¿½Ê¶ï¿½ï¿½, 2 = ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½, 3 = ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½, 4 = ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 {
-    // ·ÇµãÑ¡/¿òÑ¡¸ú×ÙÄ£Ê½Ê±½ûÖ¹Êó±ê¿òÑ¡£¨±¾µØ UI ×´Ì¬£¬²»Éæ¼°Éè±¸Ö¸Áî£©
+    // ï¿½Çµï¿½Ñ¡/ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ä£Ê½Ê±ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ UI ×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½æ¼°ï¿½è±¸Ö¸ï¿½î£©
     ui->videoWidget->setSelectionEnabled(index == 3 || index == 4);
 
     if (m_updatingFromDevice) return;
@@ -1463,7 +1463,7 @@ void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 }
 
 //============================================================================
-// on_btnPtzMoveTo_clicked - ÔÆÌ¨×ªµ½Ö¸¶¨½Ç¶È
+// on_btnPtzMoveTo_clicked - ï¿½ï¿½Ì¨×ªï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ç¶ï¿½
 //============================================================================
 void MainWindow::on_btnPtzMoveTo_clicked()
 {
@@ -1477,12 +1477,12 @@ void MainWindow::on_btnPtzMoveTo_clicked()
     if (panOk && tiltOk) {
         m_presenter->motorController()->ptzMoveTo(pan, tilt);
     } else {
-        QMessageBox::warning(this, "ÊäÈë´íÎó", "ÇëÊäÈëÓÐÐ§µÄË®Æ½ºÍ´¹Ö±½Ç¶ÈÖµ¡£");
+        QMessageBox::warning(this, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Ë®Æ½ï¿½Í´ï¿½Ö±ï¿½Ç¶ï¿½Öµï¿½ï¿½");
     }
 }
 
 //============================================================================
-// on_btnPtzMoveToGps_clicked - ÔÆÌ¨×ª¶¯µ½Ö¸¶¨¾­Î³¶È¸ß¶È
+// on_btnPtzMoveToGps_clicked - ï¿½ï¿½Ì¨×ªï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Î³ï¿½È¸ß¶ï¿½
 //============================================================================
 void MainWindow::on_btnPtzMoveToGps_clicked()
 {
@@ -1493,7 +1493,7 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
     QString altStr = ui->editTargetAlt->text().trimmed();
 
     if (lonStr.isEmpty() || latStr.isEmpty()) {
-        QMessageBox::warning(this, "ÊäÈë´íÎó", "ÇëÊäÈëÄ¿±êµÄ¾­Î³¶ÈºÍ¸ß¶È¡£");
+        QMessageBox::warning(this, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Ä¾ï¿½Î³ï¿½ÈºÍ¸ß¶È¡ï¿½");
         return;
     }
 
@@ -1506,7 +1506,7 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
     double devAlt = m_deviceHeight;
 
     if (devLat == 0 && devLon == 0) {
-        QMessageBox::warning(this, "×´Ì¬´íÎó", "µ±Ç°Éè±¸ GPS Î´Öª£¬ÎÞ·¨¼ÆËãÄ¿±ê½Ç¶È¡£");
+        QMessageBox::warning(this, "×´Ì¬ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½Ç°ï¿½è±¸ GPS Î´Öªï¿½ï¿½ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Ç¶È¡ï¿½");
         return;
     }
 
@@ -1519,25 +1519,25 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
     }
 
     m_presenter->motorController()->ptzMoveTo(pan, tilt);
-    ui->statusbar->showMessage(QString("×ªµ½ GPS: ·½Î»=%1¡ã ¸©Ñö=%2¡ã").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
+    ui->statusbar->showMessage(QString("×ªï¿½ï¿½ GPS: ï¿½ï¿½Î»=%1ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½=%2ï¿½ï¿½").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
 }
 
 //============================================================================
-// on_btnPanZeroCalib_clicked - Ë®Æ½Áãµã±ê¶¨
+// on_btnPanZeroCalib_clicked - Ë®Æ½ï¿½ï¿½ï¿½ê¶¨
 //============================================================================
 void MainWindow::on_btnPanZeroCalib_clicked()
 {
     if (!requireConnected()) return;
     
-    if (QMessageBox::question(this, "Áãµã±ê¶¨", "È·ÈÏ½«µ±Ç°ÔÆÌ¨Ë®Æ½ºÍ¸©ÑöÎ»ÖÃ±ê¶¨Îª 0 ¶È£¿") == QMessageBox::Yes) {
+    if (QMessageBox::question(this, "ï¿½ï¿½ï¿½ê¶¨", "È·ï¿½Ï½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Ì¨Ë®Æ½ï¿½Í¸ï¿½ï¿½ï¿½Î»ï¿½Ã±ê¶¨Îª 0 ï¿½È£ï¿½") == QMessageBox::Yes) {
         if (m_cfg->softwarePtzCalibrationEnabled()) {
-            // ¿ªÆôÁËÄ£Äâ´®¿Ú·þÎñÆ÷£¬Ê¹ÓÃÈí¼þÆ«ÖÃ
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½â´®ï¿½Ú·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½
             QString panStr = ui->statPanAngle->text();
-            panStr.remove("¡ã");
+            panStr.remove("ï¿½ï¿½");
             double displayedPan = panStr.toDouble();
 
             QString tiltStr = ui->statTiltAngle->text();
-            tiltStr.remove("¡ã");
+            tiltStr.remove("ï¿½ï¿½");
             double displayedTilt = tiltStr.toDouble();
 
             double oldPanOffset = m_cfg->ptzPanOffset();
@@ -1558,14 +1558,14 @@ void MainWindow::on_btnPanZeroCalib_clicked()
             m_presenter->ptzForwarder()->setOffsets(newPanOffset, newTiltOffset);
             m_presenter->ptzForwarder()->flushZeroPosition();
 
-            ui->statPanAngle->setText("0.0¡ã");
-            ui->statTiltAngle->setText("0.0¡ã");
-            ui->statusbar->showMessage("Áãµã±ê¶¨(Èí¼þÆ«ÖÃ)ÒÑ±£´æ", 3000);
+            ui->statPanAngle->setText("0.0ï¿½ï¿½");
+            ui->statTiltAngle->setText("0.0ï¿½ï¿½");
+            ui->statusbar->showMessage("ï¿½ï¿½ï¿½ê¶¨(ï¿½ï¿½ï¿½Æ«ï¿½ï¿½)ï¿½Ñ±ï¿½ï¿½ï¿½", 3000);
         } else {
-            // Î´¿ªÆôÄ£Äâ´®¿Ú·þÎñÆ÷£¬Ö±½ÓÍ¨¹ý PELCO-D Í¸´«±ê¶¨Ö¸Áî
+            // Î´ï¿½ï¿½ï¿½ï¿½Ä£ï¿½â´®ï¿½Ú·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Í¨ï¿½ï¿½ PELCO-D Í¸ï¿½ï¿½ï¿½ê¶¨Ö¸ï¿½ï¿½
             m_presenter->motorController()->ptzSetZero();
-            ui->statusbar->showMessage("Áãµã±ê¶¨Ö¸Áî(Pelco-D)ÒÑÏÂ·¢", 3000);
-            // ÕâÀï²»Ç¿ÖÆ¸Ä UI£¬ÈÃºóÐøÉè±¸Ö÷¶¯ÉÏ±¨µÄÐÂ½Ç¶ÈÀ´Ë¢ÐÂ UI
+            ui->statusbar->showMessage("ï¿½ï¿½ï¿½ê¶¨Ö¸ï¿½ï¿½(Pelco-D)ï¿½ï¿½ï¿½Â·ï¿½", 3000);
+            // ï¿½ï¿½ï¿½ï²»Ç¿ï¿½Æ¸ï¿½ UIï¿½ï¿½ï¿½Ãºï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ï¿½Â½Ç¶ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½ UI
         }
     }
 }
@@ -1573,8 +1573,8 @@ void MainWindow::on_btnPanZeroCalib_clicked()
 
 //============================================================================
 //============================================================================
-// on_comboAlgoModel1/2_currentIndexChanged - Ëã·¨Ä£ÐÍÏÂÀ­¿òÇÐ»»
-// ÊÜ m_updatingFromDevice ±£»¤£¬±ÜÃâÉè±¸»Ø´«Ê±ÖØ¸´ÏÂ·¢Ö¸Áî
+// on_comboAlgoModel1/2_currentIndexChanged - ï¿½ã·¨Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½
+// ï¿½ï¿½ m_updatingFromDevice ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½Ø´ï¿½Ê±ï¿½Ø¸ï¿½ï¿½Â·ï¿½Ö¸ï¿½ï¿½
 //============================================================================
 void MainWindow::on_comboAlgoModel1_currentIndexChanged(int index)
 {
@@ -1597,15 +1597,15 @@ void MainWindow::sendAlgoModel(int model)
 }
 
 //============================================================================
-// on_comboDisplayMode_currentIndexChanged - ÏÔÊ¾Ä£Ê½ÏÂÀ­¿òÇÐ»»
-// ÇÐ»»Ê±ÏÂ·¢ÏÔÊ¾Ä£Ê½±ä¸üÖ¸Áî£¬¾µÍ·Ä¿±êÓÉÏÔÊ¾Ä£Ê½×Ô¶¯ÅÐ¶Ï
+// on_comboDisplayMode_currentIndexChanged - ï¿½ï¿½Ê¾Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½
+// ï¿½Ð»ï¿½Ê±ï¿½Â·ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½ï¿½ï¿½Ö¸ï¿½î£¬ï¿½ï¿½Í·Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½Ô¶ï¿½ï¿½Ð¶ï¿½
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
     if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
-    // ¸ù¾ÝÏÔÊ¾Ä£Ê½×Ô¶¯ÇÐ»»Ëã·¨Ä£ÐÍ£º0/2/3¡ú¿É¼û¹âÄ£ÐÍ£¬1/4¡úºìÍâÄ£ÐÍ
-    // Ö±½ÓÏÂ·¢²»´¥·¢ queryImageParams£¬±ÜÃâÉè±¸·µ»Ø¾ÉÊý¾Ý¸²¸ÇÏÔÊ¾Ä£Ê½
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½Ô¶ï¿½ï¿½Ð»ï¿½ï¿½ã·¨Ä£ï¿½Í£ï¿½0/2/3ï¿½ï¿½ï¿½É¼ï¿½ï¿½ï¿½Ä£ï¿½Í£ï¿½1/4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½
+    // Ö±ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ queryImageParamsï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½Ø¾ï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½
     {
         int algoIdx = (index == 1 || index == 4) ? 1 : 0;
         if ((m_currentAlgoModel / 10) != algoIdx) {
@@ -1618,7 +1618,7 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
             ui->comboAlgoModel1->blockSignals(false);
         }
     }
-    // ÑÓºó·¢ËÍÏÔÊ¾Ä£Ê½£¬±ÜÃâÓë setAlgoModel ¼ä¸ô¹ý½ü±»Éè±¸ºöÂÔ
+    // ï¿½Óºï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ setAlgoModel ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
     QTimer::singleShot(150, this, [this]() {
         if (m_presenter->tcpClient()->isConnected()) {
             int idx = ui->comboDisplayMode->currentIndex();
@@ -1628,12 +1628,12 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 }
 
 //============================================================================
-// on_comboLensTarget_currentIndexChanged - ÒÑÉ¾³ý£¬¾µÍ·Ä¿±êÓÉÏÔÊ¾Ä£Ê½×Ô¶¯ÅÐ¶Ï
+// on_comboLensTarget_currentIndexChanged - ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ï¿½Ô¶ï¿½ï¿½Ð¶ï¿½
 //============================================================================
 
 //============================================================================
-// on_btnSetLocation_clicked - ÊÖ¶¯ÉèÖÃÉè±¸¾­Î³¶È
-// ´ÓÊäÈë¿ò¶ÁÈ¡¾­Î³¶È×Ö·û´®£¬Ö±½ÓÏÂ·¢¸øÉè±¸¸²Ð´ GPS ÐÅÏ¢
+// on_btnSetLocation_clicked - ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Î³ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Î³ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ð´ GPS ï¿½ï¿½Ï¢
 //============================================================================
 void MainWindow::on_btnSetLocation_clicked()
 {
@@ -1641,8 +1641,8 @@ void MainWindow::on_btnSetLocation_clicked()
     QString lonStr = ui->editSetLon->text().trimmed();
 
     if (latStr.isEmpty() || lonStr.isEmpty()) {
-        QMessageBox::warning(this, QString::fromUtf8("ÊäÈë´íÎó"),
-                             QString::fromUtf8("ÇëÌîÐ´ÍêÕûµÄ¾­Î³¶È²ÎÊý"));
+        QMessageBox::warning(this, QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"),
+                             QString::fromUtf8("ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½Ä¾ï¿½Î³ï¿½È²ï¿½ï¿½ï¿½"));
         return;
     }
 
@@ -1661,24 +1661,24 @@ void MainWindow::on_btnSetLocation_clicked()
     QString strictLon = QString::asprintf("%.7f%s", qAbs(lonNum), lonNum >= 0 ? "E" : "W");
 
     m_presenter->motorController()->setLocation(strictLat, strictLon);
-    ui->statusbar->showMessage(QString::fromUtf8("ÒÑÏÂ·¢¾­Î³¶È"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½Î³ï¿½ï¿½"), 3000);
 }
 
 //============================================================================
-// on_btnGetImageParams_clicked - ²éÑ¯Éè±¸µ±Ç°Í¼Ïñ²ÎÊý
-// Éè±¸»áÒÔ ImageSetting ÀàÐÍÖ¡»Ø¸´£¬´¥·¢ updateStatusFromJson ¸üÐÂ UI
+// on_btnGetImageParams_clicked - ï¿½ï¿½Ñ¯ï¿½è±¸ï¿½ï¿½Ç°Í¼ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ ImageSetting ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ updateStatusFromJson ï¿½ï¿½ï¿½ï¿½ UI
 //============================================================================
 void MainWindow::on_btnGetImageParams_clicked()
 {
     if (!requireConnected()) return;
     m_presenter->motorController()->queryImageParams();
-    ui->statusbar->showMessage(QString::fromUtf8("ÒÑ·¢ËÍ²ÎÊý²éÑ¯ÇëÇó"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("ï¿½Ñ·ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½"), 3000);
 }
 
 //============================================================================
-// parseCoord - ×ø±ê×Ö·û´®½âÎö¹¤¾ßº¯Êý
-// ´¦Àí´øºó×ºµÄ¾­Î³¶È¸ñÊ½£¬ÀýÈç "39.9042N" ¡ú 39.9042, "116.4074E" ¡ú 116.4074
-// ÄÏÎ³(S)»òÎ÷¾­(W)·µ»Ø¸ºÖµ£»ÈôÎÞºó×ºÔòÖ±½Ó·µ»ØÊýÖµ
+// parseCoord - ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßºï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ºï¿½Ä¾ï¿½Î³ï¿½È¸ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ "39.9042N" ï¿½ï¿½ 39.9042, "116.4074E" ï¿½ï¿½ 116.4074
+// ï¿½ï¿½Î³(S)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(W)ï¿½ï¿½ï¿½Ø¸ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½Þºï¿½×ºï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
 //============================================================================
 static double parseCoord(const QString& s) {
     QString t = s.trimmed().toUpper();
@@ -1696,14 +1696,14 @@ static double parseCoord(const QString& s) {
 }
 
 //============================================================================
-// updateMapDevicePosition - ¸üÐÂµØÍ¼ÉÏµÄÉè±¸Î»ÖÃÓëÊÓ³¡½Ç
-// ´Ó ZoomInfo JSON Ö¡ÖÐ½âÎö GPS¡¢ÔÆÌ¨½Ç¶È¡¢¼¤¹â²â¾àµÈÊý¾Ý£¬
-// ¼ÆËãµ±Ç°¾µÍ·µÄË®Æ½/´¹Ö±ÊÓ³¡½Ç£¬»æÖÆµ½µØÍ¼¿Ø¼þÉÏ
+// updateMapDevicePosition - ï¿½ï¿½ï¿½Âµï¿½Í¼ï¿½Ïµï¿½ï¿½è±¸Î»ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½
+// ï¿½ï¿½ ZoomInfo JSON Ö¡ï¿½Ð½ï¿½ï¿½ï¿½ GPSï¿½ï¿½ï¿½ï¿½Ì¨ï¿½Ç¶È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½
+// ï¿½ï¿½ï¿½ãµ±Ç°ï¿½ï¿½Í·ï¿½ï¿½Ë®Æ½/ï¿½ï¿½Ö±ï¿½Ó³ï¿½ï¿½Ç£ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½Í¼ï¿½Ø¼ï¿½ï¿½ï¿½
 //
-// ÊÓ³¡½Ç¼ÆËã£º
-//   HFOV = 2 ¡Á arctan(´«¸ÐÆ÷¿í¶È_mm / (2 ¡Á ½¹¾à_mm))
-//   VFOV = HFOV ¡Á 9/16 (¼Ù¶¨ 16:9 ´«¸ÐÆ÷¿í¸ß±È)
-// ´«¸ÐÆ÷¿í¶È = ÏñÔª³ß´ç ¡Á Ë®Æ½·Ö±æÂÊ / 1000
+// ï¿½Ó³ï¿½ï¿½Ç¼ï¿½ï¿½ã£º
+//   HFOV = 2 ï¿½ï¿½ arctan(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½_mm / (2 ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½_mm))
+//   VFOV = HFOV ï¿½ï¿½ 9/16 (ï¿½Ù¶ï¿½ 16:9 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß±ï¿½)
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ = ï¿½ï¿½Ôªï¿½ß´ï¿½ ï¿½ï¿½ Ë®Æ½ï¿½Ö±ï¿½ï¿½ï¿½ / 1000
 //============================================================================
 void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
 {
@@ -1736,37 +1736,37 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
 
     m_mapWidget->setDevicePosition(lat, lon);
 
-    // ¼ÆËã¿É¼û¹âÊÓ³¡½Ç
+    // ï¿½ï¿½ï¿½ï¿½É¼ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½
     CameraConfig& cam = m_cfg->cam();
     double visSensorW = cam.visPixelSize * cam.visResX / 1000.0;
     double visFocal = cam.visMinFocal * m_currentVisZoom;
     double visHfov = 2.0 * qAtan(visSensorW / (2.0 * visFocal)) * 180.0 / M_PI;
     double visVfov = visHfov * cam.visResY / cam.visResX;
 
-    // ¼ÆËãºìÍâÊÓ³¡½Ç
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½
     double irSensorW = cam.irPixelSize * cam.irResX / 1000.0;
     double irFocal = cam.irMinFocal * m_currentIrZoom;
     double irHfov = 2.0 * qAtan(irSensorW / (2.0 * irFocal)) * 180.0 / M_PI;
     double irVfov = irHfov * cam.irResY / cam.irResX;
 
-    // ¿É¼û¹âÊÓ³¡½Ç 4km£¨À¶É«£©£¬ºìÍâÊÓ³¡½Ç 2km£¨ºìÉ«£©
+    // ï¿½É¼ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½ 4kmï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½ 2kmï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½
     m_mapWidget->setVisFov(lat, lon, pan, tilt, visHfov, visVfov, 4000);
     m_mapWidget->setIrFov(lat, lon, pan, tilt, irHfov, irVfov, 2000);
     m_mapWidget->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range, rangeEstimated);
 }
 
 //============================================================================
-// pixelToGps - ÏñËØ×ø±ê×ª GPS µØÀí×ø±ê
-// ½«Í¼ÏñÖÐÄ³ÏñËØµã (pixelX, pixelY) Ó³Éäµ½ÕæÊµµØÀí¾­Î³¶È¡£
-// ºËÐÄ²½Öè£º
-//   1. ÏñËØÆ«ÒÆ ¡ú ½Ç¶ÈÆ«ÒÆ£ºdxAngle = ÏñËØÆ«ÒÆ ¡Á ÏñÔª³ß´ç / ½¹¾à
-//   2. ¾ø¶Ô·½Î»½Ç = ÔÆÌ¨Ë®Æ½½Ç + Ë®Æ½½Ç¶ÈÆ«ÒÆ
-//   3. Ê¹ÓÃ Haversine ¹«Ê½£¬´ÓÉè±¸ GPS + ·½Î»½Ç + ¾àÀë ¡ú Ä¿±ê GPS
+// pixelToGps - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ª GPS ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ï¿½Øµï¿½ (pixelX, pixelY) Ó³ï¿½äµ½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½Î³ï¿½È¡ï¿½
+// ï¿½ï¿½ï¿½Ä²ï¿½ï¿½è£º
+//   1. ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½ ï¿½ï¿½ ï¿½Ç¶ï¿½Æ«ï¿½Æ£ï¿½dxAngle = ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ôªï¿½ß´ï¿½ / ï¿½ï¿½ï¿½ï¿½
+//   2. ï¿½ï¿½ï¿½Ô·ï¿½Î»ï¿½ï¿½ = ï¿½ï¿½Ì¨Ë®Æ½ï¿½ï¿½ + Ë®Æ½ï¿½Ç¶ï¿½Æ«ï¿½ï¿½
+//   3. Ê¹ï¿½ï¿½ Haversine ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ GPS + ï¿½ï¿½Î»ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ Ä¿ï¿½ï¿½ GPS
 //
-// Haversine ¹«Ê½:
-//   lat2 = asin(sin(lat1)¡Ácos(d/R) + cos(lat1)¡Ásin(d/R)¡Ácos(bearing))
-//   lon2 = lon1 + atan2(sin(bearing)¡Ásin(d/R)¡Ácos(lat1), cos(d/R) - sin(lat1)¡Ásin(lat2))
-//   ÆäÖÐ R = 6371000m (µØÇòÆ½¾ù°ë¾¶)
+// Haversine ï¿½ï¿½Ê½:
+//   lat2 = asin(sin(lat1)ï¿½ï¿½cos(d/R) + cos(lat1)ï¿½ï¿½sin(d/R)ï¿½ï¿½cos(bearing))
+//   lon2 = lon1 + atan2(sin(bearing)ï¿½ï¿½sin(d/R)ï¿½ï¿½cos(lat1), cos(d/R) - sin(lat1)ï¿½ï¿½sin(lat2))
+//   ï¿½ï¿½ï¿½ï¿½ R = 6371000m (ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ë¾¶)
 //============================================================================
 void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
                               double& outLat, double& outLon)
@@ -1780,7 +1780,7 @@ void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
     int resY = isVis ? cam.visResY : cam.irResY;
     int halfW = resX / 2, halfH = resY / 2;
 
-    // ´Ó UI ¿Ø¼þ¶ÁÈ¡Éè±¸×îÐÂ GPS ÓëÔÆÌ¨½Ç¶È£¨ÓÉ ZoomInfo Ö¡¸üÐÂ£©
+    // ï¿½ï¿½ UI ï¿½Ø¼ï¿½ï¿½ï¿½È¡ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ GPS ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½Ç¶È£ï¿½ï¿½ï¿½ ZoomInfo Ö¡ï¿½ï¿½ï¿½Â£ï¿½
     double devLat = parseCoord(ui->statLatitude->text());
     double devLon = parseCoord(ui->statLongitude->text());
     double pan = ui->statPanAngle->text().toDouble();
@@ -1790,33 +1790,33 @@ void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
 
     double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
 
-    // ¾ø¶Ô·½Î»½Ç = ÔÆÌ¨Ë®Æ½½Ç(¶È¡ú»¡¶È) + ÏñËØË®Æ½Æ«ÒÆ½Ç(»¡¶È)
+    // ï¿½ï¿½ï¿½Ô·ï¿½Î»ï¿½ï¿½ = ï¿½ï¿½Ì¨Ë®Æ½ï¿½ï¿½(ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½) + ï¿½ï¿½ï¿½ï¿½Ë®Æ½Æ«ï¿½Æ½ï¿½(ï¿½ï¿½ï¿½ï¿½)
     double bearing = pan * M_PI / 180.0 + dxAngle;
-    double range = distance > 0 ? distance : 100.0; // Ä¬ÈÏ 100m
+    double range = distance > 0 ? distance : 100.0; // Ä¬ï¿½ï¿½ 100m
 
-    // Haversine ¹«Ê½¼ÆËãÄ¿±ê¾­Î³¶È
-    double R = 6371000.0;                          // µØÇòÆ½¾ù°ë¾¶ (m)
-    double lat1 = devLat * M_PI / 180.0;           // Éè±¸Î³¶È ¡ú »¡¶È
-    double lon1 = devLon * M_PI / 180.0;           // Éè±¸¾­¶È ¡ú »¡¶È
-    double d = range / R;                          // ¾àÀë¶ÔÓ¦µÄÇòÐÄ½Ç
+    // Haversine ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ê¾­Î³ï¿½ï¿½
+    double R = 6371000.0;                          // ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ë¾¶ (m)
+    double lat1 = devLat * M_PI / 180.0;           // ï¿½è±¸Î³ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+    double lon1 = devLon * M_PI / 180.0;           // ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+    double d = range / R;                          // ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½
 
     double lat2 = qAsin(qSin(lat1) * qCos(d) + qCos(lat1) * qSin(d) * qCos(bearing));
     double lon2 = lon1 + qAtan2(qSin(bearing) * qSin(d) * qCos(lat1), qCos(d) - qSin(lat1) * qSin(lat2));
 
-    outLat = lat2 * 180.0 / M_PI;  // ½á¹û×ª»Ø¶È
+    outLat = lat2 * 180.0 / M_PI;  // ï¿½ï¿½ï¿½×ªï¿½Ø¶ï¿½
     outLon = lon2 * 180.0 / M_PI;
 }
 
 //============================================================================
-// pixelBboxToGps - ÏñËØ¿ò½Çµã×ª GPS£¨º¬¸©ÑöÐ£Õý£©
-// Óë pixelToGps ÀàËÆ£¬µ«¶îÍâ¸ù¾ÝÔÆÌ¨¸©Ñö½Ç (tilt) ºÍÏñËØ´¹Ö±Æ«ÒÆ (dyAngle)
-// ¶Ô²â¾à¾àÀë½øÐÐÐ£Õý£ºµ±Ä¿±êÔÚ»­ÃæÖÐÆ«ÀëÖÐÐÄÊ±£¬Êµ¼Ê¹âÂ·¾àÀë²»Í¬¡£
+// pixelBboxToGps - ï¿½ï¿½ï¿½Ø¿ï¿½Çµï¿½×ª GPSï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ pixelToGps ï¿½ï¿½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (tilt) ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½Ö±Æ«ï¿½ï¿½ (dyAngle)
+// ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Êµï¿½Ê¹ï¿½Â·ï¿½ï¿½ï¿½ë²»Í¬ï¿½ï¿½
 //
-// Ð£ÕýÔ­Àí£º
-//   H = distance ¡Á sin(tilt)          ¡ª Éè±¸¼ÜÉè¸ß¶È
-//   effTilt = tilt + dyAngle          ¡ª Ä¿±êÏà¶ÔÓÚË®Æ½ÃæµÄÊµ¼Ê¸©Ñö½Ç
-//   rangeAdj = H / sin(effTilt)       ¡ª Ð£ÕýºóµÄÐ±¾à
-//   µ± effTilt ½Ó½ü 0 »ò ¦Ð Ê±Ìø¹ýÐ£Õý£¨±ÜÃâ³ýÁã£©
+// Ð£ï¿½ï¿½Ô­ï¿½ï¿½ï¿½
+//   H = distance ï¿½ï¿½ sin(tilt)          ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ß¶ï¿½
+//   effTilt = tilt + dyAngle          ï¿½ï¿½ Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë®Æ½ï¿½ï¿½ï¿½Êµï¿½Ê¸ï¿½ï¿½ï¿½ï¿½ï¿½
+//   rangeAdj = H / sin(effTilt)       ï¿½ï¿½ Ð£ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½
+//   ï¿½ï¿½ effTilt ï¿½Ó½ï¿½ 0 ï¿½ï¿½ ï¿½ï¿½ Ê±ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£©
 //============================================================================
 void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
                                   double tiltDeg, double& outLat, double& outLon)
@@ -1840,20 +1840,20 @@ void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
     double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
     double dyAngle = (pixelY - halfH) * px / (focal * 1000.0);
 
-    // ¸ù¾ÝÔÆÌ¨¸©Ñö½ÇÓëÏñËØ´¹Ö±Æ«ÒÆÐ£Õý²â¾àÖµ
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½Ö±Æ«ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
     double tiltRad = tiltDeg * M_PI / 180.0;
     double rangeAdj = distance;
     if (tiltRad > 0.01) {
-        double H = distance * qSin(tiltRad);          // Éè±¸Ïà¶Ô¸ß¶È
-        double effTilt = tiltRad + dyAngle;           // Ä¿±êÊµ¼Ê¸©Ñö½Ç
+        double H = distance * qSin(tiltRad);          // ï¿½è±¸ï¿½ï¿½Ô¸ß¶ï¿½
+        double effTilt = tiltRad + dyAngle;           // Ä¿ï¿½ï¿½Êµï¿½Ê¸ï¿½ï¿½ï¿½ï¿½ï¿½
         if (effTilt > 0.005 && effTilt < M_PI - 0.005)
-            rangeAdj = H / qSin(effTilt);             // Ð£ÕýÐ±¾à
+            rangeAdj = H / qSin(effTilt);             // Ð£ï¿½ï¿½Ð±ï¿½ï¿½
     }
 
     double bearing = pan * M_PI / 180.0 + dxAngle;
     double range = rangeAdj > 0 ? rangeAdj : (distance > 0 ? distance : 100.0);
 
-    // Haversine ¹«Ê½¼ÆËãÄ¿±ê GPS (Í¬ pixelToGps)
+    // Haversine ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ GPS (Í¬ pixelToGps)
     double R = 6371000.0;
     double lat1 = devLat * M_PI / 180.0;
     double lon1 = devLon * M_PI / 180.0;
@@ -1866,7 +1866,7 @@ void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
     outLon = lon2 * 180.0 / M_PI;
 }
 
-// Haversine ¹«Ê½¼ÆËãÁ½µã¼ä¾àÀë£¨Ã×£©
+// Haversine ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë£¨ï¿½×£ï¿½
 static double haversineDistance(double lat1, double lon1, double lat2, double lon2)
 {
     double R = 6371000.0;
@@ -1879,13 +1879,13 @@ static double haversineDistance(double lat1, double lon1, double lat2, double lo
     return R * c;
 }
 
-// ©¤©¤ ¹ì¼£µã³éÏ¡ãÐÖµ ©¤©¤
-static constexpr double TRK_MIN_DIST_M     = 3.0;    // ·À¶¶ËÀÇø£ºÐ¡ÓÚ´Ë¾àÀëÖ±½Ó¶ªÆú
-static constexpr double TRK_MAX_DIST_M     = 20.0;   // ³¤¾àÀë³éÏ¡£º³¬³ö´Ë¾àÀëÇ¿ÖÆ´òµã
-static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // º½Ïò½ÇÆ«×ªãÐÖµ£¬³¬¹ýÔòÇ¿ÖÆ´òµã
-static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // ÐÄÌø¼ä¸ô£º³¬¹ý´ËÊ±¼äÇ¿ÖÆ´òµã
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ì¼£ï¿½ï¿½ï¿½Ï¡ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½
+static constexpr double TRK_MIN_DIST_M     = 3.0;    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½Ú´Ë¾ï¿½ï¿½ï¿½Ö±ï¿½Ó¶ï¿½ï¿½ï¿½
+static constexpr double TRK_MAX_DIST_M     = 20.0;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¾ï¿½ï¿½ï¿½Ç¿ï¿½Æ´ï¿½ï¿½
+static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // ï¿½ï¿½ï¿½ï¿½ï¿½Æ«×ªï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½Æ´ï¿½ï¿½
+static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ç¿ï¿½Æ´ï¿½ï¿½
 
-// bearing - ¼ÆËãÁ½µãÖ®¼äµÄº½Ïò½Ç£¨¶È£©£¬Õý±±Îª0¡ã£¬Ë³Ê±Õë
+// bearing - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö®ï¿½ï¿½Äºï¿½ï¿½ï¿½Ç£ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª0ï¿½ã£¬Ë³Ê±ï¿½ï¿½
 static double bearing(double lat1, double lon1, double lat2, double lon2)
 {
     double lat1R = qDegreesToRadians(lat1);
@@ -1899,31 +1899,31 @@ static double bearing(double lat1, double lon1, double lat2, double lon2)
     return deg < 0 ? deg + 360.0 : deg;
 }
 
-// shouldPlotTrackPoint - ³éÏ¡ÅÐ¶¨£ºÊÇ·ñÓ¦½«µ±Ç°GPSµã»æÖÆµ½µØÍ¼
-// ¾àÀë < TRK_MIN_DIST_M  ¡ú ¶ªÆú£¨·À¶¶£©
-// ¾àÀë > TRK_MAX_DIST_M  ¡ú »­µã£¨³¤¾àÀë³éÏ¡£©
-// º½Ïò½ÇÆ«×ª > TRK_HEADING_DIFF_DEG ¡ú »­µã£¨×ªÍä»ú¶¯£©
-// ¾àÉÏ´Î»æÖÆ > TRK_HEARTBEAT_MS    ¡ú »­µã£¨ÐÄÌø±£»î£©
-// outBearing£¨¿ÉÑ¡£©: ·µ»Ø¼ÆËã³öµÄº½Ïò½Ç£¬±ÜÃâµ÷ÓÃ´¦ÖØ¸´¼ÆËã bearing()
+// shouldPlotTrackPoint - ï¿½ï¿½Ï¡ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½Ç·ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Ç°GPSï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½Í¼
+// ï¿½ï¿½ï¿½ï¿½ < TRK_MIN_DIST_M  ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ > TRK_MAX_DIST_M  ï¿½ï¿½ ï¿½ï¿½ï¿½ã£¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¡ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½Æ«×ª > TRK_HEADING_DIFF_DEG ï¿½ï¿½ ï¿½ï¿½ï¿½ã£¨×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½Ï´Î»ï¿½ï¿½ï¿½ > TRK_HEARTBEAT_MS    ï¿½ï¿½ ï¿½ï¿½ï¿½ã£¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î£©
+// outBearingï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½: ï¿½ï¿½ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½Äºï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã´ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½ bearing()
 static bool shouldPlotTrackPoint(double newLat, double newLon,
                                   double plotLat, double plotLon,
                                   double plotHeading, const QDateTime& plotTime,
                                   double* outBearing = nullptr)
 {
-    if (plotHeading < 0) return true; // Ê×´Î»æÖÆ / Ä¿±êÇÐ»»
+    if (plotHeading < 0) return true; // ï¿½×´Î»ï¿½ï¿½ï¿½ / Ä¿ï¿½ï¿½ï¿½Ð»ï¿½
 
     double dist = haversineDistance(plotLat, plotLon, newLat, newLon);
 
-    // ·À¶¶ËÀÇø£ºÆ¯ÒÆÖ±½Ó¶ªÆú
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¯ï¿½ï¿½Ö±ï¿½Ó¶ï¿½ï¿½ï¿½
     if (dist < TRK_MIN_DIST_M) return false;
 
-    // ³¤¾àÀë³éÏ¡
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¡
     if (dist > TRK_MAX_DIST_M) {
         if (outBearing) *outBearing = bearing(plotLat, plotLon, newLat, newLon);
         return true;
     }
 
-    // º½Ïò½Ç±ä»¯
+    // ï¿½ï¿½ï¿½ï¿½Ç±ä»¯
     double head = bearing(plotLat, plotLon, newLat, newLon);
     double diff = qAbs(head - plotHeading);
     if (diff > 180.0) diff = 360.0 - diff;
@@ -1932,7 +1932,7 @@ static bool shouldPlotTrackPoint(double newLat, double newLon,
         return true;
     }
 
-    // ÐÄÌø¶µµ×£¨·ÅÔÚº½ÏòÖ®ºó£¬±ÜÃâÂýËÙ×ªÏòÊ±´ò¶àÓàµÄÐÄÌøµã£©
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×£ï¿½ï¿½ï¿½ï¿½Úºï¿½ï¿½ï¿½Ö®ï¿½ó£¬±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£©
     if (plotTime.isValid()) {
         qint64 elapsed = plotTime.msecsTo(QDateTime::currentDateTime());
         if (elapsed >= TRK_HEARTBEAT_MS) {
@@ -1945,12 +1945,12 @@ static bool shouldPlotTrackPoint(double newLat, double newLon,
 }
 
 //============================================================================
-// updateMapTargets - ¸üÐÂµØÍ¼ÉÏµÄ AI Ä¿±ê±ê¼Ç
-// ¸ú×ÙÄ£Ê½ (WorkMode 2~4)£º
-//   - ½öÏÔÊ¾ 1 ¸öÄ¿±ê£¨Ëø¶¨ 0xB1 ÓÅÏÈ£¬¶ªÊ§ 0xB2 ´ÎÖ®£©
-//   - Ê×´ÎÊ§Ëø£¨0xB2£©Ê±¼ÇÂ¼Ê±¼ä£¬±£³Ö×îºóÎ»ÖÃ 5 Ãë
-//   - Ê§Ëø³¬ 5 ÃëÇå³ý¹ì¼£ºÍÄ¿±êµã
-// Ê¶±ðÄ£Ê½ (WorkMode 1)£ºÏÔÊ¾È«²¿Ê¶±ðÄ¿±ê£¬ÎÞÉÏ±¨Ê±Çå¿ÕÒÅÁô
+// updateMapTargets - ï¿½ï¿½ï¿½Âµï¿½Í¼ï¿½Ïµï¿½ AI Ä¿ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½Ä£Ê½ (WorkMode 2~4)ï¿½ï¿½
+//   - ï¿½ï¿½ï¿½ï¿½Ê¾ 1 ï¿½ï¿½Ä¿ï¿½ê£¨ï¿½ï¿½ï¿½ï¿½ 0xB1 ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½Ê§ 0xB2 ï¿½ï¿½Ö®ï¿½ï¿½
+//   - ï¿½×´ï¿½Ê§ï¿½ï¿½ï¿½ï¿½0xB2ï¿½ï¿½Ê±ï¿½ï¿½Â¼Ê±ï¿½ä£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ 5 ï¿½ï¿½
+//   - Ê§ï¿½ï¿½ï¿½ï¿½ 5 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ì¼£ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
+// Ê¶ï¿½ï¿½Ä£Ê½ (WorkMode 1)ï¿½ï¿½ï¿½ï¿½Ê¾È«ï¿½ï¿½Ê¶ï¿½ï¿½Ä¿ï¿½ê£¬ï¿½ï¿½ï¿½Ï±ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 {
@@ -1960,7 +1960,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     double tilt = m_currentTilt;
 
     //==========================================================================
-    // Ê¶±ðÄ£Ê½ (WorkMode=1)£ºÏÔÊ¾ËùÓÐÄ¿±ê£¬ÎÞÉÏ±¨Ê±Çå¿Õ
+    // Ê¶ï¿½ï¿½Ä£Ê½ (WorkMode=1)ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ê£¬ï¿½ï¿½ï¿½Ï±ï¿½Ê±ï¿½ï¿½ï¿½
     //==========================================================================
     if (workMode == 1) {
         if (!hasObject || objMap.isEmpty()) {
@@ -2009,11 +2009,11 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     }
 
     //==========================================================================
-    // ¸ú×ÙÄ£Ê½ (WorkMode=2~4)
+    // ï¿½ï¿½ï¿½ï¿½Ä£Ê½ (WorkMode=2~4)
     //==========================================================================
     if (workMode >= 2 && workMode <= 4) {
 
-        // -- ²éÕÒËø¶¨Ä¿±ê 0xB1 ºÍ¶ªÊ§Ä¿±ê 0xB2 --
+        // -- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ 0xB1 ï¿½Í¶ï¿½Ê§Ä¿ï¿½ï¿½ 0xB2 --
         QString lockedId, lostId;
         QJsonObject lockedObj, lostObj;
         for (auto it = objMap.begin(); it != objMap.end(); ++it) {
@@ -2026,7 +2026,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             }
         }
 
-        // ---- ÓÐËø¶¨Ä¿±ê ----
+        // ---- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ ----
         if (!lockedId.isEmpty()) {
             m_track.lostSince = QDateTime();
 
@@ -2034,7 +2034,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             double tLat = 0, tLon = 0;
 
             double dist = calcVisualDistance(lockedObj, cls, true);
-            // »º´æ AI Ä¿±ê¾àÀë£¨ÓÃÓÚ ZoomInfo ÎÞ¼¤¹â²â¾àÊ±»ØÍË£©
+            // ï¿½ï¿½ï¿½ï¿½ AI Ä¿ï¿½ï¿½ï¿½ï¿½ë£¨ï¿½ï¿½ï¿½ï¿½ ZoomInfo ï¿½Þ¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ë£ï¿½
             m_lastAiDist = dist;
             m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
 
@@ -2049,7 +2049,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.lon = tLon;
                 m_track.cls = cls;
 
-                // ¼ÆËãËÙ¶È£¨Ã×/Ãë£©
+                // ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È£ï¿½ï¿½ï¿½/ï¿½ë£©
                 double speed = 0;
                 if (m_track.prevTime.isValid()) {
                     double dist_m = haversineDistance(m_track.prevLat, m_track.prevLon, tLat, tLon);
@@ -2060,9 +2060,9 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.prevLon = tLon;
                 m_track.prevTime = QDateTime::currentDateTime();
 
-                // ¹ì¼£µã³éÏ¡ÅÐ¶¨
+                // ï¿½ì¼£ï¿½ï¿½ï¿½Ï¡ï¿½Ð¶ï¿½
                 if (tLat != 0 && tLon != 0) {
-                    // Ä¿±êÇÐ»»Ê±ÖØÖÃ³éÏ¡×´Ì¬£¬È·±£ÐÂÄ¿±êÊ×µã±Ø¶¨»æÖÆ
+                    // Ä¿ï¿½ï¿½ï¿½Ð»ï¿½Ê±ï¿½ï¿½ï¿½Ã³ï¿½Ï¡×´Ì¬ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½×µï¿½Ø¶ï¿½ï¿½ï¿½ï¿½ï¿½
                     bool targetChanged = (m_track.id != lockedId);
                     m_track.id = lockedId;
                     if (targetChanged)
@@ -2104,7 +2104,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             return;
         }
 
-        // ---- ÓÐ¶ªÊ§Ä¿±ê (0xB2) ----
+        // ---- ï¿½Ð¶ï¿½Ê§Ä¿ï¿½ï¿½ (0xB2) ----
         if (!lostId.isEmpty()) {
             int cls = lostObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
@@ -2121,7 +2121,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 hasPts = true;
             }
 
-            // Ê×´ÎÊ§Ëø£º±£´æÎ»ÖÃ£¬¼ÇÂ¼Ê±¼ä
+            // ï¿½×´ï¿½Ê§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ã£ï¿½ï¿½ï¿½Â¼Ê±ï¿½ï¿½
             if (m_track.lostSince.isNull()) {
                 m_track.id = lostId;
                 m_track.lat = tLat;
@@ -2130,16 +2130,16 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.lostSince = QDateTime::currentDateTime();
             }
 
-            // ¼ì²éÊÇ·ñ³¬¹ý 5 Ãë
+            // ï¿½ï¿½ï¿½ï¿½Ç·ñ³¬¹ï¿½ 5 ï¿½ï¿½
             qint64 elapsed = m_track.lostSince.msecsTo(QDateTime::currentDateTime());
             if (elapsed >= 5000) {
-                // ³¬¹ý 5 Ãë£¬Çå³ý¹ì¼£ºÍÄ¿±ê
+                // ï¿½ï¿½ï¿½ï¿½ 5 ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½ì¼£ï¿½ï¿½Ä¿ï¿½ï¿½
                 m_mapWidget->clearAllTracks();
                 m_mapWidget->updateTargetMarkers(QJsonArray());
                 return;
             }
 
-            // 5 ÃëÄÚ£ºÏÔÊ¾×îºóÎ»ÖÃ
+            // 5 ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Î»ï¿½ï¿½
             if (hasPts) {
                 QJsonArray targetArr;
                 QJsonObject t;
@@ -2156,17 +2156,17 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             return;
         }
 
-        // ---- ÓÐ Object µ«ÎÞ 0xB1/0xB2£¬Çå¿Õ ----
+        // ---- ï¿½ï¿½ Object ï¿½ï¿½ï¿½ï¿½ 0xB1/0xB2ï¿½ï¿½ï¿½ï¿½ï¿½ ----
         m_mapWidget->clearAllTracks();
         m_mapWidget->updateTargetMarkers(QJsonArray());
     }
 }
 
-// calcVisualDistance - ·â×°ÁË"ÎÞ¼¤¹â²â¾àÊ±ÓÃÊÓ¾õ·¨¹ÀËã¾àÀë"µÄ¹«¹²Âß¼­
-// obj: Ä¿±ê JSON ¶ÔÏó£¨ÒÑÓÐ Distance ×Ö¶ÎºÍ Points ×Ö¶Î£©
-// cls: Ä¿±ê Class ±àÂë
-// updateTrackLabel: ÊÇ·ñ¸üÐÂ trackDistance ×´Ì¬À¸ÎÄ±¾£¨¸ú×ÙËø¶¨/¶ªÊ§Ê± true£©
-// ·µ»ØÖµ£ºÒÑÓÐ¼¤¹â¾àÀëÔò·µ»ØÔ­Öµ£¬·ñÔò·µ»Ø¹ÀËãÖµ
+// calcVisualDistance - ï¿½ï¿½×°ï¿½ï¿½"ï¿½Þ¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½ß¼ï¿½
+// obj: Ä¿ï¿½ï¿½ JSON ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Distance ï¿½Ö¶Îºï¿½ Points ï¿½Ö¶Î£ï¿½
+// cls: Ä¿ï¿½ï¿½ Class ï¿½ï¿½ï¿½ï¿½
+// updateTrackLabel: ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ trackDistance ×´Ì¬ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Ê§Ê± trueï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò·µ»ï¿½Ô­Öµï¿½ï¿½ï¿½ï¿½ï¿½ò·µ»Ø¹ï¿½ï¿½ï¿½Öµ
 double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
 {
     double dist = obj.value("Distance").toDouble(0);
@@ -2176,8 +2176,8 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
     int low = currentAlgoModel() % 10;
     double ref = m_cfg->cam().targetRefSize(low, cls);
 
-    // ¸ú×Ù×´Ì¬ (0xB1/0xB2) ÎÞ·¨Í¨¹ý Class ²éµ½²Î¿¼³ß´ç
-    // ¡ú ÓÃËã·¨Ä£ÐÍ±éÀúÒÑÖª Class ×öÊÓ¾õ¹ÀËã
+    // ï¿½ï¿½ï¿½ï¿½×´Ì¬ (0xB1/0xB2) ï¿½Þ·ï¿½Í¨ï¿½ï¿½ Class ï¿½éµ½ï¿½Î¿ï¿½ï¿½ß´ï¿½
+    // ï¿½ï¿½ ï¿½ï¿½ï¿½ã·¨Ä£ï¿½Í±ï¿½ï¿½ï¿½ï¿½ï¿½Öª Class ï¿½ï¿½ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½ï¿½
     if (ref <= 0 && (cls == 0xB1 || cls == 0xB2)) {
         static const int fallback[] = {0xA1, 0xA2, 0xA3, 0xA4};
         for (int fc : fallback) {
@@ -2202,12 +2202,12 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
 
     dist = estimateTargetDistance(boxPx, focal, pxSize, ref);
     if (updateTrackLabel)
-        ui->trackDistance->setText(QString::number(dist, 'f', 1) + QStringLiteral(" m (¹ÀËã)"));
+        ui->trackDistance->setText(QString::number(dist, 'f', 1) + QStringLiteral(" m (ï¿½ï¿½ï¿½ï¿½)"));
     return dist;
 }
 
-// ÊÓ¾õ·¨¾àÀë¹ÀËã£ºÒÑÖªÄ¿±ê²Î¿¼³ß´ç£¬ÓÃÏñËØ´óÐ¡·´ÍÆ¾àÀë
-// ¹«Ê½£º¾àÀë(m) = ²Î¿¼³ß´ç(m) ¡Á ½¹¾à(mm) ¡Á 1000 / (Ä¿±êÏñËØÊý ¡Á ÏñÔª³ß´ç(¦Ìm))
+// ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£ºï¿½ï¿½ÖªÄ¿ï¿½ï¿½Î¿ï¿½ï¿½ß´ç£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½Ð¡ï¿½ï¿½ï¿½Æ¾ï¿½ï¿½ï¿½
+// ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(m) = ï¿½Î¿ï¿½ï¿½ß´ï¿½(m) ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½(mm) ï¿½ï¿½ 1000 / (Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ôªï¿½ß´ï¿½(ï¿½ï¿½m))
 double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize)
 {
     if (boxPixels <= 0 || focalMm < 0.1 || pixelSizeUm <= 0 || refSize <= 0)
@@ -2216,7 +2216,7 @@ double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double 
 }
 
 //============================================================================
-// resizeEvent - ´°¿ÚËõ·ÅÊ±ÖØÐÂ²¼¾Ö
+// resizeEvent - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â²ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
@@ -2225,8 +2225,8 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 }
 
 //============================================================================
-// toggleMap - ÇÐ»»µØÍ¼ÏÔÊ¾/Òþ²Ø
-// ÓÉ m_btnMap ´¥·¢
+// toggleMap - ï¿½Ð»ï¿½ï¿½ï¿½Í¼ï¿½ï¿½Ê¾/ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ m_btnMap ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::toggleMap()
 {
@@ -2246,8 +2246,8 @@ void MainWindow::toggleMap()
 }
 
 //============================================================================
-// toggleMapMode - ÇÐ»»ÃÔÄã/È«ÆÁÄ£Ê½
-// ÃÔÄãÄ£Ê½ÏÂµ¥»÷µØÍ¼´¥·¢Õ¹¿ª£»È«ÆÁÄ£Ê½ÏÂµã ? ÊÕ»Ø
+// toggleMapMode - ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½/È«ï¿½ï¿½Ä£Ê½
+// ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½Ä£Ê½ï¿½Âµï¿½ ? ï¿½Õ»ï¿½
 //============================================================================
 void MainWindow::toggleMapMode()
 {
@@ -2256,10 +2256,10 @@ void MainWindow::toggleMapMode()
 }
 
 //============================================================================
-// updateMapLayout - ÈýÄ£Ê½²¼¾Ö
-//   µØÍ¼Òþ²Ø    ¡ú videoWidget ÌîÂú widgetDisplay
-//   ÃÔÄãÄ£Ê½    ¡ú videoWidget È«ÆÁ + 280 Ô²ÐÎ¸¡²ã
-//   È«ÆÁ/´óµØÍ¼  ¡ú mapWidget ÌîÂú widgetDisplay + ¶ÀÁ¢ PiP ¶Ô»°¿ò
+// updateMapLayout - ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½
+//   ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½    ï¿½ï¿½ videoWidget ï¿½ï¿½ï¿½ï¿½ widgetDisplay
+//   ï¿½ï¿½ï¿½ï¿½Ä£Ê½    ï¿½ï¿½ videoWidget È«ï¿½ï¿½ + 280 Ô²ï¿½Î¸ï¿½ï¿½ï¿½
+//   È«ï¿½ï¿½/ï¿½ï¿½ï¿½Í¼  ï¿½ï¿½ mapWidget ï¿½ï¿½ï¿½ï¿½ widgetDisplay + ï¿½ï¿½ï¿½ï¿½ PiP ï¿½Ô»ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::updateMapLayout()
 {
@@ -2280,7 +2280,7 @@ void MainWindow::updateMapLayout()
     m_mapContainer->setVisible(true);
 
     if (m_mapExpanded) {
-        // ´óµØÍ¼£ºµØÍ¼ÌîÂúÏÔÊ¾Çø
+        // ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½
         m_mapContainer->setGeometry(0, 0, ps.width(), ps.height());
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, false);
         m_mapContainer->clearMask();
@@ -2288,7 +2288,7 @@ void MainWindow::updateMapLayout()
         m_mapWidget->setCircularClip(false);
         m_mapOverlay->setVisible(false);
 
-        // ÊÓÆµÒÆÖÁ¶ÀÁ¢ PiP ¶Ô»°¿ò
+        // ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ PiP ï¿½Ô»ï¿½ï¿½ï¿½
         ui->videoWidget->setParent(m_pipDialog);
         m_pipDialog->layout()->addWidget(ui->videoWidget);
         m_pipPos = QPoint(8, ps.height() - 240 - 8);
@@ -2296,7 +2296,7 @@ void MainWindow::updateMapLayout()
         m_pipDialog->show();
         ui->videoWidget->setVisible(true);
     } else {
-        // ÃÔÄãÄ£Ê½
+        // ï¿½ï¿½ï¿½ï¿½Ä£Ê½
         if (ui->videoWidget->parent() != ui->widgetDisplay) {
             ui->videoWidget->setParent(ui->widgetDisplay);
             ui->verticalLayout_display->addWidget(ui->videoWidget);
@@ -2321,18 +2321,18 @@ void MainWindow::updateMapLayout()
 }
 
 //============================================================================
-// eventFilter - È«¾ÖÊÂ¼þ¹ýÂË
-//   QComboBox£ºÀ¹½Ø¹öÂÖ£¬½öÏÂÀ­ÁÐ±íÕ¹¿ªÊ±²ÅÔÊÐí¹öÂÖÇÐ»»
-//   m_mapOverlay£ºµ¥»÷£½Õ¹¿ª£¬ÍÏ×§£½ÒÆ¶¯Î»ÖÃ
-//   m_pipTitle£ºÍÏ×§ÒÆ¶¯ PiP ¶Ô»°¿òÎ»ÖÃ
+// eventFilter - È«ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½
+//   QComboBoxï¿½ï¿½ï¿½ï¿½ï¿½Ø¹ï¿½ï¿½Ö£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½Õ¹ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½
+//   m_mapOverlayï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×§ï¿½ï¿½ï¿½Æ¶ï¿½Î»ï¿½ï¿½
+//   m_pipTitleï¿½ï¿½ï¿½ï¿½×§ï¿½Æ¶ï¿½ PiP ï¿½Ô»ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 //============================================================================
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
-    // QComboBox ¹öÂÖÀ¹½Ø£ºÎ´Õ¹¿ªÊ±ºöÂÔ¹öÂÖÊÂ¼þ
+    // QComboBox ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø£ï¿½Î´Õ¹ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ô¹ï¿½ï¿½ï¿½ï¿½Â¼ï¿½
     if (event->type() == QEvent::Wheel) {
         auto *cb = qobject_cast<QComboBox*>(obj);
         if (cb && !cb->view()->isVisible()) {
-            return true;  // ÍÌµô¹öÂÖÊÂ¼þ
+            return true;  // ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½
         }
     }
 
@@ -2395,7 +2395,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
             return true;
         }
         case QEvent::MouseButtonDblClick: {
-            // Ë«»÷±êÌâÀ¸£º»Ö¸´ÊÓÆµµ½Ö÷ÏÔÊ¾Çø + ÏÔÊ¾ÃÔÄãµØÍ¼
+            // Ë«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ + ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Í¼
             toggleMapMode();
             return true;
         }
@@ -2408,8 +2408,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 }
 
 //============================================================================
-// onAiCleanupTimeout - AIInfo ³¬Ê±ÇåÀí
-// Éè±¸ÎÞÄ¿±êÊ±²»·¢ AIInfo Ö¡£¬³¬¹ý 2 ÃëÎÞ¸üÐÂÔòÇå³ý½çÃæ²ÐÁôÊý¾Ý
+// onAiCleanupTimeout - AIInfo ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+// ï¿½è±¸ï¿½ï¿½Ä¿ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ AIInfo Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2 ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //============================================================================
 void MainWindow::onAiCleanupTimeout()
 {
@@ -2418,24 +2418,24 @@ void MainWindow::onAiCleanupTimeout()
 
     m_lastAiInfoTime = QDateTime();
 
-    // Çå¿ÕÊ¶±ð±í¸ñ
-    ui->lblIdentifyCount->setText(QString::fromUtf8("Ä¿±ê×ÜÊý: 0"));
+    // ï¿½ï¿½ï¿½Ê¶ï¿½ï¿½ï¿½ï¿½
+    ui->lblIdentifyCount->setText(QString::fromUtf8("Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: 0"));
     ui->tableIdentify->setRowCount(0);
 
-    // Çå¿Õ¸ú×ÙÃæ°å
-    ui->lblTrackStatus->setText(QString::fromUtf8("×´Ì¬: Î´Ëø¶¨"));
+    // ï¿½ï¿½Õ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    ui->lblTrackStatus->setText(QString::fromUtf8("×´Ì¬: Î´ï¿½ï¿½ï¿½ï¿½"));
     ui->lblTrackStatus->setProperty("state", "nolock");
     refreshStyle(ui->lblTrackStatus);
     ui->trackPos->clear();
     ui->trackMissDistance->clear();
     ui->trackDistance->clear();
 
-    // Çå¿ÕµØÍ¼±ê¼ÇºÍ¹ì¼£
+    // ï¿½ï¿½Õµï¿½Í¼ï¿½ï¿½ÇºÍ¹ì¼£
     m_mapWidget->clearAllTracks();
     m_mapWidget->updateTargetMarkers(QJsonArray());
     m_mapWidget->clearFov();
 
-    // ÖØÖÃ¸ú×Ù×´Ì¬
+    // ï¿½ï¿½ï¿½Ã¸ï¿½ï¿½ï¿½×´Ì¬
     m_track = TrackState();
     m_lastAiDist = 0;
     m_lastAiDistEstimated = false;
@@ -2447,6 +2447,7 @@ int MainWindow::currentAlgoModel() const
 {
     return m_currentAlgoModel;
 }
+
 
 
 

@@ -48,6 +48,7 @@ static void refreshStyle(QWidget *w) {
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_cfg(new ConfigManager(this))
     , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP 视频拉流线程
     , m_updatingFromDevice(false)            // 防递归更新初始关闭
     , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
@@ -361,10 +362,10 @@ MainWindow::MainWindow(QWidget *parent)
             m_presenter->motorController()->motorReturnZero();
         });
     });
-    connect(m_device, &DeviceController::motorModeResult, this, [this](bool isManual) {
+    connect(m_presenter->motorController(), &DeviceController::motorModeResult, this, [this](bool isManual) {
         ui->statWiperStatus->setText(isManual ? "手动" : "自动");
     });
-    connect(m_device, &DeviceController::motorSerialError, this, [this](const QString& msg) {
+    connect(m_presenter->motorController(), &DeviceController::motorSerialError, this, [this](const QString& msg) {
         ui->statWiperStatus->setText("故障");
         qWarning() << "电机串口错误:" << msg;
     });
@@ -399,7 +400,7 @@ MainWindow::MainWindow(QWidget *parent)
         if (!requireMotorReady()) return;
         m_presenter->motorController()->motorToggleSilentMode();
     });
-    connect(m_device, &DeviceController::motorSilentResult, this, [this](bool isSilent) {
+    connect(m_presenter->motorController(), &DeviceController::motorSilentResult, this, [this](bool isSilent) {
         ui->btnWiperSilent->setText(isSilent ? "狂暴模式" : "静音模式");
         ui->statusbar->showMessage(isSilent ? "电机已切换为：静音模式 (StealthChop)" : "电机已切换为：狂暴模式 (SpreadCycle)", 3000);
     });
@@ -419,7 +420,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 实时显示所有下发给设备的指令内容，方便调试与协议分析
     //============================================================================
     m_logDialog = new CmdLogDialog(this);
-    connect(m_device, &DeviceController::commandSent, m_logDialog, &CmdLogDialog::appendLog);
+    connect(m_presenter->motorController(), &DeviceController::commandSent, m_logDialog, &CmdLogDialog::appendLog);
 
     //============================================================================
     // 系统托盘
@@ -456,7 +457,7 @@ MainWindow::~MainWindow()
     if (m_sysParamTimer)
         m_sysParamTimer->stop();
     disconnect(m_presenter->tcpClient(), nullptr, this, nullptr);
-    if (m_rtsp) {
+    if (m_presenter->videoStream()) {
         ui->videoWidget->clearFrame();
         m_presenter->videoStream()->closeStream();
         m_presenter->videoStream()->wait(2000);
@@ -585,7 +586,7 @@ void MainWindow::onTrayShow()
 void MainWindow::onTrayExit()
 {
     m_trayIcon->hide();
-    if (m_rtsp) {
+    if (m_presenter->videoStream()) {
         ui->videoWidget->clearFrame();
         m_presenter->videoStream()->closeStream();
     }
@@ -2446,3 +2447,6 @@ int MainWindow::currentAlgoModel() const
 {
     return m_currentAlgoModel;
 }
+
+
+

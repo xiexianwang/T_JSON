@@ -32,6 +32,8 @@ qt_add_executable(T-JSON
     src/core/GeoCalculator.cpp
     src/core/GeoCalculator.h
     src/core/DeviceState.h
+    src/core/EventBus.cpp
+    src/core/EventBus.h
     src/mainwindow.cpp
     src/mainwindow.h
     ui/mainwindow.ui

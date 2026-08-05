@@ -7,6 +7,7 @@
 #include "tjsonclient.h"
 #include "devicecontroller.h"
 #include "rtspthread.h"
+#include "ptzforwarder.h"
 #include "configmanager.h"
 
 // ============================================================================
@@ -30,6 +31,7 @@ public:
     TJsonClient* tcpClient() const { return m_tcp; }
     DeviceController* motorController() const { return m_motor; }
     RtspThread* videoStream() const { return m_video; }
+    PtzForwarder* ptzForwarder() const { return m_ptz; }
     DeviceState* state() const { return m_state; }
 
 private:
@@ -40,6 +42,7 @@ private:
     TJsonClient* m_tcp;
     DeviceController* m_motor;
     RtspThread* m_video;
+    PtzForwarder* m_ptz;
     
     // 设备数据状态
     DeviceState* m_state;

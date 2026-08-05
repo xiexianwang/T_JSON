@@ -38,6 +38,8 @@ qt_add_executable(T-JSON
     src/service/DeviceContext.h
     src/service/DeviceManager.cpp
     src/service/DeviceManager.h
+    src/ui/main/MainPresenter.cpp
+    src/ui/main/MainPresenter.h
     src/mainwindow.cpp
     src/mainwindow.h
     ui/mainwindow.ui

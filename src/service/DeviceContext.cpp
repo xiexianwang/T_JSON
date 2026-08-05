@@ -11,6 +11,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
     m_tcp = new TJsonClient(this);
     m_motor = new DeviceController(m_tcp, m_cfg, this);
     m_video = new RtspThread(this);
+    m_ptz = new PtzForwarder(this);
 
     // 可以在这里建立 m_tcp 到 EventBus 之前的本地拦截（如果要处理状态更新）
     // 比如：

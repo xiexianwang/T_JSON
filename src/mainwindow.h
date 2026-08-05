@@ -19,6 +19,7 @@
 #include "devicecontroller.h"
 #include "configmanager.h"
 #include "ptzforwarder.h"
+#include "ui/main/MainPresenter.h"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
@@ -109,11 +110,8 @@ private slots:
 
 private:
     Ui::MainWindow *ui;             // UI 设计器生成的界面对象
-    TJsonClient *m_client;          // TCP JSON 协议客户端
-    ConfigManager *m_cfg;           // 配置管理器（持久化设置）
-    DeviceController *m_device;     // 设备指令控制器（封装协议细节）
-    RtspThread *m_rtsp;            // RTSP 视频流拉取线程
-    PtzForwarder *m_ptzForwarder;    // 串口服务器与转台数据转发
+        ConfigManager *m_cfg;           // 配置管理器（持久化设置）
+            MainPresenter *m_presenter;
     MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）

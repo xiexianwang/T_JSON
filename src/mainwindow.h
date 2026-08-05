@@ -112,7 +112,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
 public:
-    Ui::MainWindow* getUi() const { return ui; }
+    Ui::MainWindow* getUi() const { return ui; }\n    static void refreshStyle(QWidget *w);
 private:             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
             MainPresenter *m_presenter;

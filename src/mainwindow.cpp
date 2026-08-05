@@ -1371,25 +1371,7 @@ void MainWindow::on_btnGetImageParams_clicked()
     ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }
 
-//============================================================================
-// parseCoord - 坐标字符串解析工具函数
-// 处理带后缀的经纬度格式，例如 "39.9042N" → 39.9042, "116.4074E" → 116.4074
-// 南纬(S)或西经(W)返回负值；若无后缀则直接返回数值
-//============================================================================
-static double parseCoord(const QString& s) {
-    QString t = s.trimmed().toUpper();
-    char suf = 0;
-    if (!t.isEmpty()) {
-        QChar c = t.at(t.size() - 1);
-        if (c == 'N' || c == 'S' || c == 'E' || c == 'W') {
-            suf = c.toLatin1(); t.chop(1);
-        }
-    }
-    bool ok = false;
-    double v = t.toDouble(&ok);
-    if (!ok) return 0.0;
-    return (suf == 'S' || suf == 'W') ? -v : v;
-}
+
 
 //============================================================================
 
@@ -1399,42 +1381,7 @@ static double parseCoord(const QString& s) {
 
 
 // ── 轨迹点抽稀阈值 ──
-static constexpr double TRK_MIN_DIST_M     = 3.0;    // 防抖死区：小于此距离直接丢弃
-static constexpr double TRK_MAX_DIST_M     = 20.0;   // 长距离抽稀：超出此距离强制打点
-static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // 航向角偏转阈值，超过则强制打点
-static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // 心跳间隔：超过此时间强制打点
 
-// bearing - 计算两点之间的航向角（度），正北为0°，顺时针
-
-
-// shouldPlotTrackPoint - 抽稀判定：是否应将当前GPS点绘制到地图
-// 距离 < TRK_MIN_DIST_M  → 丢弃（防抖）
-// 距离 > TRK_MAX_DIST_M  → 画点（长距离抽稀）
-// 航向角偏转 > TRK_HEADING_DIFF_DEG → 画点（转弯机动）
-// 距上次绘制 > TRK_HEARTBEAT_MS    → 画点（心跳保活）
-// outBearing（可选）: 返回计算出的航向角，避免调用处重复计算 bearing()
-
-
-    // 航向角变化
-    double head = bearing(plotLat, plotLon, newLat, newLon);
-    double diff = qAbs(head - plotHeading);
-    if (diff > 180.0) diff = 360.0 - diff;
-    if (diff >= TRK_HEADING_DIFF_DEG) {
-        if (outBearing) *outBearing = head;
-        return true;
-    }
-
-    // 心跳兜底（放在航向之后，避免慢速转向时打多余的心跳点）
-    if (plotTime.isValid()) {
-        qint64 elapsed = plotTime.msecsTo(QDateTime::currentDateTime());
-        if (elapsed >= TRK_HEARTBEAT_MS) {
-            if (outBearing) *outBearing = head;
-            return true;
-        }
-    }
-
-    return false;
-}
 
 // 视觉法距离估算：已知目标参考尺寸，用像素大小反推距离
 
@@ -1671,3 +1618,4 @@ int MainWindow::currentAlgoModel() const
     return m_currentAlgoModel;
 }
 
+\nvoid MainWindow::refreshStyle(QWidget *w) {\n    w->style()->unpolish(w);\n    w->style()->polish(w);\n}\n

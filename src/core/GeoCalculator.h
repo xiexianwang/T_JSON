@@ -3,7 +3,8 @@
 
 #include <QString>
 #include <QtMath>
-#include <QDateTime>\n#include <QDateTime>
+#include <QDateTime>
+#include <QDateTime>
 
 struct CameraIntrinsics {
     double pixelSizeUm;

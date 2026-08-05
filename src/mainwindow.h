@@ -29,6 +29,7 @@ class RtspThread;
 class VideoWidget;
 class MapWidget;
 class CmdLogDialog;
+class VideoGridWidget;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -111,7 +112,7 @@ private slots:
 private:
     Ui::MainWindow *ui;             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
-            MainPresenter *m_presenter;
+            MainPresenter *m_presenter;\n    VideoGridWidget *m_videoGrid;
     MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）

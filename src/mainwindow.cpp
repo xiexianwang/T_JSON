@@ -6,6 +6,7 @@
 #include "mainwindow.h"
 #include "core/GeoCalculator.h"
 #include "ui_mainwindow.h"
+#include "ui/components/VideoGridWidget.h"
 #include "settingsdialog.h"
 #include "rtspthread.h"
 #include "videowidget.h"
@@ -64,6 +65,15 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
 
     setupUiStyles();
+
+
+    // Replace old single videoWidget with VideoGridWidget
+    ui->videoWidget->hide();
+    m_videoGrid = new VideoGridWidget(ui->widgetDisplay);
+    if (ui->widgetDisplay->layout()) {
+        ui->widgetDisplay->layout()->addWidget(m_videoGrid);
+    }
+    m_videoGrid->bindDevice("default_device");
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");
@@ -198,7 +208,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_presenter->videoStream(), &RtspThread::frameReady, this, &MainWindow::onRtspFrame);
     connect(m_presenter->videoStream(), &RtspThread::streamOpened, this, &MainWindow::onRtspOpened);
     connect(m_presenter->videoStream(), &RtspThread::streamError, this, &MainWindow::onRtspError);
-    connect(ui->videoWidget, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
+    if (VideoWidget* vw = m_videoGrid->getWidget("default_device")) {
+        connect(vw, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
+    }
 
     //============================================================================
     // T-JSON 协议信号连接
@@ -852,7 +864,9 @@ void MainWindow::on_btnVideoDisconnect_clicked()
 //============================================================================
 void MainWindow::onRtspFrame(const QImage &frame)
 {
-    ui->videoWidget->setFrame(frame);
+    if (VideoWidget* vw = m_videoGrid->getWidget("default_device")) {
+        vw->setFrame(frame);
+    }
 }
 
 //============================================================================

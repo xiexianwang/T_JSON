@@ -1,7 +1,7 @@
-//============================================================================
-// mainwindow.h - T-JSON Ö÷´°¿ÚÍ·ÎÄ¼ş
-// ¶¨ÒåÖ÷½çÃæÀà MainWindow£¬¸ºÔğÕûÌå UI ²¼¾Ö¡¢ÊÂ¼şÏìÓ¦¡¢Éè±¸½»»¥µ÷¶È
-// ÒÔ¼°ÊÓÆµÏÔÊ¾¡¢µØÍ¼Õ¹Ê¾¡¢ÔÆÌ¨¿ØÖÆ¡¢AI Ê¶±ğ/¸ú×Ù½á¹ûÕ¹Ê¾µÈ¹¦ÄÜ
+ï»¿//============================================================================
+// mainwindow.h - T-JSON ä¸»çª—å£å¤´æ–‡ä»¶
+// å®šä¹‰ä¸»ç•Œé¢ç±» MainWindowï¼Œè´Ÿè´£æ•´ä½“ UI å¸ƒå±€ã€äº‹ä»¶å“åº”ã€è®¾å¤‡äº¤äº’è°ƒåº¦
+// ä»¥åŠè§†é¢‘æ˜¾ç¤ºã€åœ°å›¾å±•ç¤ºã€äº‘å°æ§åˆ¶ã€AI è¯†åˆ«/è·Ÿè¸ªç»“æœå±•ç¤ºç­‰åŠŸèƒ½
 //============================================================================
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
@@ -37,11 +37,11 @@ class MainWindow;
 QT_END_NAMESPACE
 
 //============================================================================
-// MainWindow - Ó¦ÓÃ³ÌĞòÖ÷´°¿Ú
-// ÕûºÏÉè±¸Á¬½Ó/¶ÏÁ¬¡¢ÊÓÆµÁ÷ÏÔÊ¾¡¢AI Ê¶±ğÁĞ±í¡¢Ä¿±ê¸ú×Ù×´Ì¬¡¢
-// µØÍ¼¶¨Î»/ÊÓ³¡½Çµş¼Ó¡¢ÔÆÌ¨(Pelco-D)Óë¾µÍ·¿ØÖÆµÈ¶à¸ö×ÓÏµÍ³¡£
-// Í¨¹ı Qt ĞÅºÅ-²Û»úÖÆ½«µ×²ã TJsonClient / DeviceController µÄÒì²½
-// ÊÂ¼ş×ª»¯Îª UI ¸üĞÂ£¬ÊÇÇ°ºó¶ËÍ¨ĞÅµÄµ÷¶ÈÖĞÊà¡£
+// MainWindow - åº”ç”¨ç¨‹åºä¸»çª—å£
+// æ•´åˆè®¾å¤‡è¿æ¥/æ–­è¿ã€è§†é¢‘æµæ˜¾ç¤ºã€AI è¯†åˆ«åˆ—è¡¨ã€ç›®æ ‡è·Ÿè¸ªçŠ¶æ€ã€
+// åœ°å›¾å®šä½/è§†åœºè§’å åŠ ã€äº‘å°(Pelco-D)ä¸é•œå¤´æ§åˆ¶ç­‰å¤šä¸ªå­ç³»ç»Ÿã€‚
+// é€šè¿‡ Qt ä¿¡å·-æ§½æœºåˆ¶å°†åº•å±‚ TJsonClient / DeviceController çš„å¼‚æ­¥
+// äº‹ä»¶è½¬åŒ–ä¸º UI æ›´æ–°ï¼Œæ˜¯å‰åç«¯é€šä¿¡çš„è°ƒåº¦ä¸­æ¢ã€‚
 //============================================================================
 class MainWindow : public QMainWindow
 {
@@ -57,157 +57,149 @@ public:
     void closeEvent(QCloseEvent *event) override;
 
 private slots:
-    // ©¤©¤ ÏµÍ³ÍĞÅÌ ©¤©¤
+    // â”€â”€ ç³»ç»Ÿæ‰˜ç›˜ â”€â”€
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void onTrayShow();
     void onTrayExit();
 
-    // ©¤©¤ Éè±¸Á¬½ÓÏà¹Ø ©¤©¤
-    void on_btnConnect_clicked();           // Á¬½Ó/¶Ï¿ªÉè±¸°´Å¥
-    void on_btnCancelConnect_clicked();     // È¡ÏûÕıÔÚ½øĞĞµÄÁ¬½Ó
-    void onDeviceConnected();               // Éè±¸Á¬½Ó³É¹¦»Øµ÷
-    void onDeviceDisconnected();            // Éè±¸¶Ï¿ª»Øµ÷
-    void onErrorOccurred(const QString& errorMsg);  // Á¬½Ó´íÎó´¦Àí
-    void onAckReceived(quint8 statusCode);  // T-JSON ACK Ó¦´ğ´¦Àí
+    // â”€â”€ è®¾å¤‡è¿æ¥ç›¸å…³ â”€â”€
+    void on_btnConnect_clicked();           // è¿æ¥/æ–­å¼€è®¾å¤‡æŒ‰é’®
+    void on_btnCancelConnect_clicked();     // å–æ¶ˆæ­£åœ¨è¿›è¡Œçš„è¿æ¥
+    void onDeviceConnected();               // è®¾å¤‡è¿æ¥æˆåŠŸå›è°ƒ
+    void onDeviceDisconnected();            // è®¾å¤‡æ–­å¼€å›è°ƒ
+    void onErrorOccurred(const QString& errorMsg);  // è¿æ¥é”™è¯¯å¤„ç†
+    void onAckReceived(quint8 statusCode);  // T-JSON ACK åº”ç­”å¤„ç†
 
-    // ©¤©¤ JSON Êı¾İÓë×¥ÅÄ ©¤©¤
-    void onJsonReceived(const QJsonObject& doc);        // ÊÕµ½Éè±¸ JSON Ö¡
-    void onImageSnapped(const QByteArray& jpegData,     // ×¥ÅÄÍ¼Ïñ»Øµ÷
+    // â”€â”€ JSON æ•°æ®ä¸æŠ“æ‹ â”€â”€
+    void onJsonReceived(const QJsonObject& doc);        // æ”¶åˆ°è®¾å¤‡ JSON å¸§
+    void onImageSnapped(const QByteArray& jpegData,     // æŠ“æ‹å›¾åƒå›è°ƒ
                         const QRect& location);
 
-    // ©¤©¤ ¹¤×÷Ä£Ê½ÇĞ»» ©¤©¤
+    // â”€â”€ å·¥ä½œæ¨¡å¼åˆ‡æ¢ â”€â”€
     void on_comboWorkMode_currentIndexChanged(int index);
 
-    // ©¤©¤ ±êÌâÀ¸°´Å¥ ©¤©¤
+    // â”€â”€ æ ‡é¢˜æ æŒ‰é’® â”€â”€
     void on_btnMenu_Min_clicked();
     void on_btnMenu_Max_clicked();
     void on_btnMenu_Close_clicked();
 
-    // ©¤©¤ µ¼º½À¸Ò³ÃæÇĞ»» ©¤©¤
+    // â”€â”€ å¯¼èˆªæ é¡µé¢åˆ‡æ¢ â”€â”€
     void on_btnNavMonitor_clicked();
     void on_btnNavPlayback_clicked();
     void on_btnNavLog_clicked();
     void on_btnNavSettings_clicked();
 
-    // ©¤©¤ ½çÃæ½»»¥ ©¤©¤
-    void on_btnPtzMoveTo_clicked();                     // ÔÆÌ¨×ª¶¯µ½Ö¸¶¨½Ç¶È
-    void on_btnPtzMoveToGps_clicked();                  // ÔÆÌ¨×ª¶¯µ½Ö¸¶¨¾­Î³¶È¸ß¶È
-    void on_btnPanZeroCalib_clicked();                  // Ë®Æ½Áãµã±ê¶¨
+    // â”€â”€ ç•Œé¢äº¤äº’ â”€â”€
+    void on_btnPtzMoveTo_clicked();                     // äº‘å°è½¬åŠ¨åˆ°æŒ‡å®šè§’åº¦
+    void on_btnPtzMoveToGps_clicked();                  // äº‘å°è½¬åŠ¨åˆ°æŒ‡å®šç»çº¬åº¦é«˜åº¦
+    void on_btnPanZeroCalib_clicked();                  // æ°´å¹³é›¶ç‚¹æ ‡å®š
     void on_comboAlgoModel1_currentIndexChanged(int index);
     void on_comboAlgoModel2_currentIndexChanged(int index);
-    void on_comboDisplayMode_currentIndexChanged(int index); // ÏÔÊ¾Ä£Ê½ÇĞ»»
-    void on_btnSetLocation_clicked();                   // ÊÖ¶¯ÏÂ·¢¾­Î³¶È
-    void on_btnGetImageParams_clicked();                // ²éÑ¯Í¼Ïñ²ÎÊı
-    void onSysParamTimerTimeout();                      // 200ms ÖÜÆÚ²éÑ¯ÏµÍ³²ÎÊı
+    void on_comboDisplayMode_currentIndexChanged(int index); // æ˜¾ç¤ºæ¨¡å¼åˆ‡æ¢
+    void on_btnSetLocation_clicked();                   // æ‰‹åŠ¨ä¸‹å‘ç»çº¬åº¦
+    void on_btnGetImageParams_clicked();                // æŸ¥è¯¢å›¾åƒå‚æ•°
+    void onSysParamTimerTimeout();                      // 200ms å‘¨æœŸæŸ¥è¯¢ç³»ç»Ÿå‚æ•°
 
-    // ©¤©¤ RTSP ÊÓÆµÁ÷ ©¤©¤
-    void on_btnVideoConnect_clicked();      // Á¬½Ó RTSP ÊÓÆµÁ÷
-    void on_btnVideoDisconnect_clicked();   // ¶Ï¿ª RTSP ÊÓÆµÁ÷
-    void onRtspFrame(const QImage &frame);  // ÊÕµ½Ò»Ö¡ÊÓÆµÍ¼Ïñ
-    void onRtspOpened();                    // RTSP Á¬½Ó³É¹¦
-    void onRtspError(const QString &msg);   // RTSP Á¬½Ó³ö´í
-    void onVideoSelection(int cx, int cy, int pw, int ph); // ÊÓÆµ»­Ãæ¿òÑ¡
+    // â”€â”€ RTSP è§†é¢‘æµ â”€â”€
+    void on_btnVideoConnect_clicked();      // è¿æ¥ RTSP è§†é¢‘æµ
+    void on_btnVideoDisconnect_clicked();   // æ–­å¼€ RTSP è§†é¢‘æµ
+    void onRtspFrame(const QImage &frame);  // æ”¶åˆ°ä¸€å¸§è§†é¢‘å›¾åƒ
+    void onRtspOpened();                    // RTSP è¿æ¥æˆåŠŸ
+    void onRtspError(const QString &msg);   // RTSP è¿æ¥å‡ºé”™
+    void onVideoSelection(int cx, int cy, int pw, int ph); // è§†é¢‘ç”»é¢æ¡†é€‰
 
 private:
-    Ui::MainWindow *ui;             // UI Éè¼ÆÆ÷Éú³ÉµÄ½çÃæ¶ÔÏó
-        ConfigManager *m_cfg;           // ÅäÖÃ¹ÜÀíÆ÷£¨³Ö¾Ã»¯ÉèÖÃ£©
+    Ui::MainWindow *ui;             // UI è®¾è®¡å™¨ç”Ÿæˆçš„ç•Œé¢å¯¹è±¡
+        ConfigManager *m_cfg;           // é…ç½®ç®¡ç†å™¨ï¼ˆæŒä¹…åŒ–è®¾ç½®ï¼‰
             MainPresenter *m_presenter;
-    MapWidget *m_mapWidget;          // µØÍ¼¿Ø¼ş£¨µ¥ÊµÀı£¬ÃÔÄã/È«ÆÁÇĞ»»£¬º¬ÄÚ½¨¹¤¾ßÀ¸£©
-    QWidget *m_mapContainer;         // µØÍ¼ÈİÆ÷£¨ÓÃÓÚÍÏ×§¶¨Î»£©
-    QWidget *m_mapOverlay;           // Í¸Ã÷¸²¸Ç²ã£¨ÃÔÄãÄ£Ê½À¹½ØÊó±êÊÂ¼ş£©
+    MapWidget *m_mapWidget;          // åœ°å›¾æ§ä»¶ï¼ˆå•å®ä¾‹ï¼Œè¿·ä½ /å…¨å±åˆ‡æ¢ï¼Œå«å†…å»ºå·¥å…·æ ï¼‰
+    QWidget *m_mapContainer;         // åœ°å›¾å®¹å™¨ï¼ˆç”¨äºæ‹–æ‹½å®šä½ï¼‰
+    QWidget *m_mapOverlay;           // é€æ˜è¦†ç›–å±‚ï¼ˆè¿·ä½ æ¨¡å¼æ‹¦æˆªé¼ æ ‡äº‹ä»¶ï¼‰
 
-    bool m_mapVisible = false;       // µØÍ¼ÏÔÊ¾/Òş²Ø
-    bool m_mapExpanded = false;      // ÃÔÄã/È«ÆÁÄ£Ê½
-    QPoint m_miniMapPos{10, 10};    // ÃÔÄãµØÍ¼Î»ÖÃ
-    bool m_dragging = false;         // ÍÏ×§ÖĞ±ê¼Ç
-    QPoint m_dragStart;              // ÍÏ×§Æğµã
-    bool m_updatingFromDevice;     // ·Àµİ¹é¸üĞÂ±êÖ¾£¬±ÜÃâÉè±¸»Ø´«Ê±ÖØ¸´´¥·¢ UI ĞÅºÅ
-    double m_deviceHeight = 0;     // ÓÃ»§ÊÖ¶¯ÉèÖÃµÄÉè±¸¸ß¶È(m)£¬Ìæ´úÉè±¸ÉÏ±¨Öµ
+    bool m_mapVisible = false;       // åœ°å›¾æ˜¾ç¤º/éšè—
+    bool m_mapExpanded = false;      // è¿·ä½ /å…¨å±æ¨¡å¼
+    QPoint m_miniMapPos{10, 10};    // è¿·ä½ åœ°å›¾ä½ç½®
+    bool m_dragging = false;         // æ‹–æ‹½ä¸­æ ‡è®°
+    QPoint m_dragStart;              // æ‹–æ‹½èµ·ç‚¹
+    bool m_updatingFromDevice;     // é˜²é€’å½’æ›´æ–°æ ‡å¿—ï¼Œé¿å…è®¾å¤‡å›ä¼ æ—¶é‡å¤è§¦å‘ UI ä¿¡å·
+    double m_deviceHeight = 0;     // ç”¨æˆ·æ‰‹åŠ¨è®¾ç½®çš„è®¾å¤‡é«˜åº¦(m)ï¼Œæ›¿ä»£è®¾å¤‡ä¸ŠæŠ¥å€¼
 
-    // ©¤©¤ PiP ÊÓÆµ´°¿Ú£¨´óµØÍ¼Ê±¶ÀÁ¢ÎŞ±ß¿ò¶Ô»°¿ò£© ©¤©¤
+    // â”€â”€ PiP è§†é¢‘çª—å£ï¼ˆå¤§åœ°å›¾æ—¶ç‹¬ç«‹æ— è¾¹æ¡†å¯¹è¯æ¡†ï¼‰ â”€â”€
     QDialog *m_pipDialog;
     QWidget *m_pipTitle;
     QPoint m_pipPos{10, 10};
     QPoint m_pipDragStart;
 
-    double m_currentVisZoom;        // µ±Ç°¿É¼û¹â¾µÍ·±¶ÂÊ£¨´ÓÉè±¸ ZoomInfo ¸üĞÂ£©
-    double m_currentIrZoom;         // µ±Ç°ºìÍâ¾µÍ·±¶ÂÊ
-    double m_currentTilt;           // µ±Ç°ÔÆÌ¨¸©Ñö½Ç£¨Ô­Ê¼Öµ£¬ÓÃÓÚµØÍ¼¼ÆËã£©
-    int m_currentPipShow;           // µ±Ç°»­ÖĞ»­ÏÔÊ¾Ä£Ê½£¨0~4 ¶ÔÓ¦²»Í¬²¼¾Ö£©
-    int m_previousWorkMode = 0;     // ZoomInfo ×îºóÉÏ±¨µÄ WorkMode
+    double m_currentVisZoom;        // å½“å‰å¯è§å…‰é•œå¤´å€ç‡ï¼ˆä»è®¾å¤‡ ZoomInfo æ›´æ–°ï¼‰
+    double m_currentIrZoom;         // å½“å‰çº¢å¤–é•œå¤´å€ç‡
+    double m_currentTilt;           // å½“å‰äº‘å°ä¿¯ä»°è§’ï¼ˆåŸå§‹å€¼ï¼Œç”¨äºåœ°å›¾è®¡ç®—ï¼‰
+    int m_currentPipShow;           // å½“å‰ç”»ä¸­ç”»æ˜¾ç¤ºæ¨¡å¼ï¼ˆ0~4 å¯¹åº”ä¸åŒå¸ƒå±€ï¼‰
+    int m_previousWorkMode = 0;     // ZoomInfo æœ€åä¸ŠæŠ¥çš„ WorkMode
     bool m_workModeInitialized = false;
     bool m_displayModeInitialized = false;
     bool m_algoModelInitialized = false;
-    int m_previousAlgoModel = 0;    // ZoomInfo ×îºóÉÏ±¨µÄ Model
+    int m_previousAlgoModel = 0;    // ZoomInfo æœ€åä¸ŠæŠ¥çš„ Model
     int m_currentAlgoModel = 0;
-    int m_previousDisplayMode = 0;  // ZoomInfo ×îºóÉÏ±¨µÄ PipShow
-    int m_currentResX = 2688;       // µ±Ç°¿É¼û¹âÊµ¼ÊË®Æ½·Ö±æÂÊ£¨´ÓÉè±¸ ImageSize ¸üĞÂ£©
-    int m_currentResY = 1520;       // µ±Ç°¿É¼û¹âÊµ¼Ê´¹Ö±·Ö±æÂÊ
-    bool m_rtspEverOpened = false;  // RTSP ÊÇ·ñÔø´ò¿ª£¨ÊÖ¶¯»ò×Ô¶¯£©£¬ÓÃÓÚ±ÜÃâÖØ¸´×Ô¶¯Á¬½Ó
+    int m_previousDisplayMode = 0;  // ZoomInfo æœ€åä¸ŠæŠ¥çš„ PipShow
+    int m_currentResX = 2688;       // å½“å‰å¯è§å…‰å®é™…æ°´å¹³åˆ†è¾¨ç‡ï¼ˆä»è®¾å¤‡ ImageSize æ›´æ–°ï¼‰
+    int m_currentResY = 1520;       // å½“å‰å¯è§å…‰å®é™…å‚ç›´åˆ†è¾¨ç‡
+    bool m_rtspEverOpened = false;  // RTSP æ˜¯å¦æ›¾æ‰“å¼€ï¼ˆæ‰‹åŠ¨æˆ–è‡ªåŠ¨ï¼‰ï¼Œç”¨äºé¿å…é‡å¤è‡ªåŠ¨è¿æ¥
     
-    // ©¤©¤ ¸ú×Ù×´Ì¬¹ÜÀí£¨µØÍ¼Ä¿±ê/¹ì¼£Âß¼­£© ©¤©¤
+    // â”€â”€ è·Ÿè¸ªçŠ¶æ€ç®¡ç†ï¼ˆåœ°å›¾ç›®æ ‡/è½¨è¿¹é€»è¾‘ï¼‰ â”€â”€
     struct TrackState {
-        QString id;             // µ±Ç°¸ú×ÙÄ¿±ê ID
-        double lat = 0, lon = 0; // ×îºóÒÑÖªÎ»ÖÃ
-        int cls = 0;            // ×îºó Class
-        QDateTime lostSince;    // Ê×´ÎÊ§ËøÊ±¼ä£¨¿Õ = Ëø¶¨ÖĞ£©
-        double prevLat = 0, prevLon = 0; // ÉÏÒ»¸ö¹ì¼£µãÎ»ÖÃ£¨ËÙ¶È¼ÆËãÓÃ£©
-        QDateTime prevTime;     // ÉÏÒ»¸ö¹ì¼£µãÊ±¼ä
+        QString id;             // å½“å‰è·Ÿè¸ªç›®æ ‡ ID
+        double lat = 0, lon = 0; // æœ€åå·²çŸ¥ä½ç½®
+        int cls = 0;            // æœ€å Class
+        QDateTime lostSince;    // é¦–æ¬¡å¤±é”æ—¶é—´ï¼ˆç©º = é”å®šä¸­ï¼‰
+        double prevLat = 0, prevLon = 0; // ä¸Šä¸€ä¸ªè½¨è¿¹ç‚¹ä½ç½®ï¼ˆé€Ÿåº¦è®¡ç®—ç”¨ï¼‰
+        QDateTime prevTime;     // ä¸Šä¸€ä¸ªè½¨è¿¹ç‚¹æ—¶é—´
 
-        // ³éÏ¡×´Ì¬£º¼ÇÂ¼ÉÏ´ÎÊµ¼Ê»æÖÆµ½µØÍ¼µÄµã
-        double plotLat = 0, plotLon = 0;    // ÉÏ´Î»æÖÆµã GPS
-        double plotHeading = -1;            // ÉÏ´Î»æÖÆ¶Îº½Ïò½Ç£¨¶È£©£¬<0 = Î´³õÊ¼»¯
-        QDateTime plotTime;                 // ÉÏ´Î»æÖÆÊ±¼ä£¨ĞÄÌøÓÃ£©
+        // æŠ½ç¨€çŠ¶æ€ï¼šè®°å½•ä¸Šæ¬¡å®é™…ç»˜åˆ¶åˆ°åœ°å›¾çš„ç‚¹
+        double plotLat = 0, plotLon = 0;    // ä¸Šæ¬¡ç»˜åˆ¶ç‚¹ GPS
+        double plotHeading = -1;            // ä¸Šæ¬¡ç»˜åˆ¶æ®µèˆªå‘è§’ï¼ˆåº¦ï¼‰ï¼Œ<0 = æœªåˆå§‹åŒ–
+        QDateTime plotTime;                 // ä¸Šæ¬¡ç»˜åˆ¶æ—¶é—´ï¼ˆå¿ƒè·³ç”¨ï¼‰
 
     };
     TrackState m_track;
 
-    // ©¤©¤ AI Ä¿±ê¾àÀë»º´æ£¨ÓÃÓÚ ZoomInfo ÎŞ¼¤¹â²â¾àÊ±»ØÍËÏÔÊ¾£© ©¤©¤
-    double m_lastAiDist = 0;            // ×î½üÒ»´Î AIInfo Ä¿±ê¾àÀë£¨¹ÀËã»ò¼¤¹â£©
-    bool m_lastAiDistEstimated = false; // true ±íÊ¾¸Ã¾àÀëÀ´×ÔÊÓ¾õ¹ÀËã
+    // â”€â”€ AI ç›®æ ‡è·ç¦»ç¼“å­˜ï¼ˆç”¨äº ZoomInfo æ— æ¿€å…‰æµ‹è·æ—¶å›é€€æ˜¾ç¤ºï¼‰ â”€â”€
+    double m_lastAiDist = 0;            // æœ€è¿‘ä¸€æ¬¡ AIInfo ç›®æ ‡è·ç¦»ï¼ˆä¼°ç®—æˆ–æ¿€å…‰ï¼‰
+    bool m_lastAiDistEstimated = false; // true è¡¨ç¤ºè¯¥è·ç¦»æ¥è‡ªè§†è§‰ä¼°ç®—
 
-    // ©¤©¤ ÏµÍ³²ÎÊıÂÖÑ¯£¨200ms ÖÜÆÚ²éÑ¯Éè±¸ ImageSetting£© ©¤©¤
+    // â”€â”€ ç³»ç»Ÿå‚æ•°è½®è¯¢ï¼ˆ200ms å‘¨æœŸæŸ¥è¯¢è®¾å¤‡ ImageSettingï¼‰ â”€â”€
     QTimer *m_sysParamTimer;
 
-    // ©¤©¤ AIInfo ³¬Ê±ÇåÀí£¨Éè±¸ÎŞÄ¿±êÊ±²»·¢Ö¡£¬³¬Ê±Çå³ı²ĞÁôÊı¾İ£© ©¤©¤
+    // â”€â”€ AIInfo è¶…æ—¶æ¸…ç†ï¼ˆè®¾å¤‡æ— ç›®æ ‡æ—¶ä¸å‘å¸§ï¼Œè¶…æ—¶æ¸…é™¤æ®‹ç•™æ•°æ®ï¼‰ â”€â”€
     QDateTime m_lastAiInfoTime;
     QTimer *m_aiCleanupTimer;
     void onAiCleanupTimeout();
 
-    // ©¤©¤ ÏµÍ³ÍĞÅÌ ©¤©¤
+    // â”€â”€ ç³»ç»Ÿæ‰˜ç›˜ â”€â”€
     QSystemTrayIcon *m_trayIcon;
     QMenu *m_trayMenu;
 
-    // ©¤©¤ ÈÕÖ¾´°¿Ú ©¤©¤
+    // â”€â”€ æ—¥å¿—çª—å£ â”€â”€
     CmdLogDialog *m_logDialog = nullptr;
 
-    // ©¤©¤ ACK ´¦Àí£º¼ÇÂ¼×î½üÒ»´Î·¢ËÍµÄÖ¡ÀàĞÍ£¬ÓÃÓÚÅĞ¶Ï ACK ×´Ì¬Âëº¬Òå ©¤©¤
+    // â”€â”€ ACK å¤„ç†ï¼šè®°å½•æœ€è¿‘ä¸€æ¬¡å‘é€çš„å¸§ç±»å‹ï¼Œç”¨äºåˆ¤æ–­ ACK çŠ¶æ€ç å«ä¹‰ â”€â”€
     FrameType m_lastAckFrameType = FrameType::Status;
 
-    // ©¤©¤ ÃÔÄãµØÍ¼¿ØÖÆ ©¤©¤
-    void toggleMap();                               // ÇĞ»»µØÍ¼ÏÔÊ¾/Òş²Ø
-    void toggleMapMode();                           // ÇĞ»»ÃÔÄã/È«ÆÁÄ£Ê½
-    void updateMapLayout();                         // ¸üĞÂµØÍ¼³ß´çºÍÎ»ÖÃ
+    // â”€â”€ è¿·ä½ åœ°å›¾æ§åˆ¶ â”€â”€
+    void toggleMap();                               // åˆ‡æ¢åœ°å›¾æ˜¾ç¤º/éšè—
+    void toggleMapMode();                           // åˆ‡æ¢è¿·ä½ /å…¨å±æ¨¡å¼
+    void updateMapLayout();                         // æ›´æ–°åœ°å›¾å°ºå¯¸å’Œä½ç½®
 
-    // ©¤©¤ Ë½ÓĞ¹¤¾ß·½·¨ ©¤©¤
-    bool requireConnected();                        // Î´Á¬½ÓÊ±µ¯³ö×´Ì¬À¸ÌáÊ¾²¢·µ»Ø false
-    bool requireMotorReady();                       // ¼ì²éµç»ú´®¿ÚÊÇ·ñ¾ÍĞ÷
-    void updateMotorButtons();                      // ¸ù¾İµç»úĞ­Òé¸üĞÂ°´Å¥×´Ì¬
-    void setupUiStyles();                           // ¼ÓÔØ²¢Ó¦ÓÃ QSS ÑùÊ½±í
-    void updateStatusFromJson(const QJsonObject& doc); // ½âÎö JSON Ö¡²¢¸üĞÂËùÓĞ UI
-    void updateLensStats();                         // ¸üĞÂ¾µÍ·Í³¼ÆÊı¾İ£¨½¹¾à/ÊÓ³¡½Ç£©
-
-
-
-    // ©¤©¤ µØÍ¼¸¨Öú·½·¨ ©¤©¤
-    void updateMapDevicePosition(const QJsonObject& doc);    // ¸üĞÂÉè±¸ÔÚµØÍ¼ÉÏµÄÎ»ÖÃ
-    void updateMapTargets(const QJsonObject& doc, int workMode); // ¸üĞÂµØÍ¼ÉÏµÄÄ¿±ê±ê¼Ç
-
-
-
-
-
-    double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
+    // â”€â”€ ç§æœ‰å·¥å…·æ–¹æ³• â”€â”€
+    bool requireConnected();                        // æœªè¿æ¥æ—¶å¼¹å‡ºçŠ¶æ€æ æç¤ºå¹¶è¿”å› false
+    bool requireMotorReady();                       // æ£€æŸ¥ç”µæœºä¸²å£æ˜¯å¦å°±ç»ª
+    void updateMotorButtons();                      // æ ¹æ®ç”µæœºåè®®æ›´æ–°æŒ‰é’®çŠ¶æ€
+    void setupUiStyles();                           // åŠ è½½å¹¶åº”ç”¨ QSS æ ·å¼è¡¨
+    void updateStatusFromJson(const QJsonObject& doc); // è§£æ JSON å¸§å¹¶æ›´æ–°æ‰€æœ‰ UI
+    void updateLensStats();                         // æ›´æ–°é•œå¤´ç»Ÿè®¡æ•°æ®ï¼ˆç„¦è·/è§†åœºè§’ï¼‰
+        // â”€â”€ åœ°å›¾è¾…åŠ©æ–¹æ³• â”€â”€
+    void updateMapDevicePosition(const QJsonObject& doc);    // æ›´æ–°è®¾å¤‡åœ¨åœ°å›¾ä¸Šçš„ä½ç½®
+    void updateMapTargets(const QJsonObject& doc, int workMode); // æ›´æ–°åœ°å›¾ä¸Šçš„ç›®æ ‡æ ‡è®°
+                double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
     int currentAlgoModel() const;
     void sendAlgoModel(int model);
 };

@@ -1,7 +1,7 @@
 ﻿//============================================================================
-// mainwindow.cpp - T-JSON ������ʵ��
-// ���������ڵĹ���/������UI ��ʽ��ʼ�����ź�-�����ӣ�
-// �Լ������� JSON ֡������״̬���¡���ͼ����ת������̨��ͷ�����߼���
+// mainwindow.cpp - T-JSON 主窗口实现
+// 包含主窗口的构造/析构、UI 样式初始化、信号-槽连接，
+// 以及完整的 JSON 帧解析、状态更新、地图坐标转换、云台镜头控制逻辑。
 //============================================================================
 #include "mainwindow.h"
 #include "core/GeoCalculator.h"
@@ -35,7 +35,7 @@ static double haversineDistance(double lat1, double lon1, double lat2, double lo
 static double bearing(double lat1, double lon1, double lat2, double lon2);
 
 //============================================================================
-// ����������ˢ�¿ؼ��� QSS ��̬����
+// 辅助函数：刷新控件的 QSS 动态属性
 //============================================================================
 static void refreshStyle(QWidget *w) {
     w->style()->unpolish(w);
@@ -43,20 +43,20 @@ static void refreshStyle(QWidget *w) {
 }
 
 //============================================================================
-// ���캯������ʼ��������ģ�顢�����ź�-�����ӡ����� UI
+// 构造函数：初始化所有子模块、建立信号-槽连接、配置 UI
 //============================================================================
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_cfg(new ConfigManager(this))
-    , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP ��Ƶ�����߳�
-    , m_updatingFromDevice(false)            // ���ݹ���³�ʼ�ر�
-    , m_currentVisZoom(1.0)                  // Ĭ�Ͽɼ��ⱶ�� 1.0
-    , m_currentIrZoom(1.0)                   // Ĭ�Ϻ��ⱶ�� 1.0
-    , m_currentTilt(0.0)                     // Ĭ�ϸ����� 0
-    , m_currentPipShow(0)                    // Ĭ����ʾģʽ����ͼ�ɼ���
+    , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP 视频拉流线程
+    , m_updatingFromDevice(false)            // 防递归更新初始关闭
+    , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
+    , m_currentIrZoom(1.0)                   // 默认红外倍率 1.0
+    , m_currentTilt(0.0)                     // 默认俯仰角 0
+    , m_currentPipShow(0)                    // 默认显示模式：大图可见光
     , m_workModeInitialized(false)
-    , m_currentResX(m_cfg->cam().visResX)    // Ĭ�Ͽɼ���ֱ���
+    , m_currentResX(m_cfg->cam().visResX)    // 默认可见光分辨率
     , m_currentResY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
     for (auto *b : {ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close})
         b->setIconSize(QSize(18, 18));
 
-    // Ϊ��������ť���� SVG ͼ�꣨ͼƬ���ϣ��������£�
+    // 为导航栏按钮设置 SVG 图标（图片在上，文字在下）
     auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
         btn->setIcon(QIcon(svgPath));
         btn->setIconSize(QSize(18, 18));
@@ -85,7 +85,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupNavBtn(ui->btnNavLog, QStringLiteral(":/log.svg"));
     setupNavBtn(ui->btnNavSettings, QStringLiteral(":/gear.svg"));
 
-    // ������ť������
+    // 导航按钮互斥组
     auto *navGroup = new QButtonGroup(this);
     navGroup->setExclusive(true);
     navGroup->addButton(ui->btnNavMonitor, 0);
@@ -94,7 +94,7 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
 
-    // ���������Զ���ʼ������
+    // 根据配置自动初始化连接
     if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
         m_presenter->motorController()->openMotorSerial(m_cfg->motorComPort());
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
@@ -102,10 +102,10 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     connect(m_presenter->ptzForwarder(), &PtzForwarder::ptzAnglesUpdated, this, [this](double, double) {
-        // ת̨�Ƕ��Ѹ��� 8089 �˿� JSON ���ݸ���
+        // 转台角度已改用 8089 端口 JSON 数据更新
     });
 
-    // PTZ Forwarder start���ӳٵ��¼�ѭ�������
+    // PTZ Forwarder start（延迟到事件循环启动后）
     QTimer::singleShot(0, this, [this]() {
         if (m_cfg->serialServerEnabled()) {
             m_presenter->ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
@@ -114,20 +114,20 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
 
-    // �����ͼ������ �� MapWidget �� ���ǲ�
+    // 迷你地图：容器 → MapWidget → 覆盖层
     m_mapContainer = new QWidget(ui->widgetDisplay);
     m_mapContainer->setVisible(false);
     m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
     m_mapWidget = new MapWidget(m_mapContainer);
     m_mapWidget->setGeometry(0, 0, 280, 280);
-    // ͸�����ǲ㣺����ģʽ������꣨��ק�ƶ���˫��չ����
+    // 透明覆盖层：迷你模式拦截鼠标（拖拽移动，双击展开）
     m_mapOverlay = new QWidget(m_mapContainer);
     m_mapOverlay->setGeometry(0, 0, 280, 280);
     m_mapOverlay->setCursor(Qt::OpenHandCursor);
     m_mapOverlay->installEventFilter(this);
 
-    // PiP �����Ի��򣺴��ͼʱ��Ƶ��ʾ�ڴ�
-    // ���� 2566:1520 ��߱ȣ��ö���ʾ���߶�����ϱ�����22px
+    // PiP 独立对话框：大地图时视频显示于此
+    // 保持 2566:1520 宽高比，置顶显示，高度需加上标题栏22px
     m_pipDialog = new QDialog(this, Qt::FramelessWindowHint | Qt::Tool);
     m_pipDialog->setAttribute(Qt::WA_ShowWithoutActivating);
     int pipW = 380;
@@ -146,7 +146,7 @@ MainWindow::MainWindow(QWidget *parent)
     auto *titleLay = new QHBoxLayout(m_pipTitle);
     titleLay->setContentsMargins(0, 0, 2, 0);
     titleLay->addStretch();
-    auto *btnClose = new QPushButton(QStringLiteral("?"), m_pipTitle);
+    auto *btnClose = new QPushButton(QStringLiteral("✕"), m_pipTitle);
     btnClose->setFixedSize(20, 20);
     btnClose->setCursor(Qt::ArrowCursor);
     btnClose->setStyleSheet(QStringLiteral(
@@ -156,7 +156,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
 
-    // MapWidget �������ź� �� MainWindow
+    // MapWidget 工具栏信号 → MainWindow
     connect(m_mapWidget, &MapWidget::miniRequested,
             this, [this]() { toggleMapMode(); });
     connect(m_mapWidget, &MapWidget::closeRequested,
@@ -166,34 +166,34 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnMapToggle, &QPushButton::clicked,
             this, [this]() { toggleMap(); });
 
-    // �״β���
+    // 首次布局
     updateMapLayout();
 
-    // ϵͳ������ѯ��500ms ���ڲ�ѯ�豸 ImageSetting
+    // 系统参数轮询：500ms 周期查询设备 ImageSetting
     m_sysParamTimer = new QTimer(this);
     m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
 
-    // AIInfo ��ʱ������豸��Ŀ��ʱ����֡��2 ���޸��������������
+    // AIInfo 超时清理：设备无目标时不发帧，2 秒无更新则清除残留标记
     m_aiCleanupTimer = new QTimer(this);
     m_aiCleanupTimer->setInterval(1000);
     connect(m_aiCleanupTimer, &QTimer::timeout, this, &MainWindow::onAiCleanupTimeout);
     m_aiCleanupTimer->start();
 
-    // �ָ��ϴεĿ���״̬
+    // 恢复上次的开关状态
     ui->checkDigitalZoom->setChecked(m_cfg->digitalZoomEnabled());
     ui->checkAutoZoom->setChecked(m_cfg->autoZoomEnabled());
     ui->checkCaptureUpload->setChecked(m_cfg->captureUploadEnabled());
     ui->checkPosReset->setChecked(m_cfg->posResetEnabled());
 
-    // ��ʼ����ѡ����״̬
+    // 初始化框选启用状态
     int wm = ui->comboWorkMode->currentIndex();
     ui->videoWidget->setSelectionEnabled(wm == 3 || wm == 4);
 
     //============================================================================
-    // RTSP ��Ƶ���ź�����
-    // RtspThread �ڹ����߳����������룬ͨ���źŽ�֡���ݴ������߳�
-    // VideoWidget �� selectionFinished �ź����ڿ�ѡ����
+    // RTSP 视频流信号连接
+    // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
+    // VideoWidget 的 selectionFinished 信号用于框选跟踪
     //============================================================================
     connect(m_presenter->videoStream(), &RtspThread::frameReady, this, &MainWindow::onRtspFrame);
     connect(m_presenter->videoStream(), &RtspThread::streamOpened, this, &MainWindow::onRtspOpened);
@@ -201,8 +201,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->videoWidget, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
 
     //============================================================================
-    // T-JSON Э���ź�����
-    // TJsonClient ���� TCP �����ӡ��������JSON ֡�շ����Զ�����
+    // T-JSON 协议信号连接
+    // TJsonClient 管理 TCP 长连接、心跳保活、JSON 帧收发与自动重连
     //============================================================================
     connect(m_presenter->tcpClient(), &TJsonClient::deviceConnected, this, &MainWindow::onDeviceConnected);
     connect(m_presenter->tcpClient(), &TJsonClient::deviceDisconnected, this, &MainWindow::onDeviceDisconnected);
@@ -211,30 +211,30 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_presenter->tcpClient(), &TJsonClient::imageSnapped, this, &MainWindow::onImageSnapped);
     connect(m_presenter->tcpClient(), &TJsonClient::ackReceived, this, &MainWindow::onAckReceived);
     
-    // �Զ������źţ�ÿ����������ʱ���°�ť�ı���״̬����ʾ
+    // 自动重连信号：每次重连尝试时更新按钮文本与状态栏提示
     connect(m_presenter->tcpClient(), &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
         Q_UNUSED(maxRetries);
-        ui->btnConnect->setText(QString::fromUtf8("������(����:%1)").arg(attempt));
+        ui->btnConnect->setText(QString::fromUtf8("重连中(次数:%1)").arg(attempt));
         ui->btnConnect->setEnabled(false);
         ui->btnConnect->setProperty("state", "reconnecting");
         refreshStyle(ui->btnConnect);
         ui->btnCancelConnect->setVisible(true);
-        ui->statusbar->showMessage(QString::fromUtf8("���粨�������ڽ��е� %1 ���Զ�̽������...").arg(attempt));
+        ui->statusbar->showMessage(QString::fromUtf8("网络波动，正在进行第 %1 次自动探测重连...").arg(attempt));
     });
-    // ����ʧ�ܣ��ָ���ť��ʼ״̬
+    // 重连失败：恢复按钮初始状态
     connect(m_presenter->tcpClient(), &TJsonClient::reconnectFailed, this, [this]() {
-        ui->btnConnect->setText(QString::fromUtf8("�����豸"));
+        ui->btnConnect->setText(QString::fromUtf8("连接设备"));
         ui->btnConnect->setEnabled(true);
         ui->btnConnect->setProperty("state", QVariant());
         refreshStyle(ui->btnConnect);
         ui->btnCancelConnect->setVisible(false);
-        ui->statusbar->showMessage(QString::fromUtf8("����ʧ�ܣ��ѷ�������"), 5000);
+        ui->statusbar->showMessage(QString::fromUtf8("重连失败，已放弃连接"), 5000);
     });
 
     //============================================================================
-    // ��̨�˷������ (���� Pelco-D Э��)
-    // ���°�ť �� ���ͳ���ת��ָ��ͷŰ�ť �� ����ָֹͣ��
-    // �˸���ť�ֱ��Ӧ Up/Down/Left/Right ���ĸ��Խ��߷���
+    // 云台八方向控制 (基于 Pelco-D 协议)
+    // 按下按钮 → 发送持续转动指令；释放按钮 → 发送停止指令
+    // 八个按钮分别对应 Up/Down/Left/Right 及四个对角线方向
     //============================================================================
     auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
         connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_presenter->motorController()->ptzMove(dir); });
@@ -251,9 +251,9 @@ MainWindow::MainWindow(QWidget *parent)
     connectPtzBtn(ui->btnPtzBottomRight, PtzDir::DownRight);
 
     //============================================================================
-    // ��̨�ٶȿ���
-    // ��������ֵ�����˫��󶨣�ֵ�ı�ʱ���浽���ó־û�
-    // ˮƽ�봹ֱ�ٶ�ʹ����ͬ����ֵ
+    // 云台速度控制
+    // 滑块与数值输入框双向绑定，值改变时保存到配置持久化
+    // 水平与垂直速度使用相同的数值
     //============================================================================
     ui->sliderSpeed->setValue(m_cfg->ptz().panSpeed);
     ui->spinSpeed->setValue(m_cfg->ptz().panSpeed);
@@ -267,10 +267,10 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // ��ͷ���� (Zoom �䱶 / Focus ����)
-    // ���°�ť �� �����䱶/�������ͷŰ�ť �� ֹͣ
-    // op ֵ: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut
-    // ��ͷĿ�������ʾģʽ�Զ��жϣ�PipShow 1/4=����(target=1)������=�ɼ���(target=0)
+    // 镜头控制 (Zoom 变倍 / Focus 调焦)
+    // 按下按钮 → 持续变倍/调焦；释放按钮 → 停止
+    // op 值: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut
+    // 镜头目标根据显示模式自动判断：PipShow 1/4=红外(target=1)，其余=可见光(target=0)
     //============================================================================
     auto connectLensBtn = [this](QPushButton* btn, int op) {
         connect(btn, &QPushButton::pressed, this, [this, op]() {
@@ -290,8 +290,8 @@ MainWindow::MainWindow(QWidget *parent)
     connectLensBtn(ui->btnFocusOut, 3);
 
     //============================================================================
-    // ��ͷ�ٶȿ��� (�䱶�ٶ� / �����ٶ�)
-    // ��������ֵ�����˫��󶨣�ֵ�ı�ʱ�Զ���������
+    // 镜头速度控制 (变倍速度 / 调焦速度)
+    // 滑块与数值输入框双向绑定，值改变时自动保存配置
     //============================================================================
     ui->sliderZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
     ui->spinZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
@@ -303,8 +303,8 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // Ԥ��λ���� (����/����/ɾ��)
-    // ͨ�� spinPreset ѡ��Ԥ��λ��ţ����� DeviceController �е�Э���װ
+    // 预置位控制 (调用/设置/删除)
+    // 通过 spinPreset 选择预置位编号，调用 DeviceController 中的协议封装
     //============================================================================
     connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
         if (!requireConnected()) return;
@@ -320,8 +320,8 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // ���ӹ��ܿ��� (���ֱ䱶 / �Զ��佹 / ץ���ϴ� / λ�ù���)
-    // ÿ�� CheckBox ֱ����Ӧ���豸ָ��
+    // 附加功能开关 (数字变倍 / 自动变焦 / 抓拍上传 / 位置归零)
+    // 每个 CheckBox 直连对应的设备指令
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
         if (!requireConnected()) { ui->checkDigitalZoom->blockSignals(true); ui->checkDigitalZoom->setChecked(!checked); ui->checkDigitalZoom->blockSignals(false); return; }
@@ -363,11 +363,11 @@ MainWindow::MainWindow(QWidget *parent)
         });
     });
     connect(m_presenter->motorController(), &DeviceController::motorModeResult, this, [this](bool isManual) {
-        ui->statWiperStatus->setText(isManual ? "�ֶ�" : "�Զ�");
+        ui->statWiperStatus->setText(isManual ? "手动" : "自动");
     });
     connect(m_presenter->motorController(), &DeviceController::motorSerialError, this, [this](const QString& msg) {
-        ui->statWiperStatus->setText("����");
-        qWarning() << "������ڴ���:" << msg;
+        ui->statWiperStatus->setText("故障");
+        qWarning() << "电机串口错误:" << msg;
     });
     connect(ui->btnWiperLeft, &QPushButton::pressed, this, [this]() {
         if (!requireMotorReady()) return;
@@ -401,13 +401,13 @@ MainWindow::MainWindow(QWidget *parent)
         m_presenter->motorController()->motorToggleSilentMode();
     });
     connect(m_presenter->motorController(), &DeviceController::motorSilentResult, this, [this](bool isSilent) {
-        ui->btnWiperSilent->setText(isSilent ? "��ģʽ" : "����ģʽ");
-        ui->statusbar->showMessage(isSilent ? "������л�Ϊ������ģʽ (StealthChop)" : "������л�Ϊ����ģʽ (SpreadCycle)", 3000);
+        ui->btnWiperSilent->setText(isSilent ? "狂暴模式" : "静音模式");
+        ui->statusbar->showMessage(isSilent ? "电机已切换为：静音模式 (StealthChop)" : "电机已切换为：狂暴模式 (SpreadCycle)", 3000);
     });
     connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, [this]() {
         int ma = ui->editWiperCurrent->text().toInt();
         m_presenter->motorController()->motorSetCurrent(ma);
-        ui->statusbar->showMessage(QString("�����·����̻��������: %1 mA").arg(ma), 3000);
+        ui->statusbar->showMessage(QString("正在下发并固化电机电流: %1 mA").arg(ma), 3000);
     });
 
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
@@ -416,24 +416,24 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     //============================================================================
-    // ָ����־����
-    // ʵʱ��ʾ�����·����豸��ָ�����ݣ����������Э�����
+    // 指令日志窗口
+    // 实时显示所有下发给设备的指令内容，方便调试与协议分析
     //============================================================================
     m_logDialog = new CmdLogDialog(this);
     connect(m_presenter->motorController(), &DeviceController::commandSent, m_logDialog, &CmdLogDialog::appendLog);
 
     //============================================================================
-    // ϵͳ����
-    // �رմ���ʱ��С�������̣��Ҽ��˵����˳�����
+    // 系统托盘
+    // 关闭窗口时最小化到托盘，右键菜单可退出程序
     //============================================================================
     m_trayIcon = new QSystemTrayIcon(this);
     m_trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
-    m_trayIcon->setToolTip(QStringLiteral("LSS��Ƶ����ͻ���"));
+    m_trayIcon->setToolTip(QStringLiteral("LSS视频管理客户端"));
 
     m_trayMenu = new QMenu(this);
-    m_trayMenu->addAction(QStringLiteral("��ʾ������"), this, &MainWindow::onTrayShow);
+    m_trayMenu->addAction(QStringLiteral("显示主窗口"), this, &MainWindow::onTrayShow);
     m_trayMenu->addSeparator();
-    m_trayMenu->addAction(QStringLiteral("�˳�"), this, &MainWindow::onTrayExit);
+    m_trayMenu->addAction(QStringLiteral("退出"), this, &MainWindow::onTrayExit);
 
     m_trayIcon->setContextMenu(m_trayMenu);
     connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
@@ -447,10 +447,10 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 //============================================================================
-// �����������ͷ� UI ��Դ
-// ��ģ����� (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
-// ���� MainWindow Ϊ�������� Qt �������Զ�����
-// ����ǰֹͣ RTSP �̣߳�����ֹͣ��־�� FFmpeg �жϻص���ʹ����ٷ���
+// 析构函数：释放 UI 资源
+// 子模块对象 (m_client, m_cfg, m_device, m_rtsp, m_mapWidget)
+// 均以 MainWindow 为父对象，由 Qt 对象树自动析构
+// 析构前停止 RTSP 线程：设置停止标志后 FFmpeg 中断回调会使其快速返回
 //============================================================================
 MainWindow::~MainWindow()
 {
@@ -467,7 +467,7 @@ MainWindow::~MainWindow()
 }
 
 //============================================================================
-// ��������ť
+// 标题栏按钮
 //============================================================================
 
 void MainWindow::on_btnMenu_Min_clicked()
@@ -497,28 +497,28 @@ void MainWindow::on_btnMenu_Close_clicked()
     }
 
     QDialog dlg(this);
-    dlg.setWindowTitle(QStringLiteral("�ر���ʾ"));
+    dlg.setWindowTitle(QStringLiteral("关闭提示"));
     dlg.setFixedSize(300, 160);
     dlg.setWindowFlags((dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint));
 
     auto *layout = new QVBoxLayout(&dlg);
 
-    // Radio ��ť�У�������˳������Ҷ�����С��������
+    // Radio 按钮行：左对齐退出程序，右对齐最小化到托盘
     auto *radioLayout = new QHBoxLayout();
-    auto *radioExit = new QRadioButton(QStringLiteral("�˳�����"), &dlg);
-    auto *radioMin = new QRadioButton(QStringLiteral("��С��������"), &dlg);
+    auto *radioExit = new QRadioButton(QStringLiteral("退出程序"), &dlg);
+    auto *radioMin = new QRadioButton(QStringLiteral("最小化到托盘"), &dlg);
     radioMin->setChecked(true);
     radioLayout->addWidget(radioExit);
     radioLayout->addStretch();
     radioLayout->addWidget(radioMin);
     layout->addLayout(radioLayout);
 
-    // �ײ��У���סѡ����+ ȷ�ϣ��ң�
+    // 底部行：记住选择（左）+ 确认（右）
     auto *bottomLayout = new QHBoxLayout();
-    auto *cbRemember = new QCheckBox(QStringLiteral("��ס����ѡ��"), &dlg);
+    auto *cbRemember = new QCheckBox(QStringLiteral("记住本次选择"), &dlg);
     bottomLayout->addWidget(cbRemember);
     bottomLayout->addStretch();
-    auto *btnConfirm = new QPushButton(QStringLiteral("ȷ��"), &dlg);
+    auto *btnConfirm = new QPushButton(QStringLiteral("确认"), &dlg);
     btnConfirm->setFixedWidth(80);
     bottomLayout->addWidget(btnConfirm);
     layout->addLayout(bottomLayout);
@@ -542,7 +542,7 @@ void MainWindow::on_btnMenu_Close_clicked()
 }
 
 //============================================================================
-// ϵͳ����
+// 系统托盘
 //============================================================================
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -562,7 +562,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (m_trayIcon->isVisible()) {
         hide();
         m_trayIcon->showMessage(QStringLiteral("LSS Video Manager"),
-                                QStringLiteral("��������С����ϵͳ����"),
+                                QStringLiteral("程序已最小化到系统托盘"),
                                 QSystemTrayIcon::Information, 2000);
         event->ignore();
     } else {
@@ -596,11 +596,11 @@ void MainWindow::onTrayExit()
 }
 
 //============================================================================
-// ������ť
+// 导航按钮
 //============================================================================
 
-void MainWindow::on_btnNavMonitor_clicked()  { /* ��ǰҳ�� */ }
-void MainWindow::on_btnNavPlayback_clicked() { /* Ԥ�� */ }
+void MainWindow::on_btnNavMonitor_clicked()  { /* 当前页面 */ }
+void MainWindow::on_btnNavPlayback_clicked() { /* 预留 */ }
 void MainWindow::on_btnNavLog_clicked()      {
     if (m_logDialog->isVisible()) {
         m_logDialog->hide();
@@ -614,7 +614,7 @@ void MainWindow::on_btnNavSettings_clicked() {
     SettingsDialog dlg(m_cfg, this);
     dlg.exec();
 
-    // ���Э���������´򿪴���
+    // 电机协议变更后重新打开串口
     if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
         m_presenter->motorController()->openMotorSerial(m_cfg->motorComPort());
         m_presenter->motorController()->closeMotorTcp();
@@ -627,17 +627,17 @@ void MainWindow::on_btnNavSettings_clicked() {
     }
     updateMotorButtons();
 
-    // ���� PTZ ת������
+    // 重启 PTZ 转发服务
     if (m_cfg->serialServerEnabled()) {
         m_presenter->ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
     } else {
-        // Ӧ��Ҳֹͣ������Ŀǰû��ֹͣ���������� start �㹻�����ǵ��δ�����
+        // 应该也停止它，但目前没有停止方法。假设 start 足够或者是单次触发。
         // Let's assume PtzForwarder doesn't have stop or it doesn't matter for now.
     }
 }
 
 //============================================================================
-// changeEvent - ����״̬�仯ʱ������󻯰�ťͼ��
+// changeEvent - 窗口状态变化时更新最大化按钮图标
 //============================================================================
 
 void MainWindow::changeEvent(QEvent *event)
@@ -648,14 +648,14 @@ void MainWindow::changeEvent(QEvent *event)
             ? QStringLiteral(":/qss/blacksoft/restore.png")
             : QStringLiteral(":/qss/blacksoft/maximize.png")));
         ui->btnMenu_Max->setToolTip(max
-            ? QString::fromUtf8("���ڻ�")
-            : QString::fromUtf8("���"));
+            ? QString::fromUtf8("窗口化")
+            : QString::fromUtf8("最大化"));
     }
     QMainWindow::changeEvent(event);
 }
 
 //============================================================================
-// nativeEvent - ���� Windows ��Ϣʵ���Զ��������
+// nativeEvent - 拦截 Windows 消息实现自定义标题栏
 //============================================================================
 
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
@@ -674,8 +674,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
                 rc = reinterpret_cast<RECT*>(msg->lParam);
             }
             if (IsZoomed(msg->hwnd)) {
-                // ���ʱ Windows �����ı���Ӳ��ɼ��߿�������ƫ��
-                // �����߿���ʹ�ͻ�������������
+                // 最大化时 Windows 会在四边添加不可见边框导致内容偏移
+                // 补偿边框宽度使客户区填满工作区
                 int border = GetSystemMetrics(SM_CXSIZEFRAME)
                            + GetSystemMetrics(SM_CXPADDEDBORDER);
                 rc->left   += border;
@@ -688,7 +688,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         }
 
         case WM_NCHITTEST: {
-            // GET_X_LPARAM ���������������꣬�� / devicePixelRatioF() תΪ Qt �߼�����
+            // GET_X_LPARAM 返回物理像素坐标，需 / devicePixelRatioF() 转为 Qt 逻辑坐标
             POINT nativePt = { GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam) };
             ScreenToClient(msg->hwnd, &nativePt);
             qreal dpr = devicePixelRatioF();
@@ -755,7 +755,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 }
 
 //============================================================================
-// setupUiStyles - ���ز�Ӧ�� QSS ��ʽ��
+// setupUiStyles - 加载并应用 QSS 样式表
 //============================================================================
 void MainWindow::setupUiStyles()
 {
@@ -771,7 +771,7 @@ void MainWindow::setupUiStyles()
         qWarning() << "[QSS] FAILED to open :/style.qss";
     }
 
-    // QScrollArea viewport Ĭ�ϼ̳�ϵͳ����ɫ��ǿ����Ϊ����
+    // QScrollArea viewport 默认继承系统托盘色，强制设为暗黑
     if (ui->scrollAreaControl) {
         ui->scrollAreaControl->viewport()->setAutoFillBackground(true);
         QPalette pal = ui->scrollAreaControl->viewport()->palette();
@@ -781,8 +781,8 @@ void MainWindow::setupUiStyles()
 }
 
 //============================================================================
-// on_btnConnect_clicked - ����/�Ͽ��豸��ť
-// ������ʱ���Ϊ�Ͽ���δ����ʱ��ȡ IP �Ͷ˿ڷ��� TCP ����
+// on_btnConnect_clicked - 连接/断开设备按钮
+// 已连接时点击为断开；未连接时读取 IP 和端口发起 TCP 连接
 //============================================================================
 void MainWindow::on_btnConnect_clicked()
 {
@@ -790,51 +790,51 @@ void MainWindow::on_btnConnect_clicked()
         m_presenter->tcpClient()->disconnectDevice();
     } else {
         if (!m_cfg->turntableIpEnabled()) {
-             ui->statusbar->showMessage(QString::fromUtf8("ת̨IP�����ѽ���"), 3000);
+             ui->statusbar->showMessage(QString::fromUtf8("转台IP连接已禁用"), 3000);
              return;
         }
         QString ip = ui->lineEditIp->text();
         m_presenter->tcpClient()->connectToDevice(ip, 8089);
-        ui->btnConnect->setText(QString::fromUtf8("������..."));
+        ui->btnConnect->setText(QString::fromUtf8("连接中..."));
         ui->btnConnect->setEnabled(false);
         ui->btnCancelConnect->setVisible(true);
     }
 }
 
 //============================================================================
-// on_btnCancelConnect_clicked - ȡ�����ڽ��е�����
-// ֱ�ӶϿ� TCP ���Ӳ��ָ���ť״̬
+// on_btnCancelConnect_clicked - 取消正在进行的连接
+// 直接断开 TCP 连接并恢复按钮状态
 //============================================================================
 void MainWindow::on_btnCancelConnect_clicked()
 {
     m_presenter->tcpClient()->disconnectDevice();
-    ui->btnConnect->setText(QString::fromUtf8("�����豸"));
+    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("��ȡ������"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("已取消连接"), 3000);
 }
 
 //============================================================================
-// on_btnVideoConnect_clicked - ���� RTSP ��Ƶ��
-// ��������ȡ RTSP URL �󽻸� RtspThread ��������
+// on_btnVideoConnect_clicked - 连接 RTSP 视频流
+// 从输入框获取 RTSP URL 后交给 RtspThread 进行拉流
 //============================================================================
 void MainWindow::on_btnVideoConnect_clicked()
 {
     QString url = ui->lineEditRtsp->text().trimmed();
     if (url.isEmpty()) {
-        QMessageBox::warning(this, "RTSP", "������ RTSP ��ַ");
+        QMessageBox::warning(this, "RTSP", "请输入 RTSP 地址");
         return;
     }
     m_rtspEverOpened = true;
     m_presenter->videoStream()->openStream(url);
     ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("������..."));
-    ui->statusbar->showMessage(QString::fromUtf8("�������� RTSP ��Ƶ��..."));
+    ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
+    ui->statusbar->showMessage(QString::fromUtf8("正在连接 RTSP 视频流..."));
 }
 
 //============================================================================
-// on_btnVideoDisconnect_clicked - �Ͽ� RTSP ��Ƶ��
-// ֹͣ�����̡߳������Ƶ���桢�ָ���ť״̬
+// on_btnVideoDisconnect_clicked - 断开 RTSP 视频流
+// 停止拉流线程、清除视频画面、恢复按钮状态
 //============================================================================
 void MainWindow::on_btnVideoDisconnect_clicked()
 {
@@ -842,13 +842,13 @@ void MainWindow::on_btnVideoDisconnect_clicked()
     ui->videoWidget->repaint();
     m_presenter->videoStream()->closeStream();
     ui->btnVideoConnect->setEnabled(true);
-    ui->btnVideoConnect->setText(QString::fromUtf8("����"));
-    ui->statusbar->showMessage(QString::fromUtf8("��Ƶ�ѶϿ�"), 3000);
+    ui->btnVideoConnect->setText(QString::fromUtf8("开启"));
+    ui->statusbar->showMessage(QString::fromUtf8("视频已断开"), 3000);
 }
 
 //============================================================================
-// onRtspFrame - �յ�һ֡ RTSP ��Ƶͼ��
-// �������� QImage ���ݸ� VideoWidget ������Ⱦ
+// onRtspFrame - 收到一帧 RTSP 视频图像
+// 将解码后的 QImage 传递给 VideoWidget 进行渲染
 //============================================================================
 void MainWindow::onRtspFrame(const QImage &frame)
 {
@@ -856,59 +856,59 @@ void MainWindow::onRtspFrame(const QImage &frame)
 }
 
 //============================================================================
-// onRtspOpened - RTSP ��Ƶ���ɹ���
-// ���°�ť�ı���״̬����ʾ
+// onRtspOpened - RTSP 视频流成功打开
+// 更新按钮文本与状态栏提示
 //============================================================================
 void MainWindow::onRtspOpened()
 {
     ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("������"));
-    ui->statusbar->showMessage(QString::fromUtf8("RTSP ��Ƶ������"), 3000);
+    ui->btnVideoConnect->setText(QString::fromUtf8("已连接"));
+    ui->statusbar->showMessage(QString::fromUtf8("RTSP 视频已连接"), 3000);
 }
 
 //============================================================================
-// onRtspError - RTSP ��Ƶ��������
-// ������桢�ָ���ť������״̬����ʾ������Ϣ
+// onRtspError - RTSP 视频流错误处理
+// 清除画面、恢复按钮，并在状态栏显示错误信息
 //============================================================================
 void MainWindow::onRtspError(const QString &msg)
 {
     ui->videoWidget->clearFrame();
     if (m_presenter->videoStream()->isRunning()) {
-        // �̻߳�������˵�����Զ������У����ְ�ť��"������..."״̬
-        ui->btnVideoConnect->setText(QString::fromUtf8("������..."));
+        // 线程还在运行说明是自动重连中，保持按钮在"重连中..."状态
+        ui->btnVideoConnect->setText(QString::fromUtf8("重连中..."));
         ui->statusbar->showMessage(msg.isEmpty()
-            ? QString::fromUtf8("RTSP �Ͽ�����������...")
-            : QString::fromUtf8("RTSP ����ʧ�ܣ���������..."));
+            ? QString::fromUtf8("RTSP 断开，正在重连...")
+            : QString::fromUtf8("RTSP 重连失败，继续重试..."));
     } else {
-        // �߳����˳�����ť�ָ�"����"���û��ֶ�����
+        // 线程已退出，按钮恢复"开启"让用户手动再试
         ui->btnVideoConnect->setEnabled(true);
-        ui->btnVideoConnect->setText(QString::fromUtf8("����"));
+        ui->btnVideoConnect->setText(QString::fromUtf8("开启"));
         ui->statusbar->showMessage(msg);
     }
 }
 
 //============================================================================
-// onVideoSelection - �û�����Ƶ�����ϵĿ�ѡ����
-// ����ѡ�������������߷��͸��豸�����ڿ�ѡ����ģʽ
-// cx, cy Ϊ��ѡ���������������꣬pw, ph Ϊ����
+// onVideoSelection - 用户在视频画面上的框选操作
+// 将框选的像素坐标与宽高发送给设备，用于框选跟踪模式
+// cx, cy 为框选区域中心像素坐标，pw, ph 为框宽高
 //============================================================================
 void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
 {
     int wm = ui->comboWorkMode->currentIndex();
     if (wm != 3 && wm != 4) {
-        ui->statusbar->showMessage(QString::fromUtf8("���ڵ�ѡ���ٻ��ѡ����ģʽ��֧�ֿ�ѡ"), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("仅在点选跟踪或框选跟踪模式下支持框选"), 3000);
         return;
     }
 
     if (wm == 3) {
         ui->statusbar->showMessage(
-            QString::fromUtf8("��ѡ����: ��������(%1,%2)")
+            QString::fromUtf8("点选跟踪: 像素中心(%1,%2)")
                 .arg(cx).arg(cy));
         if (!requireConnected()) return;
         m_presenter->motorController()->setPointTrack(cx, cy);
     } else {
         ui->statusbar->showMessage(
-            QString::fromUtf8("��ѡ����: ��������(%1,%2) ��%3��%4")
+            QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
                 .arg(cx).arg(cy).arg(pw).arg(ph));
         if (!requireConnected()) return;
         m_presenter->motorController()->setBoxTrack(cx, cy, pw, ph);
@@ -916,121 +916,121 @@ void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
 }
 
 //============================================================================
-// onDeviceConnected - �豸���ӳɹ��ص�
-// ���°�ť��ʽΪ��ɫ"�Ͽ�����"���Զ���ѯ�豸��ǰͼ�����
+// onDeviceConnected - 设备连接成功回调
+// 更新按钮样式为红色"断开连接"，自动查询设备当前图像参数
 //============================================================================
 void MainWindow::onDeviceConnected()
 {
-    ui->btnConnect->setText(QString::fromUtf8("�Ͽ�����"));
+    ui->btnConnect->setText(QString::fromUtf8("断开连接"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", "connected");
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("�����ӵ��豸"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
 
     m_workModeInitialized = false;
     m_displayModeInitialized = false;
     m_algoModelInitialized = false;
-    // ���ӳɹ����Զ�����һ��ͼ��������Ա� UI ���豸״̬ͬ��
+    // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
     m_presenter->motorController()->queryImageParams();
 
-    // ���Ӻ�ͬ�����л��濪��״̬��ȷ���豸�� UI һ��
+    // 连接后同步所有缓存开关状态，确保设备与 UI 一致
     m_presenter->motorController()->setDigitalZoom(m_cfg->digitalZoomEnabled());
     m_presenter->motorController()->setAutoZoom(m_cfg->autoZoomEnabled());
     m_presenter->motorController()->setCaptureUpload(m_cfg->captureUploadEnabled());
     m_presenter->motorController()->posReset(m_cfg->posResetEnabled());
 
-    // ���ϵͳ������ʱ�·�
+    // 启动系统参数定时下发
     m_sysParamTimer->start();
 
-    // �״������豸ʱ�Զ��� RTSP���������ٸ����û�����
+    // 首次连接设备时自动打开 RTSP，后续不再覆盖用户操作
     if (!m_rtspEverOpened) {
         QString rtspUrl = ui->lineEditRtsp->text().trimmed();
         if (!rtspUrl.isEmpty()) {
             m_rtspEverOpened = true;
             ui->btnVideoConnect->setEnabled(false);
-            ui->btnVideoConnect->setText(QString::fromUtf8("������..."));
+            ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
             m_presenter->videoStream()->openStream(rtspUrl);
         }
     }
 }
 
 //============================================================================
-// onDeviceDisconnected - �豸�Ͽ��ص�
-// �ָ����Ӱ�ť�ĳ�ʼ���
+// onDeviceDisconnected - 设备断开回调
+// 恢复连接按钮的初始外观
 //============================================================================
 void MainWindow::onDeviceDisconnected()
 {
-    ui->btnConnect->setText(QString::fromUtf8("�����豸"));
+    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", QVariant());
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("�豸�ѶϿ�"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
 
-    // ֹͣϵͳ������ʱ�·�
+    // 停止系统参数定时下发
     m_sysParamTimer->stop();
 }
 
-// 200ms ���ڲ�ѯϵͳ������������״̬ʱ�·���
+// 200ms 周期查询系统参数（仅连接状态时下发）
 void MainWindow::onSysParamTimerTimeout()
 {
     if (m_presenter->tcpClient()->isConnected()) m_presenter->motorController()->queryImageParams();
 }
 
 //============================================================================
-// onErrorOccurred - ���Ӵ�����
-// ������ʱ������ʾ����������ֻ��״̬����ʾ�������Զ�����
+// onErrorOccurred - 连接错误处理
+// 非重连时弹框显示错误；重连中只在状态栏提示，继续自动重连
 //============================================================================
 void MainWindow::onErrorOccurred(const QString& errorMsg)
 {
     if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
-        ui->statusbar->showMessage(QString::fromUtf8("����ʧ�ܣ�%1").arg(errorMsg), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("重连失败，%1").arg(errorMsg), 3000);
         return;
     }
 
-    ui->btnConnect->setText(QString::fromUtf8("�����豸"));
+    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
     ui->btnConnect->setEnabled(true);
     ui->btnConnect->setProperty("state", QVariant());
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    QMessageBox::warning(this, QString::fromUtf8("���Ӵ���"), errorMsg);
+    QMessageBox::warning(this, QString::fromUtf8("连接错误"), errorMsg);
 }
 
 //============================================================================
-// onAckReceived - �����豸���ص� ACK Ӧ��
-// ACK ״̬��:
-//   0 = ִ������, 1 = ��������, 2 = Э�����ݴ���
-// SetDigitalZoom/SetCaptureState/SetPosReset ������ָ���豸�̶��� 1�����ɹ�����
+// onAckReceived - 处理设备返回的 ACK 应答
+// ACK 状态码:
+//   0 = 执行正常, 1 = 包不完整, 2 = 协议内容错误
+// SetDigitalZoom/SetCaptureState/SetPosReset 这三个指令设备固定回 1，按成功处理
 //============================================================================
 void MainWindow::onAckReceived(quint8 statusCode)
 {
     if (statusCode == 0) {
-        ui->statusbar->showMessage(QString::fromUtf8("[ACK] ָ��ִ�гɹ�"), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
         return;
     }
     if (statusCode == 1) {
-        // SetDigitalZoom/SetCaptureState/SetPosReset �豸�̶��� 1����Ϊ�ɹ�
+        // SetDigitalZoom/SetCaptureState/SetPosReset 设备固定回 1，视为成功
         if (m_lastAckFrameType == FrameType::SetDigitalZoom
             || m_lastAckFrameType == FrameType::SetCaptureState
             || m_lastAckFrameType == FrameType::SetPosReset) {
-            ui->statusbar->showMessage(QString::fromUtf8("[ACK] ָ��ִ�гɹ�"), 3000);
+            ui->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
             return;
         }
-        ui->statusbar->showMessage(QString::fromUtf8("[ACK] ��������"), 3000);
+        ui->statusbar->showMessage(QString::fromUtf8("[ACK] 包不完整"), 3000);
         return;
     }
     QString msg;
     switch (statusCode) {
-    case 2: msg = QString::fromUtf8("Э�����ݴ���"); break;
-    default: msg = QString::fromUtf8("δ֪״̬��: %1").arg(statusCode);
+    case 2: msg = QString::fromUtf8("协议内容错误"); break;
+    default: msg = QString::fromUtf8("未知状态码: %1").arg(statusCode);
     }
     ui->statusbar->showMessage(QString::fromUtf8("[ACK] %1").arg(msg), 3000);
 }
 
 //============================================================================
-// onJsonReceived - �յ��豸���͵� JSON ����֡
-// ������ JSON �ĵ����� updateStatusFromJson ���н����� UI ˢ��
+// onJsonReceived - 收到设备推送的 JSON 数据帧
+// 将完整 JSON 文档交由 updateStatusFromJson 进行解析与 UI 刷新
 //============================================================================
 void MainWindow::onJsonReceived(const QJsonObject& doc)
 {
@@ -1038,9 +1038,9 @@ void MainWindow::onJsonReceived(const QJsonObject& doc)
 }
 
 //============================================================================
-// onImageSnapped - �豸ץ��ͼ��ص�
-// �� JPEG ���ݱ��浽 snapshots Ŀ¼���ļ���Ϊ yyyyMMdd_HHmmss_zzz.jpg
-// ״̬����ʾ����·����ͼ���ڻ����е�λ����Ϣ
+// onImageSnapped - 设备抓拍图像回调
+// 将 JPEG 数据保存到 snapshots 目录，文件名为 yyyyMMdd_HHmmss_zzz.jpg
+// 状态栏显示保存路径及图像在画面中的位置信息
 //============================================================================
 void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& location)
 {
@@ -1054,7 +1054,7 @@ void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& locatio
         f.write(jpegData);
         f.close();
         ui->statusbar->showMessage(
-            QString::fromUtf8("�ѱ���ץ��: %1  λ��: (%2,%3 %4x%5)")
+            QString::fromUtf8("已保存抓拍: %1  位置: (%2,%3 %4x%5)")
                 .arg(path)
                 .arg(location.x()).arg(location.y())
                 .arg(location.width()).arg(location.height()),
@@ -1063,11 +1063,11 @@ void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& locatio
 }
 
 //============================================================================
-// updateStatusFromJson - JSON ֡������ UI ״̬���£����ķ�����
-// ���� ControlType �ֶηַ����������������ͣ�
-//   AIInfo     �� ʶ��/���ٽ�� (Object �б���Ѱ���������״̬��)
-//   ZoomInfo   �� ��ͷ�䱶��Ϣ��GPS ���ꡢ��̨�Ƕȡ�������
-//   ImageSetting �� ͼ����� (�ֱ���/����/����/����ģʽ/��ʾģʽ/�㷨ģ��)
+// updateStatusFromJson - JSON 帧解析与 UI 状态更新（核心方法）
+// 根据 ControlType 字段分发处理三种数据类型：
+//   AIInfo     → 识别/跟踪结果 (Object 列表、脱靶量、锁定状态等)
+//   ZoomInfo   → 镜头变倍信息、GPS 坐标、云台角度、激光测距
+//   ImageSetting → 图像参数 (分辨率/码率/编码/工作模式/显示模式/算法模型)
 //============================================================================
 void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 {
@@ -1075,7 +1075,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
     CameraConfig& cam = m_cfg->cam();
 
     //==========================================================================
-    // 1) AIInfo - AI ʶ������ٽ��֡
+    // 1) AIInfo - AI 识别与跟踪结果帧
     //==========================================================================
     if (controlType == "AIInfo") {
         m_lastAiInfoTime = QDateTime::currentDateTime();
@@ -1084,15 +1084,15 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 
         if (workMode == 1) {
             //==================================================================
-            // ʶ��ģʽ (WorkMode=1)��
-            // ���� Object �ֵ䣬��ÿ��Ŀ��� ID/���/����/����λ��/�Ѱ���
-            // ����ʶ������� tableIdentify
+            // 识别模式 (WorkMode=1)：
+            // 遍历 Object 字典，将每个目标的 ID/类别/距离/像素位置/脱靶量
+            // 填入识别结果表格 tableIdentify
             //==================================================================
-            ui->lblIdentifyCount->setText(QString::fromUtf8("Ŀ������: %1").arg(count));
-            ui->tableIdentify->setRowCount(0);  // ��վ����ݣ��������
+            ui->lblIdentifyCount->setText(QString::fromUtf8("目标总数: %1").arg(count));
+            ui->tableIdentify->setRowCount(0);  // 清空旧数据，重新填充
 
-            // ���ݵ�ǰ��ʾģʽ�ж�ʹ�ÿɼ��⻹�Ǻ������
-            // combo ����: 0=��ͼ�ɼ���, 1=����, 2=�ɼ���, 3=�ں�, 4=��ͼ����
+            // 根据当前显示模式判断使用可见光还是红外参数
+            // combo 索引: 0=大图可见光, 1=红外, 2=可见光, 3=融合, 4=大图红外
             bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
             double px = isVis ? cam.visPixelSize : cam.irPixelSize;
             double fl = isVis ? cam.visMinFocal * m_currentVisZoom
@@ -1100,7 +1100,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
             int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
 
-            // Object �ֶ���һ���ֵ䣬key ΪĿ�� ID��value ΪĿ������
+            // Object 字段是一个字典，key 为目标 ID，value 为目标属性
             if (doc.contains("Object") && doc.value("Object").isObject()) {
                 QJsonObject objMap = doc.value("Object").toObject();
                 for (auto it = objMap.begin(); it != objMap.end(); ++it) {
@@ -1127,7 +1127,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                         QString pos = QString("(%1,%2)").arg(l).arg(t);
                         ui->tableIdentify->setItem(r, 3, new QTableWidgetItem(pos));
 
-                        // ����Ŀ����������ڻ������ĵ��Ѱ����������ȣ�
+                        // 计算目标中心相对于画面中心的脱靶量（毫弧度）
                         double cx = (l + r2) / 2.0, cy = (t + b) / 2.0;
                         QString miss = GeoCalculator::missMradStr(cx - halfW, cy - halfH, px, fl);
                         ui->tableIdentify->setItem(r, 4, new QTableWidgetItem(miss));
@@ -1136,15 +1136,15 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             }
         }
 
-        // ʶ��ģʽ�����ģʽ����Ҫ���µ�ͼ�ϵ�Ŀ����
+        // 识别模式与跟踪模式都需要更新地图上的目标标记
         if ((workMode == 1) || (workMode >= 2 && workMode <= 4))
             updateMapTargets(doc, workMode);
 
         //==================================================================
-        // ����ģʽ (WorkMode=2~4)��
-        //   2 = �Զ�����, 3 = ��ѡ����, 4 = ����/��ѡ����
-        // ��ʾ����״̬��Ŀ�� ID����𡢾��롢�Ƕȡ����ؿ��Ѱ���
-        // Class=0xB1 ��ʾ����������Ϊ��ʧ
+        // 跟踪模式 (WorkMode=2~4)：
+        //   2 = 自动跟踪, 3 = 点选跟踪, 4 = 波门/框选跟踪
+        // 显示锁定状态、目标 ID、类别、距离、角度、像素框、脱靶量
+        // Class=0xB1 表示锁定，否则为丢失
         //==================================================================
         if (workMode >= 2 && workMode <= 4) {
             bool hasObj = doc.contains("Object") && doc.value("Object").isObject()
@@ -1156,8 +1156,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 int cls = obj.value("Class").toInt();
 
                 bool locked = (cls == 0xB1);
-                QString statusText = locked ? QString::fromUtf8("������") : QString::fromUtf8("��ʧ");
-                QString statusFull = QString::fromUtf8("״̬: %1").arg(statusText);
+                QString statusText = locked ? QString::fromUtf8("锁定中") : QString::fromUtf8("丢失");
+                QString statusFull = QString::fromUtf8("状态: %1").arg(statusText);
                 ui->lblTrackStatus->setText(statusFull);
                 ui->lblTrackStatus->setProperty("state", locked ? "locked" : "missed");
                 refreshStyle(ui->lblTrackStatus);
@@ -1166,7 +1166,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     double rawDist = obj.value("Distance").toDouble(0);
                     if (rawDist > 0)
                         ui->trackDistance->setText(QString::number(rawDist, 'f', 1) + QStringLiteral(" m"));
-                    // rawDist==0: ���� calcVisualDistance ���õĹ���ֵ
+                    // rawDist==0: 保留 calcVisualDistance 设置的估算值
                 } else
                     ui->trackDistance->clear();
 
@@ -1176,9 +1176,9 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     int r2 = pts.value("Right").toInt(), b = pts.value("Bottom").toInt();
                     int cx = (l + r2) / 2, cy = (t + b) / 2;
                     int pw = r2 - l, ph = b - t;
-                    ui->trackPos->setText(QString("(%1,%2) %3��%4").arg(cx).arg(cy).arg(pw).arg(ph));
+                    ui->trackPos->setText(QString("(%1,%2) %3×%4").arg(cx).arg(cy).arg(pw).arg(ph));
 
-                    // �����Ѱ���������ƫ�� �� ��Ԫ�ߴ� / ���� �� ������
+                    // 计算脱靶量：像素偏移 × 像元尺寸 / 焦距 → 毫弧度
                     bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
                     double px = isVis ? cam.visPixelSize : cam.irPixelSize;
                     double fl = isVis ? cam.visMinFocal * m_currentVisZoom
@@ -1196,8 +1196,8 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                     ui->trackMissDistance->clear();
                 }
             } else {
-                // ��Ŀ�꣺��ʾ"δ����"��������и����ֶ�
-                ui->lblTrackStatus->setText(QString::fromUtf8("״̬: δ����"));
+                // 无目标：显示"未锁定"并清空所有跟踪字段
+                ui->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
                 ui->lblTrackStatus->setProperty("state", "nolock");
                 refreshStyle(ui->lblTrackStatus);
                 ui->trackPos->clear();
@@ -1207,9 +1207,9 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         }
 
     //==========================================================================
-    // 2) ZoomInfo - ��ͷ�������豸״̬֡
-    // ���±䱶���ʡ�GPS ���ꡢ�߶ȡ������ࡢ��̨ˮƽ/��ֱ��
-    // ͬʱ������ͷͳ����Ϣ�������ͼ�豸λ�ø���
+    // 2) ZoomInfo - 镜头倍率与设备状态帧
+    // 更新变倍倍率、GPS 坐标、高度、激光测距、云台水平/垂直角
+    // 同时触发镜头统计信息更新与地图设备位置更新
     //==========================================================================
     } else if (controlType == "ZoomInfo") {
         m_currentVisZoom = doc.value("ZoomInfo").toDouble(1.0);
@@ -1239,21 +1239,21 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             while (rawTilt > 180.0) rawTilt -= 360.0;
         }
 
-        ui->statPanAngle->setText(QString::number(rawPan, 'f', 1) + QStringLiteral("��"));
+        ui->statPanAngle->setText(QString::number(rawPan, 'f', 1) + QStringLiteral("°"));
         m_currentTilt = rawTilt;
-        ui->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("��"));
+        ui->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
 
         updateLensStats();
         updateMapDevicePosition(doc);
 
     //==========================================================================
-    // 3) ImageSetting - ͼ���������֡
-    // �豸�������ͻ���Ӧ��ѯ�����·ֱ���/����/����/����ģʽ/��ʾģʽ/�㷨
-    // �������豸��ǰֵͬ�� UI ������ͬʱ���� m_updatingFromDevice ��־
-    // ��ֹ UI �仯�ٴδ����豸ָ�������ѭ��
+    // 3) ImageSetting - 图像参数配置帧
+    // 设备主动推送或响应查询，更新分辨率/码率/编码/工作模式/显示模式/算法
+    // 并根据设备当前值同步 UI 下拉框，同时设置 m_updatingFromDevice 标志
+    // 防止 UI 变化再次触发设备指令造成死循环
     //==========================================================================
     } else if (controlType == "ImageSetting") {
-        // ͼ��ֱ���ӳ���
+        // 图像分辨率映射表
         static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
         int imgSize = doc.value("ImageSize").toInt();
         ui->paramResolution->setText(imgSize >= 0 && imgSize < 4 ? resMap[imgSize] : QString::number(imgSize));
@@ -1265,32 +1265,32 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
             }
         }
 
-        // ͼ������
+        // 图像码率
         ui->paramBitrate->setText(QString("%1 Kb/s").arg(doc.value("ImageBit").toInt()));
 
-        // �����ʽӳ���
+        // 编码格式映射表
         static const char* codecMap[] = {"H264", "H265"};
         int codec = doc.value("ImageCode").toInt();
         ui->paramCodec->setText(codec >= 0 && codec < 2 ? codecMap[codec] : QString::number(codec));
 
-        // ����ģʽӳ���
-        static const char* wmMap[] = {"�ر�AI", "ʶ��", "�Զ�����", "��ѡ����", "����/��ѡ����"};
+        // 工作模式映射表
+        static const char* wmMap[] = {"关闭AI", "识别", "自动跟踪", "点选跟踪", "波门/框选跟踪"};
         int wm = doc.value("WorkMode").toInt();
         ui->paramWorkMode->setText(wm >= 0 && wm < 5 ? QString::fromUtf8(wmMap[wm]) : QString::number(wm));
         m_previousWorkMode = wm;
 
-        // ��ʾ����ӳ��� (PIP = Picture-in-Picture)
-        static const char* pipMap[] = {"��ͼ�ɼ���", "����", "�ɼ���", "�ں�", "��ͼ����"};
+        // 显示类型映射表 (PIP = Picture-in-Picture)
+        static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
         int pipRaw = doc.value("PipShow").toInt();
         int comboIdx = DeviceController::pipShowToComboIndex(pipRaw);
         ui->paramPipShow->setText(comboIdx >= 0 && comboIdx < 5 ? QString::fromUtf8(pipMap[comboIdx]) : QString::number(pipRaw));
 
-        // �㷨ģ�ͱ���: �߶�(������)��10 + �Ͷ�(ʶ������)
+        // 算法模型编码: 高段(传感器)×10 + 低段(识别类型)
         int model = doc.value("Model").toInt();
         int high = model / 10;
         int low  = model % 10;
-        static const char* highMap[] = {"�ɼ���", "����"};
-        static const char* lowMap[]  = {"", "", "�˳�ʶ��", "��ʶ��", "���˻�ʶ��", "�ɻ�ֱ����ʶ��", "��ʶ��"};
+        static const char* highMap[] = {"可见光", "红外"};
+        static const char* lowMap[]  = {"", "", "人车识别", "船识别", "无人机识别", "飞机直升机识别", "鸟识别"};
         QString modelStr;
         if (high >= 0 && high < 2)
             modelStr = QString::fromUtf8(highMap[high]);
@@ -1305,15 +1305,15 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
         m_currentPipShow = DeviceController::pipShowToComboIndex(doc.value("PipShow").toInt());
         m_previousDisplayMode = m_currentPipShow;
 
-        // ͬ�� UI �������豸��ǰֵ��ͬʱ�����źŵݹ�
+        // 同步 UI 下拉框到设备当前值，同时抑制信号递归
         m_updatingFromDevice = true;
-        // �״�����ʱͬ���㷨ģ�������򣬺������ٸ����û�ѡ��
+        // 首次连接时同步算法模型下拉框，后续不再覆盖用户选择
         if (!m_algoModelInitialized) {
             m_currentAlgoModel = model;
-            // �߶� = ���������� (0=�ɼ���, 1=����) �� comboAlgoModel1
+            // 高段 = 传感器类型 (0=可见光, 1=红外) → comboAlgoModel1
             if (high >= 0 && high < ui->comboAlgoModel1->count())
                 ui->comboAlgoModel1->setCurrentIndex(high);
-            // �Ͷ� = ʶ������ (2-6 �� comboAlgoModel2 ���� 0-4)
+            // 低段 = 识别类型 (2-6 → comboAlgoModel2 索引 0-4)
             if (low >= 2 && low <= 6)
                 ui->comboAlgoModel2->setCurrentIndex(low - 2);
             m_algoModelInitialized = true;
@@ -1326,7 +1326,7 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
                 m_displayModeInitialized = true;
             }
         }
-        // �״�����ʱͬ������ģʽ�����򣬺������ٸ����û�ѡ��
+        // 首次连接时同步工作模式下拉框，后续不再覆盖用户选择
         if (!m_workModeInitialized && wm >= 0 && wm < ui->comboWorkMode->count()) {
             ui->comboWorkMode->setCurrentIndex(wm);
             m_workModeInitialized = true;
@@ -1336,11 +1336,11 @@ void MainWindow::updateStatusFromJson(const QJsonObject& doc)
 }
 
 //============================================================================
-// updateLensStats - ���¾�ͷͳ������
-// ���ݵ�ǰ�䱶���ʼ���ɼ��������ģ�
-//   - ��ǰ���� (��С���� �� ����)
-//   - ˮƽ�ӳ��� (HFOV): 2 �� arctan(��������� / (2 �� ����))
-// ��������� = ��Ԫ�ߴ� �� ˮƽ�ֱ��� (��λ����Ϊ mm)
+// updateLensStats - 更新镜头统计数据
+// 根据当前变倍倍率计算可见光与红外的：
+//   - 当前焦距 (最小焦距 × 倍率)
+//   - 水平视场角 (HFOV): 2 × arctan(传感器宽度 / (2 × 焦距))
+// 传感器宽度 = 像元尺寸 × 水平分辨率 (单位换算为 mm)
 //============================================================================
 void MainWindow::updateLensStats()
 {
@@ -1356,29 +1356,29 @@ void MainWindow::updateLensStats()
 
     // HFOV = 2 * atan( sensor_width_mm / (2 * focal_mm) )
     double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
-    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("��"));
+    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
 
     ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalIR->setText(QString::number(irFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusIR->clear();
 
     double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
-    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2) + QStringLiteral("��"));
+    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
 }
 
 //============================================================================
 
 
 //============================================================================
-// requireConnected - δ����ʱ������ʾ������ false
-// ������Ҫ�����豸����ִ�е� UI ������Ӧ�ȵ��ô˺���
+// requireConnected - 未连接时弹出提示并返回 false
+// 所有需要连接设备才能执行的 UI 操作均应先调用此函数
 //============================================================================
 bool MainWindow::requireConnected()
 {
     if (!m_presenter->tcpClient()->isConnected()) {
         QMessageBox msgBox(this);
-        msgBox.setWindowTitle(QStringLiteral("��ʾ"));
-        msgBox.setText(QStringLiteral("�������豸"));
+        msgBox.setWindowTitle(QStringLiteral("提示"));
+        msgBox.setText(QStringLiteral("请连接设备"));
         msgBox.setStandardButtons(QMessageBox::Ok);
         msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
         msgBox.exec();
@@ -1387,15 +1387,15 @@ bool MainWindow::requireConnected()
     return true;
 }
 
-// ������Ƿ����
-// MODBUS-RTU Э��ʱ�贮���Ѵ򿪣�Pelco-D ֱ������
+// 检查电机是否就绪
+// MODBUS-RTU 协议时需串口已打开，Pelco-D 直发即可
 bool MainWindow::requireMotorReady()
 {
     if (m_cfg->motorProtocol() == "MODBUS-RTU") {
         if (m_cfg->motorCommandChannel() == "串口" && !m_presenter->motorController()->isMotorSerialOpen()) {
             QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QStringLiteral("��ʾ"));
-            msgBox.setText(QStringLiteral("�������δ�򿪣���������������"));
+            msgBox.setWindowTitle(QStringLiteral("提示"));
+            msgBox.setText(QStringLiteral("电机串口未打开，请在设置中配置"));
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
             msgBox.exec();
@@ -1404,26 +1404,26 @@ bool MainWindow::requireMotorReady()
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
         if (!m_presenter->motorController()->isMotorTcpOpen()) {
             QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QStringLiteral("��ʾ"));
-            msgBox.setText(QStringLiteral("��� TCP �������ӻ�����ʧ�ܣ���������"));
+            msgBox.setWindowTitle(QStringLiteral("提示"));
+            msgBox.setText(QStringLiteral("电机 TCP 正在连接或连接失败，请检查配置"));
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
-            // ������������������ȥ��������ֱ�� return false
-            // ���������Ҫǿ�ƵĻ����� return false; 
-            // ������ DeviceController �����Ѿ��� sendMotorTcpV4 ʱ����Ͽ����Զ���������һ��
+            // 这里我们允许它尝试去重连，不直接 return false
+            // 但是如果是要强制的话可以 return false; 
+            // 我们在 DeviceController 里面已经有 sendMotorTcpV4 时如果断开会自动尝试重连一次
         }
     }
     return true;
 }
 
-// ���µ�����ư�ť״̬
+// 更新电机控制按钮状态
 void MainWindow::updateMotorButtons()
 {
     bool isModbus = (m_cfg->motorProtocol() == "MODBUS-RTU");
     bool isTcp = (m_cfg->motorProtocol() == "STM32-TCP-V4.0");
     bool isPelco = (m_cfg->motorProtocol() == "Pelco-D");
     
-    // ֻ�� Modbus �� TCP ȫ���ܿ��ã�Pelco-D ��������ˢ
+    // 只有 Modbus 和 TCP 全功能可用，Pelco-D 仅允许雨刷
     
     bool othersEnabled = !isPelco;
     ui->btnWiperLeft->setEnabled(othersEnabled);
@@ -1431,8 +1431,8 @@ void MainWindow::updateMotorButtons()
     ui->btnWiperZeroCalib->setEnabled(othersEnabled);
     ui->btnWiperMode->setEnabled(othersEnabled);
     
-    // ��/����ģʽ���� STM32-TCP-V4.0 ����Ч�����������ϣ�� Modbus Ҳ��Ԥ������Ե���
-    // �����ĵ���action 6/7 ���� V4.0 TCP �ӿ�
+    // 狂暴/静音模式仅在 STM32-TCP-V4.0 下有效，或者如果您希望 Modbus 也有预留，可以调整
+    // 根据文档，action 6/7 属于 V4.0 TCP 接口
     ui->btnWiperSilent->setEnabled(isTcp);
 
     if (isModbus && m_presenter->motorController()->isMotorSerialOpen()) {
@@ -1441,12 +1441,12 @@ void MainWindow::updateMotorButtons()
 }
 
 //============================================================================
-// on_comboWorkMode_currentIndexChanged - ����ģʽ�������л�
-//   0 = �ر�AI, 1 = Ŀ��ʶ��, 2 = �Զ�����, 3 = ��ѡ����, 4 = ��ѡ����
+// on_comboWorkMode_currentIndexChanged - 工作模式下拉框切换
+//   0 = 关闭AI, 1 = 目标识别, 2 = 自动跟踪, 3 = 点选跟踪, 4 = 框选跟踪
 //============================================================================
 void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 {
-    // �ǵ�ѡ/��ѡ����ģʽʱ��ֹ����ѡ������ UI ״̬�����漰�豸ָ�
+    // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
     ui->videoWidget->setSelectionEnabled(index == 3 || index == 4);
 
     if (m_updatingFromDevice) return;
@@ -1463,7 +1463,7 @@ void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 }
 
 //============================================================================
-// on_btnPtzMoveTo_clicked - ��̨ת��ָ���Ƕ�
+// on_btnPtzMoveTo_clicked - 云台转到指定角度
 //============================================================================
 void MainWindow::on_btnPtzMoveTo_clicked()
 {
@@ -1477,12 +1477,12 @@ void MainWindow::on_btnPtzMoveTo_clicked()
     if (panOk && tiltOk) {
         m_presenter->motorController()->ptzMoveTo(pan, tilt);
     } else {
-        QMessageBox::warning(this, "�������", "��������Ч��ˮƽ�ʹ�ֱ�Ƕ�ֵ��");
+        QMessageBox::warning(this, "输入错误", "请输入有效的水平和垂直角度值。");
     }
 }
 
 //============================================================================
-// on_btnPtzMoveToGps_clicked - ��̨ת����ָ����γ�ȸ߶�
+// on_btnPtzMoveToGps_clicked - 云台转动到指定经纬度高度
 //============================================================================
 void MainWindow::on_btnPtzMoveToGps_clicked()
 {
@@ -1493,7 +1493,7 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
     QString altStr = ui->editTargetAlt->text().trimmed();
 
     if (lonStr.isEmpty() || latStr.isEmpty()) {
-        QMessageBox::warning(this, "�������", "������Ŀ��ľ�γ�Ⱥ͸߶ȡ�");
+        QMessageBox::warning(this, "输入错误", "请输入目标的经纬度和高度。");
         return;
     }
 
@@ -1506,7 +1506,7 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
     double devAlt = m_deviceHeight;
 
     if (devLat == 0 && devLon == 0) {
-        QMessageBox::warning(this, "״̬����", "��ǰ�豸 GPS δ֪���޷�����Ŀ��Ƕȡ�");
+        QMessageBox::warning(this, "状态错误", "当前设备 GPS 未知，无法计算目标角度。");
         return;
     }
 
@@ -1519,25 +1519,25 @@ void MainWindow::on_btnPtzMoveToGps_clicked()
     }
 
     m_presenter->motorController()->ptzMoveTo(pan, tilt);
-    ui->statusbar->showMessage(QString("ת�� GPS: ��λ=%1�� ����=%2��").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
+    ui->statusbar->showMessage(QString("转到 GPS: 方位=%1° 俯仰=%2°").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
 }
 
 //============================================================================
-// on_btnPanZeroCalib_clicked - ˮƽ���궨
+// on_btnPanZeroCalib_clicked - 水平零点标定
 //============================================================================
 void MainWindow::on_btnPanZeroCalib_clicked()
 {
     if (!requireConnected()) return;
     
-    if (QMessageBox::question(this, "���궨", "ȷ�Ͻ���ǰ��̨ˮƽ�͸���λ�ñ궨Ϊ 0 �ȣ�") == QMessageBox::Yes) {
+    if (QMessageBox::question(this, "零点标定", "确认将当前云台水平和俯仰位置标定为 0 度？") == QMessageBox::Yes) {
         if (m_cfg->softwarePtzCalibrationEnabled()) {
-            // ������ģ�⴮�ڷ�������ʹ�����ƫ��
+            // 开启了模拟串口服务器，使用软件偏置
             QString panStr = ui->statPanAngle->text();
-            panStr.remove("��");
+            panStr.remove("°");
             double displayedPan = panStr.toDouble();
 
             QString tiltStr = ui->statTiltAngle->text();
-            tiltStr.remove("��");
+            tiltStr.remove("°");
             double displayedTilt = tiltStr.toDouble();
 
             double oldPanOffset = m_cfg->ptzPanOffset();
@@ -1558,14 +1558,14 @@ void MainWindow::on_btnPanZeroCalib_clicked()
             m_presenter->ptzForwarder()->setOffsets(newPanOffset, newTiltOffset);
             m_presenter->ptzForwarder()->flushZeroPosition();
 
-            ui->statPanAngle->setText("0.0��");
-            ui->statTiltAngle->setText("0.0��");
-            ui->statusbar->showMessage("���궨(���ƫ��)�ѱ���", 3000);
+            ui->statPanAngle->setText("0.0°");
+            ui->statTiltAngle->setText("0.0°");
+            ui->statusbar->showMessage("零点标定(软件偏置)已保存", 3000);
         } else {
-            // δ����ģ�⴮�ڷ�������ֱ��ͨ�� PELCO-D ͸���궨ָ��
+            // 未开启模拟串口服务器，直接通过 PELCO-D 透传标定指令
             m_presenter->motorController()->ptzSetZero();
-            ui->statusbar->showMessage("���궨ָ��(Pelco-D)���·�", 3000);
-            // ���ﲻǿ�Ƹ� UI���ú����豸�����ϱ����½Ƕ���ˢ�� UI
+            ui->statusbar->showMessage("零点标定指令(Pelco-D)已下发", 3000);
+            // 这里不强制改 UI，让后续设备主动上报的新角度来刷新 UI
         }
     }
 }
@@ -1573,8 +1573,8 @@ void MainWindow::on_btnPanZeroCalib_clicked()
 
 //============================================================================
 //============================================================================
-// on_comboAlgoModel1/2_currentIndexChanged - �㷨ģ���������л�
-// �� m_updatingFromDevice �����������豸�ش�ʱ�ظ��·�ָ��
+// on_comboAlgoModel1/2_currentIndexChanged - 算法模型下拉框切换
+// 受 m_updatingFromDevice 保护，避免设备回传时重复下发指令
 //============================================================================
 void MainWindow::on_comboAlgoModel1_currentIndexChanged(int index)
 {
@@ -1597,15 +1597,15 @@ void MainWindow::sendAlgoModel(int model)
 }
 
 //============================================================================
-// on_comboDisplayMode_currentIndexChanged - ��ʾģʽ�������л�
-// �л�ʱ�·���ʾģʽ���ָ���ͷĿ������ʾģʽ�Զ��ж�
+// on_comboDisplayMode_currentIndexChanged - 显示模式下拉框切换
+// 切换时下发显示模式变更指令，镜头目标由显示模式自动判断
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
     if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
     if (m_updatingFromDevice) return;
-    // ������ʾģʽ�Զ��л��㷨ģ�ͣ�0/2/3���ɼ���ģ�ͣ�1/4������ģ��
-    // ֱ���·������� queryImageParams�������豸���ؾ����ݸ�����ʾģʽ
+    // 根据显示模式自动切换算法模型：0/2/3→可见光模型，1/4→红外模型
+    // 直接下发不触发 queryImageParams，避免设备返回旧数据覆盖显示模式
     {
         int algoIdx = (index == 1 || index == 4) ? 1 : 0;
         if ((m_currentAlgoModel / 10) != algoIdx) {
@@ -1618,7 +1618,7 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
             ui->comboAlgoModel1->blockSignals(false);
         }
     }
-    // �Ӻ�����ʾģʽ�������� setAlgoModel ���������豸����
+    // 延后发送显示模式，避免与 setAlgoModel 间隔过近被设备忽略
     QTimer::singleShot(150, this, [this]() {
         if (m_presenter->tcpClient()->isConnected()) {
             int idx = ui->comboDisplayMode->currentIndex();
@@ -1628,12 +1628,12 @@ void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 }
 
 //============================================================================
-// on_comboLensTarget_currentIndexChanged - ��ɾ������ͷĿ������ʾģʽ�Զ��ж�
+// on_comboLensTarget_currentIndexChanged - 已删除，镜头目标由显示模式自动判断
 //============================================================================
 
 //============================================================================
-// on_btnSetLocation_clicked - �ֶ������豸��γ��
-// ��������ȡ��γ���ַ�����ֱ���·����豸��д GPS ��Ϣ
+// on_btnSetLocation_clicked - 手动设置设备经纬度
+// 从输入框读取经纬度字符串，直接下发给设备覆写 GPS 信息
 //============================================================================
 void MainWindow::on_btnSetLocation_clicked()
 {
@@ -1641,8 +1641,8 @@ void MainWindow::on_btnSetLocation_clicked()
     QString lonStr = ui->editSetLon->text().trimmed();
 
     if (latStr.isEmpty() || lonStr.isEmpty()) {
-        QMessageBox::warning(this, QString::fromUtf8("�������"),
-                             QString::fromUtf8("����д�����ľ�γ�Ȳ���"));
+        QMessageBox::warning(this, QString::fromUtf8("输入错误"),
+                             QString::fromUtf8("请填写完整的经纬度参数"));
         return;
     }
 
@@ -1661,24 +1661,24 @@ void MainWindow::on_btnSetLocation_clicked()
     QString strictLon = QString::asprintf("%.7f%s", qAbs(lonNum), lonNum >= 0 ? "E" : "W");
 
     m_presenter->motorController()->setLocation(strictLat, strictLon);
-    ui->statusbar->showMessage(QString::fromUtf8("���·���γ��"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("已下发经纬度"), 3000);
 }
 
 //============================================================================
-// on_btnGetImageParams_clicked - ��ѯ�豸��ǰͼ�����
-// �豸���� ImageSetting ����֡�ظ������� updateStatusFromJson ���� UI
+// on_btnGetImageParams_clicked - 查询设备当前图像参数
+// 设备会以 ImageSetting 类型帧回复，触发 updateStatusFromJson 更新 UI
 //============================================================================
 void MainWindow::on_btnGetImageParams_clicked()
 {
     if (!requireConnected()) return;
     m_presenter->motorController()->queryImageParams();
-    ui->statusbar->showMessage(QString::fromUtf8("�ѷ��Ͳ�����ѯ����"), 3000);
+    ui->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }
 
 //============================================================================
-// parseCoord - �����ַ����������ߺ���
-// �������׺�ľ�γ�ȸ�ʽ������ "39.9042N" �� 39.9042, "116.4074E" �� 116.4074
-// ��γ(S)������(W)���ظ�ֵ�����޺�׺��ֱ�ӷ�����ֵ
+// parseCoord - 坐标字符串解析工具函数
+// 处理带后缀的经纬度格式，例如 "39.9042N" → 39.9042, "116.4074E" → 116.4074
+// 南纬(S)或西经(W)返回负值；若无后缀则直接返回数值
 //============================================================================
 static double parseCoord(const QString& s) {
     QString t = s.trimmed().toUpper();
@@ -1696,14 +1696,14 @@ static double parseCoord(const QString& s) {
 }
 
 //============================================================================
-// updateMapDevicePosition - ���µ�ͼ�ϵ��豸λ�����ӳ���
-// �� ZoomInfo JSON ֡�н��� GPS����̨�Ƕȡ�����������ݣ�
-// ���㵱ǰ��ͷ��ˮƽ/��ֱ�ӳ��ǣ����Ƶ���ͼ�ؼ���
+// updateMapDevicePosition - 更新地图上的设备位置与视场角
+// 从 ZoomInfo JSON 帧中解析 GPS、云台角度、激光测距等数据，
+// 计算当前镜头的水平/垂直视场角，绘制到地图控件上
 //
-// �ӳ��Ǽ��㣺
-//   HFOV = 2 �� arctan(���������_mm / (2 �� ����_mm))
-//   VFOV = HFOV �� 9/16 (�ٶ� 16:9 ��������߱�)
-// ��������� = ��Ԫ�ߴ� �� ˮƽ�ֱ��� / 1000
+// 视场角计算：
+//   HFOV = 2 × arctan(传感器宽度_mm / (2 × 焦距_mm))
+//   VFOV = HFOV × 9/16 (假定 16:9 传感器宽高比)
+// 传感器宽度 = 像元尺寸 × 水平分辨率 / 1000
 //============================================================================
 void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
 {
@@ -1736,137 +1736,32 @@ void MainWindow::updateMapDevicePosition(const QJsonObject& doc)
 
     m_mapWidget->setDevicePosition(lat, lon);
 
-    // ����ɼ����ӳ���
+    // 计算可见光视场角
     CameraConfig& cam = m_cfg->cam();
     double visSensorW = cam.visPixelSize * cam.visResX / 1000.0;
     double visFocal = cam.visMinFocal * m_currentVisZoom;
     double visHfov = 2.0 * qAtan(visSensorW / (2.0 * visFocal)) * 180.0 / M_PI;
     double visVfov = visHfov * cam.visResY / cam.visResX;
 
-    // ��������ӳ���
+    // 计算红外视场角
     double irSensorW = cam.irPixelSize * cam.irResX / 1000.0;
     double irFocal = cam.irMinFocal * m_currentIrZoom;
     double irHfov = 2.0 * qAtan(irSensorW / (2.0 * irFocal)) * 180.0 / M_PI;
     double irVfov = irHfov * cam.irResY / cam.irResX;
 
-    // �ɼ����ӳ��� 4km����ɫ���������ӳ��� 2km����ɫ��
+    // 可见光视场角 4km（蓝色），红外视场角 2km（红色）
     m_mapWidget->setVisFov(lat, lon, pan, tilt, visHfov, visVfov, 4000);
     m_mapWidget->setIrFov(lat, lon, pan, tilt, irHfov, irVfov, 2000);
     m_mapWidget->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range, rangeEstimated);
 }
 
 //============================================================================
-// pixelToGps - ��������ת GPS ��������
-// ��ͼ����ĳ���ص� (pixelX, pixelY) ӳ�䵽��ʵ�����γ�ȡ�
-// ���Ĳ��裺
-//   1. ����ƫ�� �� �Ƕ�ƫ�ƣ�dxAngle = ����ƫ�� �� ��Ԫ�ߴ� / ����
-//   2. ���Է�λ�� = ��̨ˮƽ�� + ˮƽ�Ƕ�ƫ��
-//   3. ʹ�� Haversine ��ʽ�����豸 GPS + ��λ�� + ���� �� Ŀ�� GPS
-//
-// Haversine ��ʽ:
-//   lat2 = asin(sin(lat1)��cos(d/R) + cos(lat1)��sin(d/R)��cos(bearing))
-//   lon2 = lon1 + atan2(sin(bearing)��sin(d/R)��cos(lat1), cos(d/R) - sin(lat1)��sin(lat2))
-//   ���� R = 6371000m (����ƽ���뾶)
-//============================================================================
-void MainWindow::pixelToGps(double pixelX, double pixelY, double distance,
-                              double& outLat, double& outLon)
-{
-    CameraConfig& cam = m_cfg->cam();
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
-    double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-    double focal = isVis ? cam.visMinFocal * m_currentVisZoom
-                         : cam.irMinFocal * m_currentIrZoom;
-    int resX = isVis ? cam.visResX : cam.irResX;
-    int resY = isVis ? cam.visResY : cam.irResY;
-    int halfW = resX / 2, halfH = resY / 2;
 
-    // �� UI �ؼ���ȡ�豸���� GPS ����̨�Ƕȣ��� ZoomInfo ֡���£�
-    double devLat = parseCoord(ui->statLatitude->text());
-    double devLon = parseCoord(ui->statLongitude->text());
-    double pan = ui->statPanAngle->text().toDouble();
-
-    if (devLat == 0 && devLon == 0) { outLat = 0; outLon = 0; return; }
-    if (focal < 0.1) { outLat = 0; outLon = 0; return; }
-
-    double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
-
-    // ���Է�λ�� = ��̨ˮƽ��(�ȡ�����) + ����ˮƽƫ�ƽ�(����)
-    double bearing = pan * M_PI / 180.0 + dxAngle;
-    double range = distance > 0 ? distance : 100.0; // Ĭ�� 100m
-
-    // Haversine ��ʽ����Ŀ�꾭γ��
-    double R = 6371000.0;                          // ����ƽ���뾶 (m)
-    double lat1 = devLat * M_PI / 180.0;           // �豸γ�� �� ����
-    double lon1 = devLon * M_PI / 180.0;           // �豸���� �� ����
-    double d = range / R;                          // �����Ӧ�����Ľ�
-
-    double lat2 = qAsin(qSin(lat1) * qCos(d) + qCos(lat1) * qSin(d) * qCos(bearing));
-    double lon2 = lon1 + qAtan2(qSin(bearing) * qSin(d) * qCos(lat1), qCos(d) - qSin(lat1) * qSin(lat2));
-
-    outLat = lat2 * 180.0 / M_PI;  // ���ת�ض�
-    outLon = lon2 * 180.0 / M_PI;
-}
 
 //============================================================================
-// pixelBboxToGps - ���ؿ�ǵ�ת GPS��������У����
-// �� pixelToGps ���ƣ������������̨������ (tilt) �����ش�ֱƫ�� (dyAngle)
-// �Բ��������У������Ŀ���ڻ�����ƫ������ʱ��ʵ�ʹ�·���벻ͬ��
-//
-// У��ԭ���
-//   H = distance �� sin(tilt)          �� �豸����߶�
-//   effTilt = tilt + dyAngle          �� Ŀ�������ˮƽ���ʵ�ʸ�����
-//   rangeAdj = H / sin(effTilt)       �� У�����б��
-//   �� effTilt �ӽ� 0 �� �� ʱ����У����������㣩
-//============================================================================
-void MainWindow::pixelBboxToGps(double pixelX, double pixelY, double distance,
-                                  double tiltDeg, double& outLat, double& outLon)
-{
-    CameraConfig& cam = m_cfg->cam();
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
-    double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-    double focal = isVis ? cam.visMinFocal * m_currentVisZoom
-                         : cam.irMinFocal * m_currentIrZoom;
-    int resX = isVis ? cam.visResX : cam.irResX;
-    int resY = isVis ? cam.visResY : cam.irResY;
-    int halfW = resX / 2, halfH = resY / 2;
 
-    double devLat = parseCoord(ui->statLatitude->text());
-    double devLon = parseCoord(ui->statLongitude->text());
-    double pan = ui->statPanAngle->text().toDouble();
 
-    if (devLat == 0 && devLon == 0) { outLat = 0; outLon = 0; return; }
-    if (focal < 0.1) { outLat = 0; outLon = 0; return; }
-
-    double dxAngle = (pixelX - halfW) * px / (focal * 1000.0);
-    double dyAngle = (pixelY - halfH) * px / (focal * 1000.0);
-
-    // ������̨�����������ش�ֱƫ��У�����ֵ
-    double tiltRad = tiltDeg * M_PI / 180.0;
-    double rangeAdj = distance;
-    if (tiltRad > 0.01) {
-        double H = distance * qSin(tiltRad);          // �豸��Ը߶�
-        double effTilt = tiltRad + dyAngle;           // Ŀ��ʵ�ʸ�����
-        if (effTilt > 0.005 && effTilt < M_PI - 0.005)
-            rangeAdj = H / qSin(effTilt);             // У��б��
-    }
-
-    double bearing = pan * M_PI / 180.0 + dxAngle;
-    double range = rangeAdj > 0 ? rangeAdj : (distance > 0 ? distance : 100.0);
-
-    // Haversine ��ʽ����Ŀ�� GPS (ͬ pixelToGps)
-    double R = 6371000.0;
-    double lat1 = devLat * M_PI / 180.0;
-    double lon1 = devLon * M_PI / 180.0;
-    double d = range / R;
-
-    double lat2 = qAsin(qSin(lat1) * qCos(d) + qCos(lat1) * qSin(d) * qCos(bearing));
-    double lon2 = lon1 + qAtan2(qSin(bearing) * qSin(d) * qCos(lat1), qCos(d) - qSin(lat1) * qSin(lat2));
-
-    outLat = lat2 * 180.0 / M_PI;
-    outLon = lon2 * 180.0 / M_PI;
-}
-
-// Haversine ��ʽ�����������루�ף�
+// Haversine 公式计算两点间距离（米）
 static double haversineDistance(double lat1, double lon1, double lat2, double lon2)
 {
     double R = 6371000.0;
@@ -1879,13 +1774,13 @@ static double haversineDistance(double lat1, double lon1, double lat2, double lo
     return R * c;
 }
 
-// ���� �켣���ϡ��ֵ ����
-static constexpr double TRK_MIN_DIST_M     = 3.0;    // ����������С�ڴ˾���ֱ�Ӷ���
-static constexpr double TRK_MAX_DIST_M     = 20.0;   // �������ϡ�������˾���ǿ�ƴ��
-static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // �����ƫת��ֵ��������ǿ�ƴ��
-static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // ��������������ʱ��ǿ�ƴ��
+// ── 轨迹点抽稀阈值 ──
+static constexpr double TRK_MIN_DIST_M     = 3.0;    // 防抖死区：小于此距离直接丢弃
+static constexpr double TRK_MAX_DIST_M     = 20.0;   // 长距离抽稀：超出此距离强制打点
+static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // 航向角偏转阈值，超过则强制打点
+static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // 心跳间隔：超过此时间强制打点
 
-// bearing - ��������֮��ĺ���ǣ��ȣ�������Ϊ0�㣬˳ʱ��
+// bearing - 计算两点之间的航向角（度），正北为0°，顺时针
 static double bearing(double lat1, double lon1, double lat2, double lon2)
 {
     double lat1R = qDegreesToRadians(lat1);
@@ -1899,31 +1794,31 @@ static double bearing(double lat1, double lon1, double lat2, double lon2)
     return deg < 0 ? deg + 360.0 : deg;
 }
 
-// shouldPlotTrackPoint - ��ϡ�ж����Ƿ�Ӧ����ǰGPS����Ƶ���ͼ
-// ���� < TRK_MIN_DIST_M  �� ������������
-// ���� > TRK_MAX_DIST_M  �� ���㣨�������ϡ��
-// �����ƫת > TRK_HEADING_DIFF_DEG �� ���㣨ת�������
-// ���ϴλ��� > TRK_HEARTBEAT_MS    �� ���㣨�������
-// outBearing����ѡ��: ���ؼ�����ĺ���ǣ�������ô��ظ����� bearing()
+// shouldPlotTrackPoint - 抽稀判定：是否应将当前GPS点绘制到地图
+// 距离 < TRK_MIN_DIST_M  → 丢弃（防抖）
+// 距离 > TRK_MAX_DIST_M  → 画点（长距离抽稀）
+// 航向角偏转 > TRK_HEADING_DIFF_DEG → 画点（转弯机动）
+// 距上次绘制 > TRK_HEARTBEAT_MS    → 画点（心跳保活）
+// outBearing（可选）: 返回计算出的航向角，避免调用处重复计算 bearing()
 static bool shouldPlotTrackPoint(double newLat, double newLon,
                                   double plotLat, double plotLon,
                                   double plotHeading, const QDateTime& plotTime,
                                   double* outBearing = nullptr)
 {
-    if (plotHeading < 0) return true; // �״λ��� / Ŀ���л�
+    if (plotHeading < 0) return true; // 首次绘制 / 目标切换
 
     double dist = haversineDistance(plotLat, plotLon, newLat, newLon);
 
-    // ����������Ư��ֱ�Ӷ���
+    // 防抖死区：漂移直接丢弃
     if (dist < TRK_MIN_DIST_M) return false;
 
-    // �������ϡ
+    // 长距离抽稀
     if (dist > TRK_MAX_DIST_M) {
         if (outBearing) *outBearing = bearing(plotLat, plotLon, newLat, newLon);
         return true;
     }
 
-    // ����Ǳ仯
+    // 航向角变化
     double head = bearing(plotLat, plotLon, newLat, newLon);
     double diff = qAbs(head - plotHeading);
     if (diff > 180.0) diff = 360.0 - diff;
@@ -1932,7 +1827,7 @@ static bool shouldPlotTrackPoint(double newLat, double newLon,
         return true;
     }
 
-    // �������ף����ں���֮�󣬱�������ת��ʱ�����������㣩
+    // 心跳兜底（放在航向之后，避免慢速转向时打多余的心跳点）
     if (plotTime.isValid()) {
         qint64 elapsed = plotTime.msecsTo(QDateTime::currentDateTime());
         if (elapsed >= TRK_HEARTBEAT_MS) {
@@ -1945,22 +1840,35 @@ static bool shouldPlotTrackPoint(double newLat, double newLon,
 }
 
 //============================================================================
-// updateMapTargets - ���µ�ͼ�ϵ� AI Ŀ����
-// ����ģʽ (WorkMode 2~4)��
-//   - ����ʾ 1 ��Ŀ�꣨���� 0xB1 ���ȣ���ʧ 0xB2 ��֮��
-//   - �״�ʧ����0xB2��ʱ��¼ʱ�䣬�������λ�� 5 ��
-//   - ʧ���� 5 ������켣��Ŀ���
-// ʶ��ģʽ (WorkMode 1)����ʾȫ��ʶ��Ŀ�꣬���ϱ�ʱ�������
+// updateMapTargets - 更新地图上的 AI 目标标记
+// 跟踪模式 (WorkMode 2~4)：
+//   - 仅显示 1 个目标（锁定 0xB1 优先，丢失 0xB2 次之）
+//   - 首次失锁（0xB2）时记录时间，保持最后位置 5 秒
+//   - 失锁超 5 秒清除轨迹和目标点
+// 识别模式 (WorkMode 1)：显示全部识别目标，无上报时清空遗留
 //============================================================================
 void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 {
+    CameraIntrinsics camInfo;
+    CameraConfig& camCfg = m_cfg->cam();
+    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
+    camInfo.pixelSizeUm = isVis ? camCfg.visPixelSize : camCfg.irPixelSize;
+    camInfo.focalLengthMm = isVis ? camCfg.visMinFocal * m_currentVisZoom : camCfg.irMinFocal * m_currentIrZoom;
+    camInfo.resX = isVis ? camCfg.visResX : camCfg.irResX;
+    camInfo.resY = isVis ? camCfg.visResY : camCfg.irResY;
+
+    DevicePose devPose;
+    devPose.lat = parseCoord(ui->statLatitude->text());
+    devPose.lon = parseCoord(ui->statLongitude->text());
+    devPose.panDeg = ui->statPanAngle->text().toDouble();
+
     bool hasObject = doc.contains("Object") && doc.value("Object").isObject();
     QJsonObject objMap;
     if (hasObject) objMap = doc.value("Object").toObject();
     double tilt = m_currentTilt;
 
     //==========================================================================
-    // ʶ��ģʽ (WorkMode=1)����ʾ����Ŀ�꣬���ϱ�ʱ���
+    // 识别模式 (WorkMode=1)：显示所有目标，无上报时清空
     //==========================================================================
     if (workMode == 1) {
         if (!hasObject || objMap.isEmpty()) {
@@ -1984,14 +1892,14 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
                 int R = pts.value("Right").toInt(), B = pts.value("Bottom").toInt();
                 double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
-                pixelToGps(cx, cy, dist, tLat, tLon);
+                GeoCalculator::pixelToGps(cx, cy, dist, camInfo, devPose, tLat, tLon);
 
                 QJsonArray bbox;
                 double bLat, bLon;
-                pixelBboxToGps(L, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-                pixelBboxToGps(R, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-                pixelBboxToGps(R, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-                pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(L, T, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(R, T, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(R, B, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(L, B, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
 
                 QJsonObject t;
                 t[QStringLiteral("id")] = id;
@@ -2009,11 +1917,11 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
     }
 
     //==========================================================================
-    // ����ģʽ (WorkMode=2~4)
+    // 跟踪模式 (WorkMode=2~4)
     //==========================================================================
     if (workMode >= 2 && workMode <= 4) {
 
-        // -- ��������Ŀ�� 0xB1 �Ͷ�ʧĿ�� 0xB2 --
+        // -- 查找锁定目标 0xB1 和丢失目标 0xB2 --
         QString lockedId, lostId;
         QJsonObject lockedObj, lostObj;
         for (auto it = objMap.begin(); it != objMap.end(); ++it) {
@@ -2026,7 +1934,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             }
         }
 
-        // ---- ������Ŀ�� ----
+        // ---- 有锁定目标 ----
         if (!lockedId.isEmpty()) {
             m_track.lostSince = QDateTime();
 
@@ -2034,7 +1942,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             double tLat = 0, tLon = 0;
 
             double dist = calcVisualDistance(lockedObj, cls, true);
-            // ���� AI Ŀ����루���� ZoomInfo �޼�����ʱ���ˣ�
+            // 缓存 AI 目标距离（用于 ZoomInfo 无激光测距时回退）
             m_lastAiDist = dist;
             m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
 
@@ -2043,13 +1951,13 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
                 int R = pts.value("Right").toInt(), B = pts.value("Bottom").toInt();
                 double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
-                pixelToGps(cx, cy, dist, tLat, tLon);
+                GeoCalculator::pixelToGps(cx, cy, dist, camInfo, devPose, tLat, tLon);
 
                 m_track.lat = tLat;
                 m_track.lon = tLon;
                 m_track.cls = cls;
 
-                // �����ٶȣ���/�룩
+                // 计算速度（米/秒）
                 double speed = 0;
                 if (m_track.prevTime.isValid()) {
                     double dist_m = haversineDistance(m_track.prevLat, m_track.prevLon, tLat, tLon);
@@ -2060,9 +1968,9 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.prevLon = tLon;
                 m_track.prevTime = QDateTime::currentDateTime();
 
-                // �켣���ϡ�ж�
+                // 轨迹点抽稀判定
                 if (tLat != 0 && tLon != 0) {
-                    // Ŀ���л�ʱ���ó�ϡ״̬��ȷ����Ŀ���׵�ض�����
+                    // 目标切换时重置抽稀状态，确保新目标首点必定绘制
                     bool targetChanged = (m_track.id != lockedId);
                     m_track.id = lockedId;
                     if (targetChanged)
@@ -2093,10 +2001,10 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
 
                 QJsonArray bbox;
                 double bLat, bLon;
-                pixelBboxToGps(L, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-                pixelBboxToGps(R, T, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-                pixelBboxToGps(R, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
-                pixelBboxToGps(L, B, dist, tilt, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(L, T, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(R, T, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(R, B, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
+                GeoCalculator::pixelBboxToGps(L, B, dist, tilt, camInfo, devPose, bLat, bLon); bbox.append(QJsonArray{bLat, bLon});
                 t[QStringLiteral("bbox")] = bbox;
                 targetArr.append(t);
                 m_mapWidget->updateTargetMarkers(targetArr);
@@ -2104,7 +2012,7 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             return;
         }
 
-        // ---- �ж�ʧĿ�� (0xB2) ----
+        // ---- 有丢失目标 (0xB2) ----
         if (!lostId.isEmpty()) {
             int cls = lostObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
@@ -2117,11 +2025,11 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 int L = pts.value("Left").toInt(), T = pts.value("Top").toInt();
                 int R = pts.value("Right").toInt(), B = pts.value("Bottom").toInt();
                 double cx = (L + R) / 2.0, cy = (T + B) / 2.0;
-                pixelToGps(cx, cy, dist, tLat, tLon);
+                GeoCalculator::pixelToGps(cx, cy, dist, camInfo, devPose, tLat, tLon);
                 hasPts = true;
             }
 
-            // �״�ʧ��������λ�ã���¼ʱ��
+            // 首次失锁：保存位置，记录时间
             if (m_track.lostSince.isNull()) {
                 m_track.id = lostId;
                 m_track.lat = tLat;
@@ -2130,16 +2038,16 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
                 m_track.lostSince = QDateTime::currentDateTime();
             }
 
-            // ����Ƿ񳬹� 5 ��
+            // 检查是否超过 5 秒
             qint64 elapsed = m_track.lostSince.msecsTo(QDateTime::currentDateTime());
             if (elapsed >= 5000) {
-                // ���� 5 �룬����켣��Ŀ��
+                // 超过 5 秒，清除轨迹和目标
                 m_mapWidget->clearAllTracks();
                 m_mapWidget->updateTargetMarkers(QJsonArray());
                 return;
             }
 
-            // 5 ���ڣ���ʾ���λ��
+            // 5 秒内：显示最后位置
             if (hasPts) {
                 QJsonArray targetArr;
                 QJsonObject t;
@@ -2156,17 +2064,17 @@ void MainWindow::updateMapTargets(const QJsonObject& doc, int workMode)
             return;
         }
 
-        // ---- �� Object ���� 0xB1/0xB2����� ----
+        // ---- 有 Object 但无 0xB1/0xB2，清空 ----
         m_mapWidget->clearAllTracks();
         m_mapWidget->updateTargetMarkers(QJsonArray());
     }
 }
 
-// calcVisualDistance - ��װ��"�޼�����ʱ���Ӿ����������"�Ĺ����߼�
-// obj: Ŀ�� JSON �������� Distance �ֶκ� Points �ֶΣ�
-// cls: Ŀ�� Class ����
-// updateTrackLabel: �Ƿ���� trackDistance ״̬���ı�����������/��ʧʱ true��
-// ����ֵ�����м�������򷵻�ԭֵ�����򷵻ع���ֵ
+// calcVisualDistance - 封装了"无激光测距时用视觉法估算距离"的公共逻辑
+// obj: 目标 JSON 对象（已有 Distance 字段和 Points 字段）
+// cls: 目标 Class 编码
+// updateTrackLabel: 是否更新 trackDistance 状态栏文本（跟踪锁定/丢失时 true）
+// 返回值：已有激光距离则返回原值，否则返回估算值
 double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
 {
     double dist = obj.value("Distance").toDouble(0);
@@ -2176,8 +2084,8 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
     int low = currentAlgoModel() % 10;
     double ref = m_cfg->cam().targetRefSize(low, cls);
 
-    // ����״̬ (0xB1/0xB2) �޷�ͨ�� Class �鵽�ο��ߴ�
-    // �� ���㷨ģ�ͱ�����֪ Class ���Ӿ�����
+    // 跟踪状态 (0xB1/0xB2) 无法通过 Class 查到参考尺寸
+    // → 用算法模型遍历已知 Class 做视觉估算
     if (ref <= 0 && (cls == 0xB1 || cls == 0xB2)) {
         static const int fallback[] = {0xA1, 0xA2, 0xA3, 0xA4};
         for (int fc : fallback) {
@@ -2200,15 +2108,15 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
     double focal = isVis ? m_cfg->cam().visMinFocal * m_currentVisZoom
                           : m_cfg->cam().irMinFocal * m_currentIrZoom;
 
-    dist = estimateTargetDistance(boxPx, focal, pxSize, ref);
+    dist = GeoCalculator::estimateTargetDistance(boxPx, focal, pxSize, ref);
     if (updateTrackLabel)
-        ui->trackDistance->setText(QString::number(dist, 'f', 1) + QStringLiteral(" m (����)"));
+        ui->trackDistance->setText(QString::number(dist, 'f', 1) + QStringLiteral(" m (估算)"));
     return dist;
 }
 
-// �Ӿ���������㣺��֪Ŀ��ο��ߴ磬�����ش�С���ƾ���
-// ��ʽ������(m) = �ο��ߴ�(m) �� ����(mm) �� 1000 / (Ŀ�������� �� ��Ԫ�ߴ�(��m))
-double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize)
+// 视觉法距离估算：已知目标参考尺寸，用像素大小反推距离
+// 公式：距离(m) = 参考尺寸(m) × 焦距(mm) × 1000 / (目标像素数 × 像元尺寸(μm))
+double MainWindow::GeoCalculator::estimateTargetDistance(int boxPixels, double focalMm, double pixelSizeUm, double refSize)
 {
     if (boxPixels <= 0 || focalMm < 0.1 || pixelSizeUm <= 0 || refSize <= 0)
         return 0.0;
@@ -2216,7 +2124,7 @@ double MainWindow::estimateTargetDistance(int boxPixels, double focalMm, double 
 }
 
 //============================================================================
-// resizeEvent - ��������ʱ���²���
+// resizeEvent - 窗口缩放时重新布局
 //============================================================================
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
@@ -2225,8 +2133,8 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 }
 
 //============================================================================
-// toggleMap - �л���ͼ��ʾ/����
-// �� m_btnMap ����
+// toggleMap - 切换地图显示/隐藏
+// 由 m_btnMap 触发
 //============================================================================
 void MainWindow::toggleMap()
 {
@@ -2246,8 +2154,8 @@ void MainWindow::toggleMap()
 }
 
 //============================================================================
-// toggleMapMode - �л�����/ȫ��ģʽ
-// ����ģʽ�µ�����ͼ����չ����ȫ��ģʽ�µ� ? �ջ�
+// toggleMapMode - 切换迷你/全屏模式
+// 迷你模式下单击地图触发展开；全屏模式下点 ✕ 收回
 //============================================================================
 void MainWindow::toggleMapMode()
 {
@@ -2256,10 +2164,10 @@ void MainWindow::toggleMapMode()
 }
 
 //============================================================================
-// updateMapLayout - ��ģʽ����
-//   ��ͼ����    �� videoWidget ���� widgetDisplay
-//   ����ģʽ    �� videoWidget ȫ�� + 280 Բ�θ���
-//   ȫ��/���ͼ  �� mapWidget ���� widgetDisplay + ���� PiP �Ի���
+// updateMapLayout - 三模式布局
+//   地图隐藏    → videoWidget 填满 widgetDisplay
+//   迷你模式    → videoWidget 全屏 + 280 圆形浮层
+//   全屏/大地图  → mapWidget 填满 widgetDisplay + 独立 PiP 对话框
 //============================================================================
 void MainWindow::updateMapLayout()
 {
@@ -2280,7 +2188,7 @@ void MainWindow::updateMapLayout()
     m_mapContainer->setVisible(true);
 
     if (m_mapExpanded) {
-        // ���ͼ����ͼ������ʾ��
+        // 大地图：地图填满显示区
         m_mapContainer->setGeometry(0, 0, ps.width(), ps.height());
         m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, false);
         m_mapContainer->clearMask();
@@ -2288,7 +2196,7 @@ void MainWindow::updateMapLayout()
         m_mapWidget->setCircularClip(false);
         m_mapOverlay->setVisible(false);
 
-        // ��Ƶ�������� PiP �Ի���
+        // 视频移至独立 PiP 对话框
         ui->videoWidget->setParent(m_pipDialog);
         m_pipDialog->layout()->addWidget(ui->videoWidget);
         m_pipPos = QPoint(8, ps.height() - 240 - 8);
@@ -2296,7 +2204,7 @@ void MainWindow::updateMapLayout()
         m_pipDialog->show();
         ui->videoWidget->setVisible(true);
     } else {
-        // ����ģʽ
+        // 迷你模式
         if (ui->videoWidget->parent() != ui->widgetDisplay) {
             ui->videoWidget->setParent(ui->widgetDisplay);
             ui->verticalLayout_display->addWidget(ui->videoWidget);
@@ -2321,18 +2229,18 @@ void MainWindow::updateMapLayout()
 }
 
 //============================================================================
-// eventFilter - ȫ���¼�����
-//   QComboBox�����ع��֣��������б�չ��ʱ����������л�
-//   m_mapOverlay��������չ������ק���ƶ�λ��
-//   m_pipTitle����ק�ƶ� PiP �Ի���λ��
+// eventFilter - 全局事件过滤
+//   QComboBox：拦截滚轮，仅下拉列表展开时才允许滚轮切换
+//   m_mapOverlay：单击＝展开，拖拽＝移动位置
+//   m_pipTitle：拖拽移动 PiP 对话框位置
 //============================================================================
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
-    // QComboBox �������أ�δչ��ʱ���Թ����¼�
+    // QComboBox 滚轮拦截：未展开时忽略滚轮事件
     if (event->type() == QEvent::Wheel) {
         auto *cb = qobject_cast<QComboBox*>(obj);
         if (cb && !cb->view()->isVisible()) {
-            return true;  // �̵�����¼�
+            return true;  // 吞掉滚轮事件
         }
     }
 
@@ -2395,7 +2303,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
             return true;
         }
         case QEvent::MouseButtonDblClick: {
-            // ˫�����������ָ���Ƶ������ʾ�� + ��ʾ�����ͼ
+            // 双击标题栏：恢复视频到主显示区 + 显示迷你地图
             toggleMapMode();
             return true;
         }
@@ -2408,8 +2316,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 }
 
 //============================================================================
-// onAiCleanupTimeout - AIInfo ��ʱ����
-// �豸��Ŀ��ʱ���� AIInfo ֡������ 2 ���޸�������������������
+// onAiCleanupTimeout - AIInfo 超时清理
+// 设备无目标时不发 AIInfo 帧，超过 2 秒无更新则清除界面残留数据
 //============================================================================
 void MainWindow::onAiCleanupTimeout()
 {
@@ -2418,24 +2326,24 @@ void MainWindow::onAiCleanupTimeout()
 
     m_lastAiInfoTime = QDateTime();
 
-    // ���ʶ����
-    ui->lblIdentifyCount->setText(QString::fromUtf8("Ŀ������: 0"));
+    // 清空识别表格
+    ui->lblIdentifyCount->setText(QString::fromUtf8("目标总数: 0"));
     ui->tableIdentify->setRowCount(0);
 
-    // ��ո������
-    ui->lblTrackStatus->setText(QString::fromUtf8("״̬: δ����"));
+    // 清空跟踪面板
+    ui->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
     ui->lblTrackStatus->setProperty("state", "nolock");
     refreshStyle(ui->lblTrackStatus);
     ui->trackPos->clear();
     ui->trackMissDistance->clear();
     ui->trackDistance->clear();
 
-    // ��յ�ͼ��Ǻ͹켣
+    // 清空地图标记和轨迹
     m_mapWidget->clearAllTracks();
     m_mapWidget->updateTargetMarkers(QJsonArray());
     m_mapWidget->clearFov();
 
-    // ���ø���״̬
+    // 重置跟踪状态
     m_track = TrackState();
     m_lastAiDist = 0;
     m_lastAiDistEstimated = false;
@@ -2447,7 +2355,3 @@ int MainWindow::currentAlgoModel() const
 {
     return m_currentAlgoModel;
 }
-
-
-
-

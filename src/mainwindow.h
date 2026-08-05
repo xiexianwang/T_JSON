@@ -113,6 +113,11 @@ private:
     Ui::MainWindow *ui;
 public:
     Ui::MainWindow* getUi() const { return ui; }
+    bool requireConnected();
+    bool m_rtspEverOpened = false;
+    double m_deviceHeight = 0;
+    VideoGridWidget *m_videoGrid;
+
                 static void refreshStyle(QWidget *w);
 private:             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
@@ -127,7 +132,6 @@ private:             // UI 设计器生成的界面对象
     bool m_dragging = false;         // 拖拽中标记
     QPoint m_dragStart;              // 拖拽起点
     bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
-    double m_deviceHeight = 0;     // 用户手动设置的设备高度(m)，替代设备上报值
 
     // ── PiP 视频窗口（大地图时独立无边框对话框） ──
     QDialog *m_pipDialog;
@@ -148,7 +152,6 @@ private:             // UI 设计器生成的界面对象
     int m_previousDisplayMode = 0;  // ZoomInfo 最后上报的 PipShow
     int m_currentResX = 2688;       // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
     int m_currentResY = 1520;       // 当前可见光实际垂直分辨率
-    bool m_rtspEverOpened = false;  // RTSP 是否曾打开（手动或自动），用于避免重复自动连接
     
     // ── 跟踪状态管理（地图目标/轨迹逻辑） ──
     struct TrackState {
@@ -195,7 +198,6 @@ private:             // UI 设计器生成的界面对象
     void updateMapLayout();                         // 更新地图尺寸和位置
 
     // ── 私有工具方法 ──
-    bool requireConnected();                        // 未连接时弹出状态栏提示并返回 false
     bool requireMotorReady();                       // 检查电机串口是否就绪
     void updateMotorButtons();                      // 根据电机协议更新按钮状态
     void setupUiStyles();                           // 加载并应用 QSS 样式表

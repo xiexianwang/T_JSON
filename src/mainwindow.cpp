@@ -31,17 +31,7 @@
 
 #include <QtMath>
 
-static double parseCoord(const QString& s);
-static double haversineDistance(double lat1, double lon1, double lat2, double lon2);
-static double bearing(double lat1, double lon1, double lat2, double lon2);
 
-//============================================================================
-// 辅助函数：刷新控件的 QSS 动态属性
-//============================================================================
-static void refreshStyle(QWidget *w) {
-    w->style()->unpolish(w);
-    w->style()->polish(w);
-}
 
 //============================================================================
 // 构造函数：初始化所有子模块、建立信号-槽连接、配置 UI
@@ -196,7 +186,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 初始化框选启用状态
     int wm = ui->comboWorkMode->currentIndex();
-    m_videoGrid->setSelectionEnabled(wm == 3 || wm == 4);
+    if (auto vw = m_videoGrid->getWidget("default_device")) vw->setSelectionEnabled(wm == 3 || wm == 4);
 
     //============================================================================
     // RTSP 视频流信号连接
@@ -468,7 +458,7 @@ MainWindow::~MainWindow()
         m_sysParamTimer->stop();
     disconnect(m_presenter->tcpClient(), nullptr, this, nullptr);
     if (m_presenter->videoStream()) {
-        m_videoGrid->clearFrame();
+        if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
         m_presenter->videoStream()->closeStream();
         m_presenter->videoStream()->wait(2000);
     }
@@ -597,7 +587,7 @@ void MainWindow::onTrayExit()
 {
     m_trayIcon->hide();
     if (m_presenter->videoStream()) {
-        m_videoGrid->clearFrame();
+        if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
         m_presenter->videoStream()->closeStream();
     }
     if (m_presenter->tcpClient()->isConnected())
@@ -848,7 +838,7 @@ void MainWindow::on_btnVideoConnect_clicked()
 //============================================================================
 void MainWindow::on_btnVideoDisconnect_clicked()
 {
-    m_videoGrid->clearFrame();
+    if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
     m_videoGrid->repaint();
     m_presenter->videoStream()->closeStream();
     ui->btnVideoConnect->setEnabled(true);
@@ -884,7 +874,7 @@ void MainWindow::onRtspOpened()
 //============================================================================
 void MainWindow::onRtspError(const QString &msg)
 {
-    m_videoGrid->clearFrame();
+    if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
     if (m_presenter->videoStream()->isRunning()) {
         // 线程还在运行说明是自动重连中，保持按钮在"重连中..."状态
         ui->btnVideoConnect->setText(QString::fromUtf8("重连中..."));
@@ -1154,7 +1144,7 @@ void MainWindow::updateMotorButtons()
 void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 {
     // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
-    m_videoGrid->setSelectionEnabled(index == 3 || index == 4);
+    if (auto vw = m_videoGrid->getWidget("default_device")) vw->setSelectionEnabled(index == 3 || index == 4);
 
     if (m_updatingFromDevice) return;
 
@@ -1406,17 +1396,7 @@ static double parseCoord(const QString& s) {
 //============================================================================
 
 // Haversine 公式计算两点间距离（米）
-static double haversineDistance(double lat1, double lon1, double lat2, double lon2)
-{
-    double R = 6371000.0;
-    double dLat = (lat2 - lat1) * M_PI / 180.0;
-    double dLon = (lon2 - lon1) * M_PI / 180.0;
-    double a = qSin(dLat / 2) * qSin(dLat / 2)
-             + qCos(lat1 * M_PI / 180.0) * qCos(lat2 * M_PI / 180.0)
-             * qSin(dLon / 2) * qSin(dLon / 2);
-    double c = 2.0 * qAtan2(qSqrt(a), qSqrt(1.0 - a));
-    return R * c;
-}
+
 
 // ── 轨迹点抽稀阈值 ──
 static constexpr double TRK_MIN_DIST_M     = 3.0;    // 防抖死区：小于此距离直接丢弃
@@ -1425,18 +1405,7 @@ static constexpr double TRK_HEADING_DIFF_DEG = 15.0; // 航向角偏转阈值，
 static constexpr int    TRK_HEARTBEAT_MS   = 2500;   // 心跳间隔：超过此时间强制打点
 
 // bearing - 计算两点之间的航向角（度），正北为0°，顺时针
-static double bearing(double lat1, double lon1, double lat2, double lon2)
-{
-    double lat1R = qDegreesToRadians(lat1);
-    double lat2R = qDegreesToRadians(lat2);
-    double lon1R = qDegreesToRadians(lon1);
-    double lon2R = qDegreesToRadians(lon2);
-    double dLon = lon2R - lon1R;
-    double y = qSin(dLon) * qCos(lat2R);
-    double x = qCos(lat1R) * qSin(lat2R) - qSin(lat1R) * qCos(lat2R) * qCos(dLon);
-    double deg = qRadiansToDegrees(qAtan2(y, x));
-    return deg < 0 ? deg + 360.0 : deg;
-}
+
 
 // shouldPlotTrackPoint - 抽稀判定：是否应将当前GPS点绘制到地图
 // 距离 < TRK_MIN_DIST_M  → 丢弃（防抖）
@@ -1444,23 +1413,7 @@ static double bearing(double lat1, double lon1, double lat2, double lon2)
 // 航向角偏转 > TRK_HEADING_DIFF_DEG → 画点（转弯机动）
 // 距上次绘制 > TRK_HEARTBEAT_MS    → 画点（心跳保活）
 // outBearing（可选）: 返回计算出的航向角，避免调用处重复计算 bearing()
-static bool shouldPlotTrackPoint(double newLat, double newLon,
-                                  double plotLat, double plotLon,
-                                  double plotHeading, const QDateTime& plotTime,
-                                  double* outBearing = nullptr)
-{
-    if (plotHeading < 0) return true; // 首次绘制 / 目标切换
 
-    double dist = haversineDistance(plotLat, plotLon, newLat, newLon);
-
-    // 防抖死区：漂移直接丢弃
-    if (dist < TRK_MIN_DIST_M) return false;
-
-    // 长距离抽稀
-    if (dist > TRK_MAX_DIST_M) {
-        if (outBearing) *outBearing = bearing(plotLat, plotLon, newLat, newLon);
-        return true;
-    }
 
     // 航向角变化
     double head = bearing(plotLat, plotLon, newLat, newLon);

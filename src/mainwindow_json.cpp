@@ -5,6 +5,7 @@
 #include "devicecontroller.h"
 #include <QJsonArray>
 #include <QMessageBox>
+#include "mapwidget.h"\n#include <QStyle>\n\nstatic void refreshStyle(QWidget *w) {\n    w->style()->unpolish(w);\n    w->style()->polish(w);\n}\n
 
 // ============================================================================
 // 此文件包含 MainWindow 中庞大的 JSON 解析与 UI 更新逻辑。

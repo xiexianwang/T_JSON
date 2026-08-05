@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QtMath>
+#include <QDateTime>\n#include <QDateTime>
 
 struct CameraIntrinsics {
     double pixelSizeUm;
@@ -19,6 +20,12 @@ struct DevicePose {
 
 class GeoCalculator
 {
+public:
+    static double parseCoord(const QString& s);
+    static double haversineDistance(double lat1, double lon1, double lat2, double lon2);
+    static double bearing(double lat1, double lon1, double lat2, double lon2);
+    static bool shouldPlotTrackPoint(double newLat, double newLon, double plotLat, double plotLon, double plotHeading, const QDateTime& plotTime, double* outBearing = nullptr);
+
 public:
     static QString missMradStr(double dx, double dy, double pixelSizeUm, double focalMm);
     

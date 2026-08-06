@@ -99,7 +99,6 @@ private slots:
     void on_comboDisplayMode_currentIndexChanged(int index); // 显示模式切换
     void on_btnSetLocation_clicked();                   // 手动下发经纬度
     void on_btnGetImageParams_clicked();                // 查询图像参数
-    void onSysParamTimerTimeout();                      // 200ms 周期查询系统参数
 
     // ── RTSP 视频流 ──
     void on_btnVideoConnect_clicked();      // 连接 RTSP 视频流
@@ -122,7 +121,9 @@ public:
 private:             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
             MainPresenter *m_presenter;
-        MapWidget *m_mapWidget;          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
+        public:
+    MapWidget *m_mapWidget;
+private:          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
 
@@ -175,12 +176,9 @@ private:             // UI 设计器生成的界面对象
     bool m_lastAiDistEstimated = false; // true 表示该距离来自视觉估算
 
     // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
-    QTimer *m_sysParamTimer;
 
     // ── AIInfo 超时清理（设备无目标时不发帧，超时清除残留数据） ──
     QDateTime m_lastAiInfoTime;
-    QTimer *m_aiCleanupTimer;
-    void onAiCleanupTimeout();
 
     // ── 系统托盘 ──
     QSystemTrayIcon *m_trayIcon;

@@ -7,6 +7,8 @@
 #include "core/GeoCalculator.h"
 #include "ui_mainwindow.h"
 #include "ui/components/VideoGridWidget.h"
+#include "ui/components/DeviceTreeWidget.h"
+#include <QDockWidget>
 #include "settingsdialog.h"
 #include "rtspthread.h"
 #include "videowidget.h"
@@ -64,6 +66,14 @@ MainWindow::MainWindow(QWidget *parent)
         ui->widgetDisplay->layout()->addWidget(m_videoGrid);
     }
     m_videoGrid->bindDevice("default_device");
+
+
+    // --- 动态添加设备列表面板 ---
+    QDockWidget *deviceDock = new QDockWidget(QString::fromUtf8("设备列表"), this);
+    deviceDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    DeviceTreeWidget *deviceTree = new DeviceTreeWidget(deviceDock);
+    deviceDock->setWidget(deviceTree);
+    addDockWidget(Qt::LeftDockWidgetArea, deviceDock);
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");
@@ -169,15 +179,10 @@ MainWindow::MainWindow(QWidget *parent)
     updateMapLayout();
 
     // 系统参数轮询：500ms 周期查询设备 ImageSetting
-    m_sysParamTimer = new QTimer(this);
-    m_sysParamTimer->setInterval(500);
-    connect(m_sysParamTimer, &QTimer::timeout, this, &MainWindow::onSysParamTimerTimeout);
+    
 
     // AIInfo 超时清理：设备无目标时不发帧，2 秒无更新则清除残留标记
-    m_aiCleanupTimer = new QTimer(this);
-    m_aiCleanupTimer->setInterval(1000);
-    connect(m_aiCleanupTimer, &QTimer::timeout, this, &MainWindow::onAiCleanupTimeout);
-    m_aiCleanupTimer->start();
+    
 
     // 恢复上次的开关状态
     ui->checkDigitalZoom->setChecked(m_cfg->digitalZoomEnabled());
@@ -456,7 +461,6 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     if (m_sysParamTimer)
-        m_sysParamTimer->stop();
     disconnect(m_presenter->tcpClient(), nullptr, this, nullptr);
     if (m_presenter->videoStream()) {
         if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
@@ -922,7 +926,6 @@ void MainWindow::onDeviceConnected()
     m_presenter->motorController()->posReset(m_cfg->posResetEnabled());
 
     // 启动系统参数定时下发
-    m_sysParamTimer->start();
 
     // 首次连接设备时自动打开 RTSP，后续不再覆盖用户操作
     if (!m_rtspEverOpened) {
@@ -950,14 +953,9 @@ void MainWindow::onDeviceDisconnected()
     ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
 
     // 停止系统参数定时下发
-    m_sysParamTimer->stop();
 }
 
-// 200ms 周期查询系统参数（仅连接状态时下发）
-void MainWindow::onSysParamTimerTimeout()
-{
-    if (m_presenter->tcpClient()->isConnected()) m_presenter->motorController()->queryImageParams();
-}
+
 
 //============================================================================
 // onErrorOccurred - 连接错误处理
@@ -1456,41 +1454,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     return QMainWindow::eventFilter(obj, event);
 }
 
-//============================================================================
-// onAiCleanupTimeout - AIInfo 超时清理
-// 设备无目标时不发 AIInfo 帧，超过 2 秒无更新则清除界面残留数据
-//============================================================================
-void MainWindow::onAiCleanupTimeout()
-{
-    if (!m_lastAiInfoTime.isValid()) return;
-    if (m_lastAiInfoTime.msecsTo(QDateTime::currentDateTime()) < 2000) return;
 
-    m_lastAiInfoTime = QDateTime();
-
-    // 清空识别表格
-    ui->lblIdentifyCount->setText(QString::fromUtf8("目标总数: 0"));
-    ui->tableIdentify->setRowCount(0);
-
-    // 清空跟踪面板
-    ui->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
-    ui->lblTrackStatus->setProperty("state", "nolock");
-    refreshStyle(ui->lblTrackStatus);
-    ui->trackPos->clear();
-    ui->trackMissDistance->clear();
-    ui->trackDistance->clear();
-
-    // 清空地图标记和轨迹
-    m_mapWidget->clearAllTracks();
-    m_mapWidget->updateTargetMarkers(QJsonArray());
-    m_mapWidget->clearFov();
-
-    // 重置跟踪状态
-    m_track = TrackState();
-    m_lastAiDist = 0;
-    m_lastAiDistEstimated = false;
-
-    qDebug() << "[AIInfo] Cleanup triggered: no AIInfo for 2s";
-}
 
 int MainWindow::currentAlgoModel() const
 {

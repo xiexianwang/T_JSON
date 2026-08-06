@@ -12,6 +12,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
     m_motor = new DeviceController(m_tcp, m_cfg, this);
     m_video = new RtspThread(this);
     m_ptz = new PtzForwarder(this);
+    setupTimers();
 
     // 可以在这里建立 m_tcp 到 EventBus 之前的本地拦截（如果要处理状态更新）
     // 比如：
@@ -42,4 +43,34 @@ void DeviceContext::stopConnection()
     }
     m_video->closeStream();
     m_motor->closeMotorSerial();
+}
+
+
+void DeviceContext::setupTimers()
+{
+    m_sysParamTimer = new QTimer(this);
+    m_sysParamTimer->setInterval(500);
+    connect(m_sysParamTimer, &QTimer::timeout, this, [this]() {
+        if (m_tcp->isConnected()) {
+            m_motor->queryImageParams();
+        }
+    });
+
+    m_aiCleanupTimer = new QTimer(this);
+    m_aiCleanupTimer->setInterval(1000);
+    connect(m_aiCleanupTimer, &QTimer::timeout, this, [this]() {
+        if (m_state->lastAiInfoTime.isValid() && m_state->lastAiInfoTime.msecsTo(QDateTime::currentDateTime()) >= 2000) {
+            m_state->lastAiInfoTime = QDateTime();
+            EventBus::instance()->postDeviceAiTimeout(m_deviceId);
+        }
+    });
+
+    connect(m_tcp, &TJsonClient::deviceConnected, this, [this]() {
+        m_sysParamTimer->start();
+        m_aiCleanupTimer->start();
+    });
+    connect(m_tcp, &TJsonClient::deviceDisconnected, this, [this]() {
+        m_sysParamTimer->stop();
+        m_aiCleanupTimer->stop();
+    });
 }

@@ -29,6 +29,7 @@ public:
     void postJsonReceived(const QString& deviceId, const QJsonObject& doc);
     void postImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
     void postPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
+    void postDeviceAiTimeout(const QString& deviceId);
 
 signals:
     // --- 订阅事件的信号 (业务层或 UI 层去监听) ---
@@ -38,6 +39,7 @@ signals:
     void sigJsonReceived(const QString& deviceId, const QJsonObject& doc);
     void sigImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
     void sigPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
+    void sigDeviceAiTimeout(const QString& deviceId);
 
 private:
     explicit EventBus(QObject *parent = nullptr);

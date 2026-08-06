@@ -37,6 +37,7 @@ void MainPresenter::setupEventBus()
     // （注意：为了避免目前 MainWindow 还没完全解耦时的编译错误，我们暂时还是保留原有连接，
     //   这里只是铺垫，等 MainWindow 内的代码被剥离后，将会在这里回调 view 的方法）
     
+    connect(bus, &EventBus::sigDeviceAiTimeout, this, &MainPresenter::onDeviceAiTimeout);
     // connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId) {
     //     if (deviceId == m_currentDeviceId) m_view->onDeviceConnected();
     // });
@@ -294,3 +295,25 @@ void MainPresenter::on_btnGetImageParams_clicked()
     m_view->getUi()->statusbar->showMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }
 
+
+
+void MainPresenter::onDeviceAiTimeout(const QString& deviceId)
+{
+    if (deviceId != m_currentDeviceId) return;
+
+    auto ui = m_view->getUi();
+    ui->lblIdentifyCount->setText(QString::fromUtf8("目标总数: 0"));
+    ui->tableIdentify->setRowCount(0);
+
+    ui->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
+    ui->lblTrackStatus->setProperty("state", "nolock");
+    MainWindow::refreshStyle(ui->lblTrackStatus);
+    ui->trackPos->clear();
+    ui->trackMissDistance->clear();
+    ui->trackDistance->clear();
+
+    // Map clearing
+    // Note: Assuming m_view has m_mapWidget accessible or we can use getter.
+    // We already made m_mapWidget public? No, we didn't. 
+    m_view->m_mapWidget->clearAllTracks();\n    m_view->m_mapWidget->updateTargetMarkers(QJsonArray());\n    m_view->m_mapWidget->clearFov();
+}

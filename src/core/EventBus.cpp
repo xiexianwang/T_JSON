@@ -43,3 +43,8 @@ void EventBus::postPtzUpdated(const QString& deviceId, double pan, double tilt, 
 {
     emit sigPtzUpdated(deviceId, pan, tilt, zoom);
 }
+
+void EventBus::postDeviceAiTimeout(const QString& deviceId)
+{
+    emit sigDeviceAiTimeout(deviceId);
+}

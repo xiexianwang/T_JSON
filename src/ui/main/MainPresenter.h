@@ -55,6 +55,9 @@ private:
     QString m_currentDeviceId;
 
     void setupEventBus();
+
+private slots:
+    void onDeviceAiTimeout(const QString& deviceId);
 };
 
 #endif // MAINPRESENTER_H

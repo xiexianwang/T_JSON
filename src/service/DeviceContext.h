@@ -9,6 +9,7 @@
 #include "rtspthread.h"
 #include "ptzforwarder.h"
 #include "configmanager.h"
+#include <QTimer>
 
 // ============================================================================
 // DeviceContext - 设备运行时上下文 (聚合根)
@@ -43,6 +44,9 @@ private:
     DeviceController* m_motor;
     RtspThread* m_video;
     PtzForwarder* m_ptz;
+    QTimer* m_sysParamTimer;
+    QTimer* m_aiCleanupTimer;
+    void setupTimers();
     
     // 设备数据状态
     DeviceState* m_state;

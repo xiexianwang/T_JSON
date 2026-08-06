@@ -2,6 +2,7 @@
 #define DEVICECONTEXT_H
 
 #include <QObject>
+#include <memory>
 #include <QString>
 #include "core/DeviceState.h"
 #include "tjsonclient.h"
@@ -49,7 +50,7 @@ private:
     void setupTimers();
     
     // 设备数据状态
-    DeviceState* m_state;
+    std::shared_ptr<DeviceState> m_state;
 };
 
 #endif // DEVICECONTEXT_H

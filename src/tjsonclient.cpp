@@ -178,7 +178,6 @@ void TJsonClient::onSocketConnected()
     m_reconnectTimer->stop();                   // 停止待处理重连
     m_heartbeatTimer->start();                  // 启动心跳
     emit deviceConnected();
-    EventBus::instance()->postDeviceConnected("default_device");                     // 通知连接已建立
 
     // 连接成功后立即发送一次心跳以确认双向通信正常
     sendHeartbeat();
@@ -190,7 +189,6 @@ void TJsonClient::onSocketDisconnected()
 {
     m_heartbeatTimer->stop();                   // 停止心跳
     emit deviceDisconnected();
-    EventBus::instance()->postDeviceDisconnected("default_device");                  // 通知连接已断开
     handleReconnect();                          // 触发自动重连
 }
 
@@ -204,7 +202,6 @@ void TJsonClient::onSocketError(QAbstractSocket::SocketError)
         }
     } else {
         emit errorOccurred(m_socket->errorString());
-        EventBus::instance()->postDeviceError("default_device", m_socket->errorString());
     }
 }
 
@@ -316,7 +313,6 @@ void TJsonClient::parseJsonFrame(const QByteArray& payload)
     QJsonDocument doc = QJsonDocument::fromJson(payload, &err);
     if (err.error == QJsonParseError::NoError && doc.isObject()) {
         emit jsonReceived(doc.object());
-        EventBus::instance()->postJsonReceived("default_device", doc.object());                // 成功，发送 JSON 对象
     } else {
         qDebug() << "Failed to parse JSON:" << err.errorString();   // 解析失败日志
     }
@@ -374,5 +370,4 @@ void TJsonClient::parseImageSnapFrame(const QByteArray& payload)
     QRect loc(left, top, width, height);                // 图像在原始画面中的位置
 
     emit imageSnapped(jpegData, loc);
-    EventBus::instance()->postImageSnapped("default_device", jpegData, loc);                   // 发射图像快照信号
 }

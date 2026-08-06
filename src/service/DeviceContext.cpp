@@ -6,7 +6,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
     : QObject(parent)
     , m_deviceId(deviceId)
     , m_cfg(cfg)
-    , m_state(new DeviceState())
+    , m_state(std::make_shared<DeviceState>())
 {
     // 初始化底层驱动组件
     m_tcp = new TJsonClient(this);
@@ -30,7 +30,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
             m_state->longitude = zoom.longitude.toDouble();
             m_state->altitude = zoom.height;
             m_state->laserRange = zoom.laserRange;
-            EventBus::instance()->postDeviceStateUpdated(m_deviceId);
+            EventBus::instance()->postDeviceStateUpdated(m_deviceId, m_state);
         }
         else if (controlType == "ImageSetting") {
             auto img = ImageSettingData::parse(doc);
@@ -50,7 +50,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
                 m_state->resY = resTab[img.imgSize][1];
             }
 
-            EventBus::instance()->postDeviceStateUpdated(m_deviceId);
+            EventBus::instance()->postDeviceStateUpdated(m_deviceId, m_state);
         }
         else if (controlType == "AIInfo") {
             auto ai = AiInfoData::parse(doc);
@@ -78,7 +78,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
 DeviceContext::~DeviceContext()
 {
     stopConnection();
-    delete m_state;
+    
 }
 
 void DeviceContext::startConnection(const QString& ip, quint16 port)
@@ -120,9 +120,20 @@ void DeviceContext::setupTimers()
     connect(m_tcp, &TJsonClient::deviceConnected, this, [this]() {
         m_sysParamTimer->start();
         m_aiCleanupTimer->start();
+        EventBus::instance()->postDeviceConnected(m_deviceId);
     });
     connect(m_tcp, &TJsonClient::deviceDisconnected, this, [this]() {
         m_sysParamTimer->stop();
         m_aiCleanupTimer->stop();
+        EventBus::instance()->postDeviceDisconnected(m_deviceId);
+    });
+    connect(m_tcp, &TJsonClient::errorOccurred, this, [this](const QString& errorMsg) {
+        EventBus::instance()->postDeviceError(m_deviceId, errorMsg);
+    });
+    connect(m_tcp, &TJsonClient::imageSnapped, this, [this](const QByteArray& jpegData, const QRect& location) {
+        EventBus::instance()->postImageSnapped(m_deviceId, jpegData, location);
+    });
+    connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc) {
+        EventBus::instance()->postJsonReceived(m_deviceId, doc);
     });
 }

@@ -30,7 +30,7 @@ public:
     void postImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
     void postPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
     void postDeviceAiTimeout(const QString& deviceId);
-    void postDeviceStateUpdated(const QString& deviceId);
+    void postDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
     void postDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
 
 signals:
@@ -42,7 +42,7 @@ signals:
     void sigImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
     void sigPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
     void sigDeviceAiTimeout(const QString& deviceId);
-    void sigDeviceStateUpdated(const QString& deviceId);
+    void sigDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
     void sigDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
 
 private:

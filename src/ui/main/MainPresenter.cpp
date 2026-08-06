@@ -123,7 +123,7 @@ void MainPresenter::on_btnConnect_clicked()
              return;
         }
         QString ip = m_view->getUi()->lineEditIp->text();
-        this->tcpClient()->connectToDevice(ip, 8089);
+        this->tcpClient()->connectToDevice(ip, m_cfg->deviceTcpPort());
         m_view->getUi()->btnConnect->setText(QString::fromUtf8("连接中..."));
         m_view->getUi()->btnConnect->setEnabled(false);
         m_view->getUi()->btnCancelConnect->setVisible(true);
@@ -329,7 +329,7 @@ void MainPresenter::onDeviceDoubleClicked(const QString& name, const QString& ip
         ctx = DeviceManager::instance()->addDevice(deviceId);
     }
 
-    ctx->startConnection(ip, 8089);
+    ctx->startConnection(ip, m_cfg->deviceTcpPort());
 
     VideoWidget* vw = m_view->m_videoGrid->bindDevice(deviceId);
 

@@ -1,3 +1,5 @@
+#include "mapwidget.h"
+#include <QJsonArray>
 #include "MainPresenter.h"
 #include "mainwindow.h"
 #include "service/DeviceManager.h"

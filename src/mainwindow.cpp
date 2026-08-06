@@ -735,14 +735,19 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
                 QPoint tl = ui->titleBar->mapFromParent(local);
                 if (ui->titleBar->rect().contains(tl)) {
                     QWidget *child = ui->titleBar->childAt(tl);
-                    if (child == ui->btnMenu_Min || child == ui->btnMenu_Max || child == ui->btnMenu_Close
-                        || child == ui->btnNavMonitor || child == ui->btnNavPlayback
-                        || child == ui->btnNavLog || child == ui->btnNavSettings
-                        || child == ui->lineEditIp || child == ui->btnConnect
-                        || child == ui->btnCancelConnect || child == ui->lineEditRtsp
-                        || child == ui->btnVideoConnect || child == ui->btnVideoDisconnect
-                        || child == ui->btnMapToggle)
-                        { *result = HTCLIENT; return true; }
+                    QWidget *p = child;
+                    bool isInteractive = false;
+                    while (p && p != ui->titleBar) {
+                        if (qobject_cast<QAbstractButton*>(p) || qobject_cast<QLineEdit*>(p)) {
+                            isInteractive = true;
+                            break;
+                        }
+                        p = p->parentWidget();
+                    }
+                    if (isInteractive) {
+                        *result = HTCLIENT;
+                        return true;
+                    }
                     *result = HTCAPTION;
                     return true;
                 }

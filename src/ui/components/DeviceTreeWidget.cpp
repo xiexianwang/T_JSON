@@ -1,4 +1,4 @@
-﻿#include "DeviceTreeWidget.h"
+#include "DeviceTreeWidget.h"
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QJsonDocument>
@@ -19,7 +19,7 @@ DeviceTreeWidget::DeviceTreeWidget(QWidget *parent)
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
 
-    m_model->setHorizontalHeaderLabels({QStringLiteral("璁惧璧勬簮")});
+    m_model->setHorizontalHeaderLabels({QStringLiteral("设备资源")});
     m_treeView->setModel(m_model);
     m_treeView->setHeaderHidden(false);
     m_treeView->setAnimated(true);
@@ -90,29 +90,29 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
         auto *item = m_model->itemFromIndex(idx);
 
         if (isDevice(item)) {
-            // 鈹€鈹€ 璁惧鑺傜偣 鈹€鈹€
-            auto *editIp = menu.addAction(QStringLiteral("缂栬緫 IP"));
+            // ── 设备节点 ──
+            auto *editIp = menu.addAction(QStringLiteral("编辑 IP"));
             connect(editIp, &QAction::triggered, this, [this, item]() {
                 QString cur = item->data(RoleIp).toString();
                 bool ok;
                 QString ip = QInputDialog::getText(this,
-                    QStringLiteral("璁惧 IP"), QStringLiteral("IP 鍦板潃:"),
+                    QStringLiteral("设备 IP"), QStringLiteral("IP 地址:"),
                     QLineEdit::Normal, cur, &ok);
                 if (ok && !ip.isEmpty()) {
                     item->setData(ip, RoleIp);
-                    // 鍚屾鏇存柊鑺傜偣鏄剧ず鍚?
+                    // 同步更新节点显示名
                     QString baseName = item->text().section(' ', 0, 0);
                     item->setText(QString("%1 [%2]").arg(baseName, ip));
                     emit treeModified();
                 }
             });
 
-            auto *editRtsp = menu.addAction(QStringLiteral("缂栬緫 RTSP URL"));
+            auto *editRtsp = menu.addAction(QStringLiteral("编辑 RTSP URL"));
             connect(editRtsp, &QAction::triggered, this, [this, item]() {
                 QString cur = item->data(RoleRtspUrl).toString();
                 bool ok;
                 QString url = QInputDialog::getText(this,
-                    QStringLiteral("RTSP URL"), QStringLiteral("RTSP 鍦板潃:"),
+                    QStringLiteral("RTSP URL"), QStringLiteral("RTSP 地址:"),
                     QLineEdit::Normal, cur, &ok);
                 if (ok && !url.isEmpty()) {
                     item->setData(url, RoleRtspUrl);
@@ -124,19 +124,19 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
 
             auto *toggleConn = menu.addAction(
                 item->data(RoleConnected).toBool()
-                    ? QStringLiteral("鏂紑") : QStringLiteral("杩炴帴"));
+                    ? QStringLiteral("断开") : QStringLiteral("连接"));
             connect(toggleConn, &QAction::triggered, this, [this, item]() {
                 emit deviceToggleConnect(item->data(RoleIp).toString());
             });
 
             menu.addSeparator();
 
-            auto *rename = menu.addAction(QStringLiteral("閲嶅懡鍚?));
+            auto *rename = menu.addAction(QStringLiteral("重命名"));
             connect(rename, &QAction::triggered, this, [this, idx]() {
                 m_treeView->edit(idx);
             });
 
-            auto *remove = menu.addAction(QStringLiteral("鍒犻櫎"));
+            auto *remove = menu.addAction(QStringLiteral("删除"));
             connect(remove, &QAction::triggered, this, [this, item]() {
                 QStandardItem *parent = item->parent();
                 if (parent) parent->removeRow(item->row());
@@ -145,27 +145,27 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
             });
 
         } else {
-            // 鈹€鈹€ 鍒嗙粍鑺傜偣 鈹€鈹€
-            auto *addSub = menu.addAction(QStringLiteral("娣诲姞瀛愬垎缁?));
+            // ── 分组节点 ──
+            auto *addSub = menu.addAction(QStringLiteral("添加子分组"));
             connect(addSub, &QAction::triggered, this, [this, item]() {
-                auto *child = createItem(QStringLiteral("鏂板垎缁?));
+                auto *child = createItem(QStringLiteral("新分组"));
                 item->appendRow(child);
                 m_treeView->setCurrentIndex(child->index());
                 m_treeView->edit(child->index());
                 emit treeModified();
             });
 
-            auto *addDev = menu.addAction(QStringLiteral("娣诲姞璁惧"));
+            auto *addDev = menu.addAction(QStringLiteral("添加设备"));
             connect(addDev, &QAction::triggered, this, [this, item]() {
                 bool ok;
                 QString ip = QInputDialog::getText(this,
-                    QStringLiteral("璁惧 IP"), QStringLiteral("IP 鍦板潃:"),
+                    QStringLiteral("设备 IP"), QStringLiteral("IP 地址:"),
                     QLineEdit::Normal, "192.168.1.", &ok);
                 if (!ok || ip.isEmpty()) return;
 
                 bool okName;
                 QString name = QInputDialog::getText(this,
-                    QStringLiteral("璁惧鍚嶇О"), QStringLiteral("鍚嶇О:"),
+                    QStringLiteral("设备名称"), QStringLiteral("名称:"),
                     QLineEdit::Normal, ip, &okName);
                 if (!okName || name.isEmpty()) name = ip;
 
@@ -179,17 +179,17 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
 
             menu.addSeparator();
 
-            auto *rename = menu.addAction(QStringLiteral("閲嶅懡鍚?));
+            auto *rename = menu.addAction(QStringLiteral("重命名"));
             connect(rename, &QAction::triggered, this, [this, idx]() {
                 m_treeView->edit(idx);
             });
 
-            auto *remove = menu.addAction(QStringLiteral("鍒犻櫎"));
+            auto *remove = menu.addAction(QStringLiteral("删除"));
             connect(remove, &QAction::triggered, this, [this, item]() {
                 if (item->hasChildren()) {
                     auto ret = QMessageBox::question(this,
-                        QStringLiteral("纭鍒犻櫎"),
-                        QStringLiteral("璇ュ垎缁勫寘鍚瓙鑺傜偣锛岀‘瀹氬垹闄わ紵"),
+                        QStringLiteral("确认删除"),
+                        QStringLiteral("该分组包含子节点，确定删除？"),
                         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                     if (ret != QMessageBox::Yes) return;
                 }
@@ -201,10 +201,10 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
         }
 
     } else {
-        // 鈹€鈹€ 绌虹櫧鍖猴細娣诲姞鏍瑰垎缁?鈹€鈹€
-        auto *addRoot = menu.addAction(QStringLiteral("娣诲姞鍒嗙粍"));
+        // ── 空白区：添加根分组 ──
+        auto *addRoot = menu.addAction(QStringLiteral("添加分组"));
         connect(addRoot, &QAction::triggered, this, [this]() {
-            auto *root = createItem(QStringLiteral("鏂板垎缁?));
+            auto *root = createItem(QStringLiteral("新分组"));
             m_model->appendRow(root);
             m_treeView->setCurrentIndex(root->index());
             m_treeView->edit(root->index());
@@ -281,7 +281,7 @@ void DeviceTreeWidget::childrenToJson(QStandardItem *item, QJsonArray &arr) cons
 void DeviceTreeWidget::clear()
 {
     m_model->clear();
-    m_model->setHorizontalHeaderLabels({QStringLiteral("璁惧璧勬簮")});
+    m_model->setHorizontalHeaderLabels({QStringLiteral("设备资源")});
 }
 
 void DeviceTreeWidget::saveToDisk(const QString &path) const

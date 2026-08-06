@@ -460,7 +460,6 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
-    if (m_sysParamTimer)
     disconnect(m_presenter->tcpClient(), nullptr, this, nullptr);
     if (m_presenter->videoStream()) {
         if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();

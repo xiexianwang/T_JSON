@@ -315,5 +315,7 @@ void MainPresenter::onDeviceAiTimeout(const QString& deviceId)
     // Map clearing
     // Note: Assuming m_view has m_mapWidget accessible or we can use getter.
     // We already made m_mapWidget public? No, we didn't. 
-    m_view->m_mapWidget->clearAllTracks();\n    m_view->m_mapWidget->updateTargetMarkers(QJsonArray());\n    m_view->m_mapWidget->clearFov();
+    m_view->m_mapWidget->clearAllTracks();
+    m_view->m_mapWidget->updateTargetMarkers(QJsonArray());
+    m_view->m_mapWidget->clearFov();
 }

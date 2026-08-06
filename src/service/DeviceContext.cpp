@@ -1,5 +1,6 @@
 #include "DeviceContext.h"
 #include "core/EventBus.h"
+#include "core/JsonFrameParser.h"
 
 DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObject *parent)
     : QObject(parent)
@@ -14,12 +15,64 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
     m_ptz = new PtzForwarder(this);
     setupTimers();
 
-    // 可以在这里建立 m_tcp 到 EventBus 之前的本地拦截（如果要处理状态更新）
-    // 比如：
-    // connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc){
-    //     // 解析 doc，更新 m_state
-    //     // ...
-    // });
+    // --- 拦截设备 JSON 帧，解析后更新 DeviceState ---
+    connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc) {
+        QString controlType = doc.value("ControlType").toString();
+
+        if (controlType == "ZoomInfo") {
+            auto zoom = ZoomInfoData::parse(doc);
+            m_state->currentVisZoom = zoom.visZoom;
+            m_state->currentIrZoom = zoom.irZoom;
+            m_state->camShowMode = zoom.camShowMode;
+            m_state->currentPan = zoom.pan;
+            m_state->currentTilt = zoom.tilt;
+            m_state->latitude = zoom.latitude.toDouble();
+            m_state->longitude = zoom.longitude.toDouble();
+            m_state->altitude = zoom.height;
+            m_state->laserRange = zoom.laserRange;
+            EventBus::instance()->postDeviceStateUpdated(m_deviceId);
+        }
+        else if (controlType == "ImageSetting") {
+            auto img = ImageSettingData::parse(doc);
+            m_state->imgSize = img.imgSize;
+            m_state->bitrate = img.bitrate;
+            m_state->codec = img.codec;
+            m_state->workMode = img.workMode;
+            m_state->currentPipShow = img.pipShow;
+            m_state->model = img.model;
+            m_state->maxVisFL = img.maxVisFL;
+            m_state->maxIRFL = img.maxIRFL;
+
+            // 分辨率表
+            static const int resTab[][2] = {{1920,1080},{1280,720},{704,576},{2566,1520}};
+            if (img.imgSize >= 0 && img.imgSize < 4) {
+                m_state->resX = resTab[img.imgSize][0];
+                m_state->resY = resTab[img.imgSize][1];
+            }
+
+            EventBus::instance()->postDeviceStateUpdated(m_deviceId);
+        }
+        else if (controlType == "AIInfo") {
+            auto ai = AiInfoData::parse(doc);
+            m_state->lastAiInfoTime = QDateTime::currentDateTime();
+            m_state->aiWorkMode = ai.workMode;
+            m_state->aiObjectCount = ai.objectCount;
+            m_state->aiTargets.clear();
+            for (const auto& t : ai.targets) {
+                AiTargetItem item;
+                item.id = t.id;
+                item.cls = t.cls;
+                item.distance = t.distance;
+                item.hasPoints = t.hasPoints;
+                item.left = t.left;
+                item.top = t.top;
+                item.right = t.right;
+                item.bottom = t.bottom;
+                m_state->aiTargets.append(item);
+            }
+            EventBus::instance()->postDeviceAiInfoUpdated(m_deviceId, doc);
+        }
+    });
 }
 
 DeviceContext::~DeviceContext()
@@ -32,7 +85,6 @@ void DeviceContext::startConnection(const QString& ip, quint16 port)
 {
     if (m_cfg) {
         m_tcp->connectToDevice(ip, port);
-        // 这里的 RTSP url 获取逻辑依赖于 MainWindow，后续可通过 Config 统一获取
     }
 }
 

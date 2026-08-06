@@ -47,7 +47,6 @@ qt_add_executable(T-JSON
     src/ui/components/DeviceTreeWidget.cpp
     src/ui/components/DeviceTreeWidget.h
     src/mainwindow.cpp
-    src/mainwindow_json.cpp
     src/mainwindow.h
     ui/mainwindow.ui
     src/tjsonclient.cpp

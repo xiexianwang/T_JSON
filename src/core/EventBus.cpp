@@ -48,3 +48,13 @@ void EventBus::postDeviceAiTimeout(const QString& deviceId)
 {
     emit sigDeviceAiTimeout(deviceId);
 }
+
+void EventBus::postDeviceStateUpdated(const QString& deviceId)
+{
+    emit sigDeviceStateUpdated(deviceId);
+}
+
+void EventBus::postDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc)
+{
+    emit sigDeviceAiInfoUpdated(deviceId, aiDoc);
+}

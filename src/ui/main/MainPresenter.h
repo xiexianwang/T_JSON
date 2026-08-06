@@ -41,7 +41,10 @@ public:
     void on_btnSetLocation_clicked();
     void on_btnGetImageParams_clicked();
 
-    
+    // --- 多设备支持 ---
+    void onDeviceDoubleClicked(const QString& name, const QString& ip, const QString& rtspUrl);
+    QString currentDeviceId() const { return m_currentDeviceId; }
+
     // 过渡期接口：为了不一次性引发几百个编译错误，提供底层组件的访问器
     DeviceController* motorController() const;
     TJsonClient* tcpClient() const;
@@ -57,6 +60,10 @@ private:
     void setupEventBus();
 
 private slots:
+    void onJsonReceived(const QString& deviceId, const QJsonObject& doc);
+    void updateStatusFromJson(const QJsonObject& doc);
+    void updateMapTargets(const QJsonObject& doc, int workMode);
+    void updateMapDevicePosition(const QJsonObject& doc);
     void onDeviceAiTimeout(const QString& deviceId);
 };
 

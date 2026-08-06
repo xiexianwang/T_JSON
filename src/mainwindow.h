@@ -72,8 +72,7 @@ private slots:
     void onErrorOccurred(const QString& errorMsg);  // 连接错误处理
     void onAckReceived(quint8 statusCode);  // T-JSON ACK 应答处理
 
-    // ── JSON 数据与抓拍 ──
-    void onJsonReceived(const QJsonObject& doc);        // 收到设备 JSON 帧
+    // ── JSON 数据与抓拍 ──        // 收到设备 JSON 帧
     void onImageSnapped(const QByteArray& jpegData,     // 抓拍图像回调
                         const QRect& location);
 
@@ -125,7 +124,7 @@ private:             // UI 设计器生成的界面对象
             MainPresenter *m_presenter;
         public:
     MapWidget *m_mapWidget;
-private:          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
+public:          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
 
@@ -200,12 +199,9 @@ private:          // 地图控件（单实例，迷你/全屏切换，含内建�
     // ── 私有工具方法 ──
     bool requireMotorReady();                       // 检查电机串口是否就绪
     void updateMotorButtons();                      // 根据电机协议更新按钮状态
-    void setupUiStyles();                           // 加载并应用 QSS 样式表
-    void updateStatusFromJson(const QJsonObject& doc); // 解析 JSON 帧并更新所有 UI
+    void setupUiStyles();                           // 加载并应用 QSS 样式表 // 解析 JSON 帧并更新所有 UI
     void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）
-        // ── 地图辅助方法 ──
-    void updateMapDevicePosition(const QJsonObject& doc);    // 更新设备在地图上的位置
-    void updateMapTargets(const QJsonObject& doc, int workMode); // 更新地图上的目标标记
+        // ── 地图辅助方法 ──    // 更新设备在地图上的位置 // 更新地图上的目标标记
                 double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
     int currentAlgoModel() const;
     void sendAlgoModel(int model);

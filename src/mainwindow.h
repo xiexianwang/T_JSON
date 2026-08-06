@@ -30,6 +30,7 @@ class VideoWidget;
 class MapWidget;
 class CmdLogDialog;
 class VideoGridWidget;
+class DeviceTreeWidget;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -116,6 +117,7 @@ public:
     bool m_rtspEverOpened = false;
     double m_deviceHeight = 0;
     VideoGridWidget *m_videoGrid;
+    DeviceTreeWidget *m_deviceTree;
 
                 static void refreshStyle(QWidget *w);
 private:             // UI 设计器生成的界面对象

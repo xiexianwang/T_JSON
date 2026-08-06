@@ -8,7 +8,7 @@
 #include "ui_mainwindow.h"
 #include "ui/components/VideoGridWidget.h"
 #include "ui/components/DeviceTreeWidget.h"
-#include <QDockWidget>
+
 #include "settingsdialog.h"
 #include "rtspthread.h"
 #include "videowidget.h"
@@ -68,12 +68,31 @@ MainWindow::MainWindow(QWidget *parent)
     m_videoGrid->bindDevice("default_device");
 
 
-    // --- 动态添加设备列表面板 ---
-    QDockWidget *deviceDock = new QDockWidget(QString::fromUtf8("设备列表"), this);
-    deviceDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    DeviceTreeWidget *deviceTree = new DeviceTreeWidget(deviceDock);
-    deviceDock->setWidget(deviceTree);
-    addDockWidget(Qt::LeftDockWidgetArea, deviceDock);
+    
+    // --- 动态添加设备列表侧边栏 (Drawer) ---
+    m_deviceTree = new DeviceTreeWidget(ui->centralwidget);
+    m_deviceTree->setFixedWidth(260); // 固定的抽屉宽度
+    
+    // 插入到水平布局的最左侧（widgetDisplay 的左边）
+    ui->horizontalLayout_middle->insertWidget(0, m_deviceTree);
+
+    // 动态添加一个切换侧边栏的按钮到顶部导航栏
+    QToolButton* btnToggleTree = new QToolButton(ui->titleBar);
+    btnToggleTree->setText(QString::fromUtf8("设备列表"));
+    btnToggleTree->setCheckable(true);
+    btnToggleTree->setChecked(true);
+    
+    // 提取原有的按钮样式函数以便复用
+    btnToggleTree->setIcon(QIcon(":/monitor.svg")); // 临时使用同样图标，或不用
+    btnToggleTree->setIconSize(QSize(18, 18));
+    btnToggleTree->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    btnToggleTree->setStyleSheet("QToolButton { color: #cccccc; border: none; padding: 5px; } QToolButton:checked { color: #00aaff; }");
+
+    // 将其插入到标题栏左侧（标题文字后面）
+    ui->horizontalLayout_titleRow->insertWidget(1, btnToggleTree);
+
+    connect(btnToggleTree, &QToolButton::toggled, m_deviceTree, &QWidget::setVisible);
+
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");

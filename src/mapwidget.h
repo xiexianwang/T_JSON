@@ -1,4 +1,4 @@
-#ifndef MAPWIDGET_H
+﻿#ifndef MAPWIDGET_H
 #define MAPWIDGET_H
 
 #include <QWidget>

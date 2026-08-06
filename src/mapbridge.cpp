@@ -1,4 +1,4 @@
-#include "mapbridge.h"
+﻿#include "mapbridge.h"
 #include <QDebug>
 
 MapBridge::MapBridge(QObject *parent) : QObject(parent) {}

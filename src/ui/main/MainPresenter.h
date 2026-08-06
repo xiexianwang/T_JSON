@@ -1,4 +1,4 @@
-#ifndef MAINPRESENTER_H
+﻿#ifndef MAINPRESENTER_H
 #define MAINPRESENTER_H
 
 #include <QObject>

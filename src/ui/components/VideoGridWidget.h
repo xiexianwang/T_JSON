@@ -1,4 +1,4 @@
-#ifndef VIDEOGRIDWIDGET_H
+﻿#ifndef VIDEOGRIDWIDGET_H
 #define VIDEOGRIDWIDGET_H
 
 #include <QWidget>

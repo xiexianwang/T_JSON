@@ -1,4 +1,4 @@
-#include "mapwidget.h"
+﻿#include "mapwidget.h"
 #include <QJsonArray>
 #include "MainPresenter.h"
 #include "mainwindow.h"

@@ -1,4 +1,4 @@
-#ifndef RTSPTHREAD_H
+﻿#ifndef RTSPTHREAD_H
 #define RTSPTHREAD_H
 
 #include <QThread>

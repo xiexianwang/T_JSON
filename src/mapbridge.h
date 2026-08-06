@@ -1,4 +1,4 @@
-#ifndef MAPBRIDGE_H
+﻿#ifndef MAPBRIDGE_H
 #define MAPBRIDGE_H
 
 #include <QObject>

@@ -1,4 +1,4 @@
-#ifndef PTZFORWARDER_H
+﻿#ifndef PTZFORWARDER_H
 #define PTZFORWARDER_H
 
 #include <QObject>

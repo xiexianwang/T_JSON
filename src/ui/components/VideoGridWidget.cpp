@@ -1,4 +1,4 @@
-#include "VideoGridWidget.h"
+﻿#include "VideoGridWidget.h"
 #include <QDebug>
 
 VideoGridWidget::VideoGridWidget(QWidget* parent)

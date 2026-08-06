@@ -1,4 +1,4 @@
-#ifndef DEVICETREEWIDGET_H
+﻿#ifndef DEVICETREEWIDGET_H
 #define DEVICETREEWIDGET_H
 
 #include <QWidget>

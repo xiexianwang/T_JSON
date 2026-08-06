@@ -1,4 +1,4 @@
-#include "jsonframeparser.h"
+﻿#include "jsonframeparser.h"
 
 ZoomInfoData ZoomInfoData::parse(const QJsonObject& doc)
 {

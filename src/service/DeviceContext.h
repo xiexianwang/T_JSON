@@ -1,4 +1,4 @@
-#ifndef DEVICECONTEXT_H
+﻿#ifndef DEVICECONTEXT_H
 #define DEVICECONTEXT_H
 
 #include <QObject>

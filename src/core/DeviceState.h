@@ -1,4 +1,4 @@
-#ifndef DEVICESTATE_H
+﻿#ifndef DEVICESTATE_H
 #define DEVICESTATE_H
 
 #include <QString>

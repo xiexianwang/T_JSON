@@ -1,4 +1,4 @@
-#include "DeviceTreeWidget.h"
+﻿#include "DeviceTreeWidget.h"
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QJsonDocument>

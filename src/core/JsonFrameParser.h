@@ -1,4 +1,4 @@
-#ifndef JSONFRAMEPARSER_H
+﻿#ifndef JSONFRAMEPARSER_H
 #define JSONFRAMEPARSER_H
 
 #include <QJsonObject>

@@ -1,4 +1,4 @@
-#include "ptzforwarder.h"
+﻿#include "ptzforwarder.h"
 #include <QDebug>
 #include <QTimer>
 

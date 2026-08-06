@@ -1,4 +1,4 @@
-#include "cmdlogdialog.h"
+﻿#include "cmdlogdialog.h"
 #include <QVBoxLayout>
 #include <QPlainTextEdit>
 #include <QDateTime>

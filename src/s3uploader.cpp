@@ -1,4 +1,4 @@
-#include "s3uploader.h"
+﻿#include "s3uploader.h"
 
 #if ENABLE_S3_UPLOAD
 

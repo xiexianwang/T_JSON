@@ -1,4 +1,4 @@
-#include "DeviceManager.h"
+﻿#include "DeviceManager.h"
 #include <QMutex>
 
 

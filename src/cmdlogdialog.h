@@ -1,4 +1,4 @@
-#ifndef CMDLOGDIALOG_H
+﻿#ifndef CMDLOGDIALOG_H
 #define CMDLOGDIALOG_H
 
 #include <QDialog>

@@ -1,4 +1,4 @@
-#include "GeoCalculator.h"
+﻿#include "GeoCalculator.h"
 
 QString GeoCalculator::missMradStr(double dx, double dy, double pixelSizeUm, double focalMm)
 {

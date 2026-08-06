@@ -1,4 +1,4 @@
-#ifndef GEOCALCULATOR_H
+﻿#ifndef GEOCALCULATOR_H
 #define GEOCALCULATOR_H
 
 #include <QString>

@@ -1,4 +1,4 @@
-#include "EventBus.h"
+﻿#include "EventBus.h"
 #include <QMutex>
 #include <QMutexLocker>
 

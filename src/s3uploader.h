@@ -1,4 +1,4 @@
-#ifndef S3UPLOADER_H
+﻿#ifndef S3UPLOADER_H
 #define S3UPLOADER_H
 
 #include <QObject>

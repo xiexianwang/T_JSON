@@ -6,6 +6,8 @@
 #include "mainwindow.h"
 #include "core/GeoCalculator.h"
 #include "ui_mainwindow.h"
+#include <QAbstractButton>
+#include <QLineEdit>
 #include "ui/components/VideoGridWidget.h"
 #include "ui/components/DeviceTreeWidget.h"
 

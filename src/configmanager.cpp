@@ -40,6 +40,9 @@ void ConfigManager::load()
     m_motorSerialEnabled = settings.value("MotorSerialEnabled", true).toBool();
     m_motorTcpIp = settings.value("MotorTcpIp", "192.168.1.55").toString();
     m_motorTcpPort = static_cast<quint16>(settings.value("MotorTcpPort", 5000).toUInt());
+    m_deviceTcpPort = static_cast<quint16>(settings.value("DeviceTcpPort", 8089).toUInt());
+    m_visFovDistance = settings.value("VisFovDistance", 4000).toInt();
+    m_irFovDistance = settings.value("IrFovDistance", 2000).toInt();
 }
 
 // 重新加载：直接委托给 load() 以实现刷新
@@ -74,6 +77,9 @@ void ConfigManager::save()
     settings.setValue("MotorSerialEnabled", m_motorSerialEnabled);
     settings.setValue("MotorTcpIp", m_motorTcpIp);
     settings.setValue("MotorTcpPort", m_motorTcpPort);
+    settings.setValue("DeviceTcpPort", m_deviceTcpPort);
+    settings.setValue("VisFovDistance", m_visFovDistance);
+    settings.setValue("IrFovDistance", m_irFovDistance);
     emit ptzConfigChanged();     // 通知云台配置已更新
     emit lensConfigChanged();    // 通知镜头配置已更新
     emit cameraConfigChanged();  // 通知相机参数已更新

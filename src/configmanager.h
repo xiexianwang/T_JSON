@@ -186,6 +186,12 @@ public:
     void setMotorTcpIp(const QString& ip) { m_motorTcpIp = ip; }
     quint16 motorTcpPort() const { return m_motorTcpPort; }
     void setMotorTcpPort(quint16 port) { m_motorTcpPort = port; }
+    quint16 deviceTcpPort() const { return m_deviceTcpPort; }
+    void setDeviceTcpPort(quint16 port) { m_deviceTcpPort = port; }
+    int visFovDistance() const { return m_visFovDistance; }
+    void setVisFovDistance(int dist) { m_visFovDistance = dist; }
+    int irFovDistance() const { return m_irFovDistance; }
+    void setIrFovDistance(int dist) { m_irFovDistance = dist; }
 
 signals:
     void ptzConfigChanged();     // PTZ 配置变更时发射
@@ -215,6 +221,9 @@ private:
     bool m_motorSerialEnabled = true;
     QString m_motorTcpIp = "192.168.1.55";
     quint16 m_motorTcpPort = 5000;
+    quint16 m_deviceTcpPort = 8089;
+    int m_visFovDistance = 4000;
+    int m_irFovDistance = 2000;
 };
 
 #endif // CONFIGMANAGER_H

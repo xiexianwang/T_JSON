@@ -212,7 +212,7 @@ void RtspThread::run()
             continue;
         }
 
-        size_t rgbBufSize = av_image_get_buffer_size(AV_PIX_FMT_RGB32, w, h, 1);
+        size_t rgbBufSize = av_image_get_buffer_size(AV_PIX_FMT_RGB32, w, h, 32);
         if (rgbBufSize == 0 || rgbBufSize > 64u * 1024 * 1024) {
             emit streamError(QString("RGB 缓冲大小异常: %1").arg(rgbBufSize));
             safeCleanup();
@@ -229,14 +229,14 @@ void RtspThread::run()
         }
 
         av_freep(&m_rgbBuf);
-        m_rgbBuf = (uint8_t*)av_malloc(rgbBufSize);
+        m_rgbBuf = (uint8_t*)av_malloc(rgbBufSize + 1024); // Add padding to prevent SIMD out-of-bounds writes
         if (!m_rgbBuf) {
             emit streamError("分配 RGB 缓冲失败");
             safeCleanup();
             continue;
         }
         av_image_fill_arrays(rgb->data, rgb->linesize, m_rgbBuf,
-                             AV_PIX_FMT_RGB32, w, h, 1);
+                             AV_PIX_FMT_RGB32, w, h, 32);
 
         qDebug() << "RtspThread - stream opened successfully";
         // 检查是否已被要求停止，避免关闭后还触发 streamOpened

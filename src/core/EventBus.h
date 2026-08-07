@@ -6,6 +6,8 @@
 #include <QByteArray>
 #include <QRect>
 #include <QString>
+#include <memory>
+#include "DeviceState.h"
 
 // ============================================================================
 // EventBus - 全局事件总线

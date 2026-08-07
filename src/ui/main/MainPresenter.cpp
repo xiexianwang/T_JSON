@@ -43,7 +43,7 @@ void MainPresenter::setupEventBus()
     // connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId) {
     //     if (deviceId == m_currentDeviceId) m_view->onDeviceConnected();
     // 
-    connect(bus, &EventBus::sigJsonReceived, this, &MainPresenter::onJsonReceived);});
+    connect(bus, &EventBus::sigJsonReceived, this, &MainPresenter::onJsonReceived);
 }
 
 void MainPresenter::connectToDevice(const QString& ip, quint16 port)
@@ -123,7 +123,7 @@ void MainPresenter::on_btnConnect_clicked()
              return;
         }
         QString ip = m_view->getUi()->lineEditIp->text();
-        this->tcpClient()->connectToDevice(ip, m_cfg->deviceTcpPort());
+        this->tcpClient()->connectToDevice(ip, 8089);
         m_view->getUi()->btnConnect->setText(QString::fromUtf8("连接中..."));
         m_view->getUi()->btnConnect->setEnabled(false);
         m_view->getUi()->btnCancelConnect->setVisible(true);
@@ -329,7 +329,7 @@ void MainPresenter::onDeviceDoubleClicked(const QString& name, const QString& ip
         ctx = DeviceManager::instance()->addDevice(deviceId);
     }
 
-    ctx->startConnection(ip, m_cfg->deviceTcpPort());
+    ctx->startConnection(ip, 8089);
 
     VideoWidget* vw = m_view->m_videoGrid->bindDevice(deviceId);
 
@@ -388,7 +388,7 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
                     double dist = m_view->calcVisualDistance(obj, cls, false);
                     if (dist > 0) {
                         m_view->m_lastAiDist = dist;
-                        m_view->m_view->m_lastAiDistEstimated = (obj.value("Distance").toDouble(0) <= 0);
+                        m_view->m_lastAiDistEstimated = (obj.value("Distance").toDouble(0) <= 0);
                     }
 
                     int r = m_view->getUi()->tableIdentify->rowCount();
@@ -437,7 +437,7 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
                 QString statusFull = QString::fromUtf8("状态: %1").arg(statusText);
                 m_view->getUi()->lblTrackStatus->setText(statusFull);
                 m_view->getUi()->lblTrackStatus->setProperty("state", locked ? "locked" : "missed");
-                refreshStyle(m_view->getUi()->lblTrackStatus);
+                MainWindow::refreshStyle(m_view->getUi()->lblTrackStatus);
 
                 if (obj.contains("Distance")) {
                     double rawDist = obj.value("Distance").toDouble(0);
@@ -476,7 +476,7 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
                 // 无目标：显示"未锁定"并清空所有跟踪字段
                 m_view->getUi()->lblTrackStatus->setText(QString::fromUtf8("状态: 未锁定"));
                 m_view->getUi()->lblTrackStatus->setProperty("state", "nolock");
-                refreshStyle(m_view->getUi()->lblTrackStatus);
+                MainWindow::refreshStyle(m_view->getUi()->lblTrackStatus);
                 m_view->getUi()->trackPos->clear();
                 m_view->getUi()->trackMissDistance->clear();
                 m_view->getUi()->trackDistance->clear();
@@ -583,7 +583,7 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
         m_view->m_previousDisplayMode = m_view->m_currentPipShow;
 
         // 同步 UI 下拉框到设备当前值，同时抑制信号递归
-        m_updatingFromDevice = true;
+        m_view->m_updatingFromDevice = true;
         // 首次连接时同步算法模型下拉框，后续不再覆盖用户选择
         if (!m_view->m_algoModelInitialized) {
             m_view->m_currentAlgoModel = model;
@@ -608,7 +608,7 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
             m_view->getUi()->comboWorkMode->setCurrentIndex(wm);
             m_view->m_workModeInitialized = true;
         }
-        m_updatingFromDevice = false;
+        m_view->m_updatingFromDevice = false;
     }
 }
 
@@ -668,7 +668,7 @@ void MainPresenter::updateMapTargets(const QJsonObject& doc, int workMode)
             int cls = obj.value("Class").toInt();
             double tLat = 0, tLon = 0;
 
-            double dist = calcVisualDistance(obj, cls, false);
+            double dist = m_view->calcVisualDistance(obj, cls, false);
 
             if (obj.contains("Points")) {
                 QJsonObject pts = obj.value("Points").toObject();
@@ -724,10 +724,10 @@ void MainPresenter::updateMapTargets(const QJsonObject& doc, int workMode)
             int cls = lockedObj.value("Class").toInt();
             double tLat = 0, tLon = 0;
 
-            double dist = calcVisualDistance(lockedObj, cls, true);
+            double dist = m_view->calcVisualDistance(lockedObj, cls, true);
             // 缓存 AI 目标距离（用于 ZoomInfo 无激光测距时回退）
-            m_lastAiDist = dist;
-            m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
+            m_view->m_lastAiDist = dist;
+            m_view->m_lastAiDistEstimated = (lockedObj.value("Distance").toDouble(0) <= 0 && dist > 0);
 
             if (lockedObj.contains("Points")) {
                 QJsonObject pts = lockedObj.value("Points").toObject();
@@ -801,7 +801,7 @@ void MainPresenter::updateMapTargets(const QJsonObject& doc, int workMode)
             double tLat = 0, tLon = 0;
             bool hasPts = false;
 
-            double dist = calcVisualDistance(lostObj, cls, true);
+            double dist = m_view->calcVisualDistance(lostObj, cls, true);
 
             if (lostObj.contains("Points")) {
                 QJsonObject pts = lostObj.value("Points").toObject();
@@ -897,8 +897,8 @@ void MainPresenter::updateMapDevicePosition(const QJsonObject& doc)
     double range = doc.value("LaserRange").toDouble(0);
     bool rangeEstimated = false;
     if (range <= 0) {
-        range = m_lastAiDist;
-        rangeEstimated = m_lastAiDistEstimated;
+        range = m_view->m_lastAiDist;
+        rangeEstimated = m_view->m_lastAiDistEstimated;
     }
 
     qDebug() << "[MapPos] raw:" << latStr << lonStr << "parsed:" << lat << lon;

@@ -34,7 +34,7 @@ public:
     DeviceController* motorController() const { return m_motor; }
     RtspThread* videoStream() const { return m_video; }
     PtzForwarder* ptzForwarder() const { return m_ptz; }
-    DeviceState* state() const { return m_state; }
+    DeviceState* state() const { return m_state.get(); }
 
 private:
     QString m_deviceId;

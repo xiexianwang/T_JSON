@@ -31,7 +31,7 @@ RtspThread::RtspThread(QObject *parent)
 RtspThread::~RtspThread()
 {
     closeStream();
-    if (!wait(2000)) {
+    if (!wait(3000)) {
         qDebug() << "RtspThread::~RtspThread() - thread timeout, force stop";
     }
 }
@@ -43,6 +43,7 @@ void RtspThread::openStream(const QString &url)
     // 如果线程已经在运行，必须先发出停止指令并等待其安全退出
     if (isRunning()) {
         closeStream();
+        wait(3000);
     }
 
     {

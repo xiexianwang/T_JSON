@@ -40,6 +40,11 @@ RtspThread::~RtspThread()
 // 设置 URL 和打开请求标志，唤醒等待中的线程；若线程未启动则启动之
 void RtspThread::openStream(const QString &url)
 {
+    // 如果线程已经在运行，必须先发出停止指令并等待其安全退出
+    if (isRunning()) {
+        closeStream();
+    }
+
     {
         QMutexLocker lock(&m_mutex);
         m_stop = false;
@@ -52,22 +57,12 @@ void RtspThread::openStream(const QString &url)
         m_cond.wakeOne();
     }
 
-    // 等待旧线程退出（interrupt callback 会使其快速返回）
-    if (isRunning()) {
-        qDebug() << "RtspThread::openStream - waiting for old thread...";
-        if (!wait(2000)) {
-            qDebug() << "RtspThread::openStream - old thread stuck, skip";
-        }
-    }
-
     if (!isRunning()) {
         m_connecting = true;
         start();
     }
 }
 
-// 关闭 RTSP 流（非阻塞）
-// 设置停止标志，interrupt callback 会让 FFmpeg 阻塞调用快速返回
 void RtspThread::closeStream()
 {
     QMutexLocker lock(&m_mutex);

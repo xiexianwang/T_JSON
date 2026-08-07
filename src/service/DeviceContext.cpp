@@ -122,6 +122,10 @@ void DeviceContext::setupTimers()
         m_aiCleanupTimer->start();
         EventBus::instance()->postDeviceConnected(m_deviceId);
     });
+    connect(m_video, &RtspThread::frameReady, this, [this](const QImage& frame) {
+        EventBus::instance()->postDeviceFrameReady(m_deviceId, frame);
+    });
+
     connect(m_tcp, &TJsonClient::deviceDisconnected, this, [this]() {
         m_sysParamTimer->stop();
         m_aiCleanupTimer->stop();

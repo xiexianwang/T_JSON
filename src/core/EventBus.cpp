@@ -58,3 +58,9 @@ void EventBus::postDeviceAiInfoUpdated(const QString& deviceId, const QJsonObjec
 {
     emit sigDeviceAiInfoUpdated(deviceId, aiDoc);
 }
+
+void EventBus::postDeviceFrameReady(const QString& deviceId, const QImage& frame)
+{
+    emit sigDeviceFrameReady(deviceId, frame);
+}
+

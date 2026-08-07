@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QJsonObject>
 #include <QByteArray>
+#include <QImage>
 #include <QRect>
 #include <QString>
 #include <memory>
@@ -33,6 +34,7 @@ public:
     void postPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
     void postDeviceAiTimeout(const QString& deviceId);
     void postDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
+    void postDeviceFrameReady(const QString& deviceId, const QImage& frame);
     void postDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
 
 signals:
@@ -45,6 +47,7 @@ signals:
     void sigPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
     void sigDeviceAiTimeout(const QString& deviceId);
     void sigDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
+    void sigDeviceFrameReady(const QString& deviceId, const QImage& frame);
     void sigDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
 
 private:

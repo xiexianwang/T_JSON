@@ -40,6 +40,12 @@ void MainPresenter::setupEventBus()
     //   这里只是铺垫，等 MainWindow 内的代码被剥离后，将会在这里回调 view 的方法）
     
     connect(bus, &EventBus::sigDeviceAiTimeout, this, &MainPresenter::onDeviceAiTimeout);
+    connect(bus, &EventBus::sigDeviceFrameReady, this, [this](const QString& deviceId, const QImage& frame) {
+        if (VideoWidget* vw = m_view->m_videoGrid->bindDevice(deviceId)) {
+            vw->setFrame(frame);
+        }
+    });
+
     // connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId) {
     //     if (deviceId == m_currentDeviceId) m_view->onDeviceConnected();
     // 
@@ -333,10 +339,6 @@ void MainPresenter::onDeviceDoubleClicked(const QString& name, const QString& ip
 
     VideoWidget* vw = m_view->m_videoGrid->bindDevice(deviceId);
 
-    connect(ctx->videoStream(), &RtspThread::frameReady, m_view,
-        [vw](const QImage& frame) {
-            vw->setFrame(frame);
-        }, Qt::QueuedConnection);
 
     if (!rtspUrl.isEmpty()) {
         ctx->videoStream()->openStream(rtspUrl);

@@ -4,6 +4,7 @@
 // 以及完整的 JSON 帧解析、状态更新、地图坐标转换、云台镜头控制逻辑。
 //============================================================================
 #include "mainwindow.h"
+#include "service/DeviceManager.h"
 #include "core/GeoCalculator.h"
 #include "ui_mainwindow.h"
 #include <QAbstractButton>

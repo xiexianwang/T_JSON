@@ -482,12 +482,10 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
-    disconnect(m_presenter->tcpClient(), nullptr, this, nullptr);
-    if (m_presenter->videoStream()) {
-        if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
-        m_presenter->videoStream()->closeStream();
-        m_presenter->videoStream()->wait(2000);
-    }
+    // Make sure all devices are properly stopped and threads are terminated
+    // This prevents background RTSP threads from causing Heap Corruption on exit
+    DeviceManager::instance()->removeAllDevices();
+
     delete m_pipDialog;
     delete ui;
 }

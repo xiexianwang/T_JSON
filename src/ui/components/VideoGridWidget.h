@@ -29,6 +29,10 @@ public:
     // 动态调整宫格布局 (如 1x1, 2x2, 3x3)
     void setLayoutMode(int rows, int cols);
 
+signals:
+    // 设备视频画面框选完成（携带 deviceId，供上层区分来源设备）
+    void selectionFinished(const QString& deviceId, int centerX, int centerY, int width, int height);
+
 private:
     QGridLayout* m_layout;
     QMap<QString, VideoWidget*> m_widgets;

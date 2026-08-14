@@ -1231,7 +1231,7 @@ void MainPresenter::onCheckPosResetToggled(bool checked)
 // ============================================================================
 // 框选/点选跟踪
 // ============================================================================
-void MainPresenter::onVideoSelection(int cx, int cy, int pw, int ph)
+void MainPresenter::onVideoSelection(const QString& deviceId, int cx, int cy, int pw, int ph)
 {
     int wm = m_view->getUi()->comboWorkMode->currentIndex();
     if (wm != 3 && wm != 4) {
@@ -1240,17 +1240,23 @@ void MainPresenter::onVideoSelection(int cx, int cy, int pw, int ph)
         return;
     }
 
+    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    if (!ctx || !ctx->tcpClient() || !ctx->tcpClient()->isConnected()) {
+        m_view->getUi()->statusbar->showMessage(
+            QString::fromUtf8("设备未连接: %1").arg(deviceId), 3000);
+        return;
+    }
+    DeviceController* controller = ctx->motorController();
+
     if (wm == 3) {
         m_view->getUi()->statusbar->showMessage(
             QString::fromUtf8("点选跟踪: 像素中心(%1,%2)").arg(cx).arg(cy));
-        if (!m_view->requireConnected()) return;
-        motorController()->setPointTrack(cx, cy);
+        controller->setPointTrack(cx, cy);
     } else {
         m_view->getUi()->statusbar->showMessage(
             QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
                 .arg(cx).arg(cy).arg(pw).arg(ph));
-        if (!m_view->requireConnected()) return;
-        motorController()->setBoxTrack(cx, cy, pw, ph);
+        controller->setBoxTrack(cx, cy, pw, ph);
     }
 }
 

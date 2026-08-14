@@ -81,7 +81,7 @@ public:
     void onCheckPosResetToggled(bool checked);
 
     // --- 框选/点选跟踪 ---
-    void onVideoSelection(int cx, int cy, int pw, int ph);
+    void onVideoSelection(const QString& deviceId, int cx, int cy, int pw, int ph);
 
     // --- 工作模式/算法模型/显示模式 ---
     void onComboWorkModeChanged(int index);

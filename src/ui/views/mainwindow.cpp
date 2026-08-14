@@ -211,11 +211,9 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     // RTSP 视频流信号连接
     // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
-    // VideoWidget 的 selectionFinished 信号用于框选跟踪
+    // VideoGridWidget 统一透传每个设备的 selectionFinished 信号用于框选跟踪
     //============================================================================
-    if (VideoWidget* vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) {
-        connect(vw, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
-    }
+    connect(m_videoGrid, &VideoGridWidget::selectionFinished, this, &MainWindow::onVideoSelection);
 
     //============================================================================
     // T-JSON 协议信号连接
@@ -807,9 +805,9 @@ void MainWindow::onRtspError(const QString &msg)
 // 将框选的像素坐标与宽高发送给设备，用于框选跟踪模式
 // cx, cy 为框选区域中心像素坐标，pw, ph 为框宽高
 //============================================================================
-void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
+void MainWindow::onVideoSelection(const QString& deviceId, int cx, int cy, int pw, int ph)
 {
-    m_presenter->onVideoSelection(cx, cy, pw, ph);
+    m_presenter->onVideoSelection(deviceId, cx, cy, pw, ph);
 }
 
 //============================================================================

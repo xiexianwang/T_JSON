@@ -25,6 +25,12 @@ VideoWidget* VideoGridWidget::bindDevice(const QString& deviceId)
 
     VideoWidget* vw = new VideoWidget(this);
     m_widgets.insert(deviceId, vw);
+
+    // 统一透传该设备的框选信号（带 deviceId），保证多设备下每个视频窗都能框选跟踪
+    connect(vw, &VideoWidget::selectionFinished, this,
+            [this, deviceId](int cx, int cy, int pw, int ph) {
+                emit selectionFinished(deviceId, cx, cy, pw, ph);
+            });
     
     // 如果数量超过当前宫格容量，自动扩展 (如 1x1 -> 2x2)
     int count = m_widgets.size();

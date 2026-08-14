@@ -111,7 +111,7 @@ public slots:
 public slots:
     void onRtspOpened();                    // RTSP 连接成功
     void onRtspError(const QString &msg);   // RTSP 连接出错
-    void onVideoSelection(int cx, int cy, int pw, int ph); // 视频画面框选
+    void onVideoSelection(const QString& deviceId, int cx, int cy, int pw, int ph); // 视频画面框选
 
 private:
     Ui::MainWindow *ui;

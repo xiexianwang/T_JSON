@@ -5,6 +5,48 @@
 
 ---
 
+## 2026-08-14 · 阶段 2 收口：框选跟踪链路修复 + 多设备验收
+
+### 解决的问题 / 实现功能
+
+- **修复多设备框选缺陷**：原 `mainwindow.cpp` 仅在构造函数对**初始设备**的 `VideoWidget` 连接 `selectionFinished`，`onDeviceDoubleClicked()` 新建的视频窗未连接信号，导致切换设备后框选/点选跟踪失效。
+- **框选信号携带 deviceId**：`VideoGridWidget` 新增透传信号 `selectionFinished(deviceId, cx, cy, pw, ph)`，在 `bindDevice()` 统一连接每个 `VideoWidget` 并带上设备 ID；`MainWindow` 只连接一次网格信号，任意设备视频窗均可框选。
+- **指令目标按设备定位**：`MainPresenter::onVideoSelection` 签名增加 `deviceId`，经 `DeviceManager::getDevice(deviceId)->motorController()` 下发指令，不再依赖 `m_currentDeviceId`；并校验目标设备 TCP 连接状态（不再使用基于当前设备的 `requireConnected()`，避免多设备误判）。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，产物 `LSSVideoManager.exe`。
+
+### 阶段 2 验收核对（代码层面）
+
+| 验收项 | 结论 |
+|---|---|
+| 业务不再依赖 `"default_device"` | ✅ 仅剩 `MainPresenter.cpp:19` 初始化保留 |
+| 切换设备后 PTZ/镜头指令目标正确 | ✅ `motorController()` 基于 `m_currentDeviceId` |
+| 当前设备断开不误清其他设备视频 | ✅ Presenter 按 `deviceId == m_currentDeviceId` 过滤 |
+| 框选/点选跟踪发往正确设备 | ✅ 本次修复：按 `deviceId` 定位控制器 |
+| 任意设备视频窗均可框选 | ✅ 本次修复：`VideoGridWidget` 统一透传 |
+| 双设备并行实机联调（PTZ/镜头/框选/断开互不影响） | ⏳ 待实机验证 |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/ui/components/VideoGridWidget.h/.cpp` | 新增 `selectionFinished(deviceId,...)` 透传信号，`bindDevice()` 统一连接 |
+| `src/ui/views/mainwindow.h/.cpp` | 连接网格透传信号；`onVideoSelection` 携带 deviceId |
+| `src/ui/main/MainPresenter.h/.cpp` | `onVideoSelection` 按 deviceId 定位设备控制器并校验连接 |
+
+### 遗留问题
+
+- **实机验收待办**：双设备并行时 PTZ/镜头指令目标、框选跟踪目标、断开互不影响需实机联调确认。
+- **多设备电机信号**：电机结果信号仅在默认设备上转发，多设备切换后仍沿用默认设备信号。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标按当前分辨率/黑边的真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 2 修复（建议消息 `fix: 修复多设备框选跟踪链路`）。
+2. 实机双设备联调验收（PTZ/镜头/框选/断开互不影响）。
+3. 进入阶段 3：收敛状态数据流（Presenter 消费 `DeviceState`，减少 `sigJsonReceived` 重复解析）。
+
+---
+
 ## 2026-08-14 · MVP 收尾：PTZ/镜头按钮迁移 + 移除过渡期访问器
 
 ### 解决的问题 / 实现功能

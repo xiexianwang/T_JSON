@@ -9,7 +9,7 @@
 
 - **产品**：江苏莱瑟斯监控设备 Windows 上位机控制客户端（输出名 `LSSVideoManager.exe`）
 - **技术栈**：C++17 / Qt 6.11 Widgets / CMake / FFmpeg（RTSP 解码）/ Qt WebEngine + WebChannel（地图）
-- **核心能力**：TCP 8089 信令与状态、RTSP 拉流解码、云台/镜头控制（Pelco-D / VISCA / MODBUS-RTU / STM32-TCP）、AI 识别/跟踪、天地图叠加（高德 JS API v2.0）、多设备并行管理
+- **核心能力**：TCP 8089 信令与状态、RTSP 拉流解码、云台/镜头控制（Pelco-D / VISCA / MODBUS-RTU / STM32-TCP）、AI 识别/跟踪、天地图叠加（Leaflet + 天地图）、多设备并行管理
 
 ## 2. 目录结构索引
 
@@ -44,10 +44,9 @@ T-JSON-V1.0/
 │       ├── cmdlogdialog.*    # 十六进制指令日志
 │       └── s3uploader.*      # S3 上传（⚠️ 未参与构建，见 §8）
 ├── ui/*.ui                   # Qt Designer 布局（AUTOUIC）
-├── resources/                # QSS、图标、地图前端（高德 JS API 内联）
+├── resources/                # QSS、图标、地图前端（Leaflet + 天地图 内联）
 ├── tests/track_sim.py        # 轨迹模拟脚本
-├── docs/                     # 开发规范 / 需求说明书 / CHANGELOG / 算法参考
-└── 指令.md                   # Pelco-D 指令速查表
+├── docs/                     # 开发规范 / 需求说明书 / CHANGELOG / 算法参考 / 指令速查
 ```
 
 ## 3. 分层依赖
@@ -92,7 +91,7 @@ T-JSON-V1.0/
 | RTSP 线程 | `rtspthread.*` | FFmpeg 拉流解码、16:9 渲染、断线重连、32 字节对齐缓冲 | FFmpeg | ✅ |
 | PTZ 转发 | `ptzforwarder.*` | Pelco-D 串口服务器双向转发、角度偏移、零点标定 | QTcpSocket/Server | ✅ |
 | 配置 | `configmanager.*` | PTZ/镜头/相机/电机配置，QSettings 持久化，FOV 距离常量 | QSettings | ✅ |
-| 地图 View | `mapwidget.*` | WebEngine 高德地图、FOV 扇形、目标/轨迹、脏标记批量刷新 | MapBridge, WebChannel | ✅ |
+| 地图 View | `mapwidget.*` | WebEngine 天地图、FOV 扇形、目标/轨迹、脏标记批量刷新 | MapBridge, WebChannel | ✅ |
 | 地图桥 | `mapbridge.*` | C++ ↔ JS 双向桥接（初始化/点击/缩放） | QWebChannel | ✅ |
 | 视频控件 | `videowidget.*` | 帧渲染、16:9 锁定、框选区域坐标映射 | QPainter | ✅ |
 | 设备树 | `ui/components/DeviceTreeWidget.*` | 多设备树增删改、JSON 持久化 | QTreeView | ✅ |
@@ -141,7 +140,7 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 
 主要帧类型（`tjsonclient.h` `enum class FrameType`）：Status 0x01 / Control 0x03 / ImageSnap 0x04 / QueryImageParams 0x05 / SetAreaDot 0x06 / SetDisplayMode 0x07 / SetAlgoModel 0x08 / SetCaptureState 0x09 / SetDigitalZoom 0x0A / SetPosReset 0x0B / QueryTofu7 0x0C-0x0F / Heartbeat 0x11 / Ack 0x12 / SetLocation 0x20。
 
-**电机协议**：Pelco-D 指令包见 `指令.md`；VISCA 变倍/变焦；MODBUS-RTU（9600-8-N-1）；STM32-TCP-V4.0（`5A A5 02+长度+序号+JSON`）。通道与协议经 `ConfigManager` 配置，`DeviceController` 三选一分发。
+**电机协议**：Pelco-D 指令包见 `docs/指令.md`；VISCA 变倍/变焦；MODBUS-RTU（9600-8-N-1）；STM32-TCP-V4.0（`5A A5 02+长度+序号+JSON`）。通道与协议经 `ConfigManager` 配置，`DeviceController` 三选一分发。
 
 ## 7. 构建与运行
 
@@ -159,7 +158,6 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 | 过渡期访问器 | `MainPresenter.h` `motorController()/tcpClient()/videoStream()/ptzForwarder()` | View 仍可直取底层，未达"哑巴视图" |
 | 未迁移残留 | `mainwindow.cpp:242-286` | PTZ 方向/镜头按钮仍在 View lambda 直接调 `motorController()` |
 | 死代码 | `s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
-| 遗留文件 | `resources/leaflet*.js` 等 | 已迁移高德 JS API，旧 Leaflet 资源未清理 |
 | 未提交改动 | 见 `git status` | `mainwindow.*`/`MainPresenter.*`/`EventBus.*`/`DeviceContext.cpp`/`ui/mainwindow.ui` 有未提交改动 |
 
 ## 9. 文档导航
@@ -170,4 +168,4 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 | `docs/需求说明书.md` | 需求分析与模块说明 |
 | `docs/CHANGELOG.md` | 变更历史、已知问题、下一步计划 |
 | `docs/轨迹点抽稀算法.md` | 地图轨迹抽稀算法细节 |
-| `指令.md` | Pelco-D 云台/镜头/预置位指令速查 |
+| `docs/指令.md` | Pelco-D 云台/镜头/预置位指令速查 |

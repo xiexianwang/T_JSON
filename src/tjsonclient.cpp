@@ -95,8 +95,15 @@ void TJsonClient::handleReconnect()
     if (m_reconnectTimer->isActive()) return;    // 已有待处理重连
     if (m_socket->state() != QAbstractSocket::UnconnectedState) return;  // 尚未断开
 
+    // 达到最大重连次数：停止自动重连并通知失败
+    if (m_retryCount >= m_maxRetries) {
+        m_autoReconnectEnabled = false;
+        emit reconnectFailed();                 // 重连最终失败
+        return;
+    }
+
     m_reconnectTimer->start(m_currentDelay);    // 启动延迟定时器
-    emit reconnecting(m_retryCount + 1, 0);     // 发射重连通知信号
+    emit reconnecting(m_retryCount + 1, m_maxRetries);  // 发射重连通知信号
 
     // 指数退避：每次延迟翻倍，上限 60 秒
     m_currentDelay = qMin(m_currentDelay * 2, 60000);

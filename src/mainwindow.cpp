@@ -1385,13 +1385,13 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
 
 
 void MainWindow::onDeviceReconnecting(int attempt, int maxRetries) {
-    Q_UNUSED(maxRetries);
-    ui->btnConnect->setText(QString::fromUtf8("连接中(重试:%1)").arg(attempt));
+    QString total = maxRetries > 0 ? QString("/%1").arg(maxRetries) : QStringLiteral("");
+    ui->btnConnect->setText(QString::fromUtf8("连接中(重试:%1%2)").arg(attempt).arg(total));
     ui->btnConnect->setEnabled(false);
     ui->btnConnect->setProperty("state", "reconnecting");
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(true);
-    ui->statusbar->showMessage(QString::fromUtf8("断开，重连 %1 次...").arg(attempt));
+    ui->statusbar->showMessage(QString::fromUtf8("断开，正在重连 %1 次...").arg(attempt));
 }
 
 void MainWindow::onDeviceReconnectFailed() {
@@ -1400,5 +1400,5 @@ void MainWindow::onDeviceReconnectFailed() {
     ui->btnConnect->setProperty("state", QVariant());
     refreshStyle(ui->btnConnect);
     ui->btnCancelConnect->setVisible(false);
-    ui->statusbar->showMessage(QString::fromUtf8("重连失败"), 5000);
+    ui->statusbar->showMessage(QString::fromUtf8("重连 10 次失败，请检查设备连接"), 5000);
 }

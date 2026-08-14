@@ -90,11 +90,16 @@ void DeviceContext::startConnection(const QString& ip, quint16 port)
 
 void DeviceContext::stopConnection()
 {
-    if (m_tcp->isConnected()) {
-        m_tcp->disconnectDevice();
-    }
-    m_video->closeStream();
+    m_sysParamTimer->stop();
+    m_aiCleanupTimer->stop();
+
+    m_ptz->stop();
+    m_motor->closeMotorTcp();
     m_motor->closeMotorSerial();
+    m_video->closeStream();
+
+    // 即使当前已经断开，也必须调用主动断开以取消自动重连定时器。
+    m_tcp->disconnectDevice();
 }
 
 

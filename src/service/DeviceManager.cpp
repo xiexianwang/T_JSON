@@ -39,7 +39,7 @@ void DeviceManager::removeDevice(const QString& deviceId)
     if (m_devices.contains(deviceId)) {
         DeviceContext* ctx = m_devices.take(deviceId);
         ctx->stopConnection();
-        ctx->deleteLater();
+        delete ctx;
     }
 }
 
@@ -57,7 +57,7 @@ void DeviceManager::removeAllDevices()
 {
     for (auto* ctx : m_devices) {
         ctx->stopConnection();
-        ctx->deleteLater();
+        delete ctx;
     }
     m_devices.clear();
 }

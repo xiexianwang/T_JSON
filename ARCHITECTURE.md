@@ -156,7 +156,8 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 |---|---|---|
 | 超大文件 | `ui/views/mainwindow.cpp`(约 1400 行)、`ui/main/MainPresenter.cpp`(约 1290 行) | 违反"方法超 80 行拆分"规则 |
 | 死代码 | `infrastructure/s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
-| 未提交改动 | 见 `git status` | 本次"按钮迁移 + 移除过渡期访问器"改动未提交 |
+| 生命周期风险 | `service/DeviceContext.*`、`infrastructure/rtspthread.*` | 设备销毁、RTSP 停止与后台线程退出需要持续验证 |
+| 多设备收口 | `ui/main/MainPresenter.cpp`、`ui/views/mainwindow.cpp` | 当前设备切换与视频控件绑定仍需继续收敛，避免业务依赖默认设备 |
 
 > ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
 

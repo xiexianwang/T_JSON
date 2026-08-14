@@ -20,6 +20,7 @@
 #include "infrastructure/configmanager.h"
 #include "infrastructure/ptzforwarder.h"
 #include "ui/main/MainPresenter.h"
+#include "ui/main/IMainView.h"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
@@ -45,7 +46,7 @@ QT_END_NAMESPACE
 // 通过 Qt 信号-槽机制将底层 TJsonClient / DeviceController 的异步
 // 事件转化为 UI 更新，是前后端通信的调度中枢。
 //============================================================================
-class MainWindow : public QMainWindow
+class MainWindow : public QMainWindow, public IMainView
 {
     Q_OBJECT
 
@@ -58,6 +59,63 @@ public:
     void changeEvent(QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
+    // ---- IMainView 接口实现 ----
+    QWidget* asWidget() override;
+    void showStatusMessage(const QString& msg, int timeoutMs = 0) override;
+    void setConnectButton(const QString& text, bool enabled, const QString& state = QString(), bool cancelVisible = false) override;
+    void setVideoConnectButton(const QString& text, bool enabled) override;
+
+    QString ipText() const override;
+    QString rtspUrlText() const override;
+    QString targetPanText() const override;
+    QString targetTiltText() const override;
+    QString targetLonText() const override;
+    QString targetLatText() const override;
+    QString targetAltText() const override;
+    QString setLatText() const override;
+    QString setLonText() const override;
+    QString setHeightText() const override;
+    int wiperCurrentMa() const override;
+    int presetValue() const override;
+    int workModeIndex() const override;
+    int algoModel2Index() const override;
+    int displayModeIndex() const override;
+
+    QString statLatitudeText() const override;
+    QString statLongitudeText() const override;
+    QString statPanAngleText() const override;
+    QString statTiltAngleText() const override;
+
+    void showDeviceState(int camMode, const QString& lat, const QString& lon,
+                         const QString& height, const QString& pan, const QString& tilt) override;
+    void showLensStats(double visZoom, double visFocal, double visHfov,
+                       double irZoom, double irFocal, double irHfov) override;
+    void setIdentifyCount(const QString& text) override;
+    void clearIdentifyTable() override;
+    void addIdentifyRow(const QString& id, int cls, double dist,
+                        const QString& pos, const QString& miss) override;
+    void showTrackStatus(const QString& text, const QString& state) override;
+    void setTrackDistance(const QString& text) override;
+    void setTrackPos(const QString& text) override;
+    void setTrackMissDistance(const QString& text) override;
+    void showImageParams(const QString& resolution, const QString& bitrate,
+                         const QString& codec, const QString& workMode,
+                         const QString& pipShow, const QString& algoModel,
+                         const QString& maxVisFL, const QString& maxIRFL) override;
+    void setAlgoModel1Index(int high) override;
+    void setAlgoModel2Index(int low) override;
+    void setDisplayModeIndex(int index) override;
+    void setWorkModeIndex(int index) override;
+    void setDigitalZoomChecked(bool checked) override;
+    void setAutoZoomChecked(bool checked) override;
+    void setCaptureUploadChecked(bool checked) override;
+    void setPosResetChecked(bool checked) override;
+    VideoWidget* videoWidget(const QString& deviceId) override;
+    void repaintVideoGrid() override;
+    MapWidget* mapWidget() override;
+    bool requireConnected() override;
+    bool requireMotorReady() override;
+
 private slots:
     // ── 系统托盘 ──
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
@@ -69,16 +127,16 @@ private slots:
     void on_btnCancelConnect_clicked();     // 取消正在进行的连接
 
 public slots:
-    // 以下槽由 MainPresenter 通过事件总线回调触发
-    void onDeviceConnected();               // 设备连接成功回调
-    void onDeviceDisconnected();            // 设备断开回调
-    void onErrorOccurred(const QString& errorMsg);  // 连接错误处理
-    void onDeviceReconnecting(int attempt, int maxRetries);
-    void onDeviceReconnectFailed();         // T-JSON ACK 应答处理
+    // 以下槽由 MainPresenter 通过事件总线回调触发（同时实现 IMainView 接口）
+    void onDeviceConnected() override;               // 设备连接成功回调
+    void onDeviceDisconnected() override;            // 设备断开回调
+    void onErrorOccurred(const QString& errorMsg) override;  // 连接错误处理
+    void onDeviceReconnecting(int attempt, int maxRetries) override;
+    void onDeviceReconnectFailed() override;         // T-JSON ACK 应答处理
 
     // ── JSON 数据与抓拍 ──
     void onImageSnapped(const QByteArray& jpegData,     // 抓拍图像回调
-                        const QRect& location);
+                        const QRect& location) override;
 
     // ── 工作模式切换 ──
     void on_comboWorkMode_currentIndexChanged(int index);
@@ -109,18 +167,14 @@ public slots:
     void on_btnVideoDisconnect_clicked();   // 断开 RTSP 视频流
 
 public slots:
-    void onRtspOpened();                    // RTSP 连接成功
-    void onRtspError(const QString &msg);   // RTSP 连接出错
+    void onRtspOpened() override;                    // RTSP 连接成功
+    void onRtspError(const QString &msg) override;   // RTSP 连接出错
     void onVideoSelection(const QString& deviceId, int cx, int cy, int pw, int ph); // 视频画面框选
 
 private:
     Ui::MainWindow *ui;
 public:
     Ui::MainWindow* getUi() const { return ui; }
-    bool requireConnected();
-    bool requireMotorReady();                       // 检查电机串口是否就绪
-    bool m_rtspEverOpened = false;
-    double m_deviceHeight = 0;
     VideoGridWidget *m_videoGrid;
     DeviceTreeWidget *m_deviceTree;
 
@@ -139,53 +193,12 @@ public:          // 地图控件（单实例，迷你/全屏切换，含内建�
     QPoint m_miniMapPos{10, 10};    // 迷你地图位置
     bool m_dragging = false;         // 拖拽中标记
     QPoint m_dragStart;              // 拖拽起点
-    bool m_updatingFromDevice;     // 防递归更新标志，避免设备回传时重复触发 UI 信号
 
     // ── PiP 视频窗口（大地图时独立无边框对话框） ──
     QDialog *m_pipDialog;
     QWidget *m_pipTitle;
     QPoint m_pipPos{10, 10};
     QPoint m_pipDragStart;
-
-    double m_currentVisZoom;        // 当前可见光镜头倍率（从设备 ZoomInfo 更新）
-    double m_currentIrZoom;         // 当前红外镜头倍率
-    double m_currentTilt;           // 当前云台俯仰角（原始值，用于地图计算）
-    int m_currentPipShow;           // 当前画中画显示模式（0~4 对应不同布局）
-    int m_previousWorkMode = 0;     // ZoomInfo 最后上报的 WorkMode
-    bool m_workModeInitialized = false;
-    bool m_displayModeInitialized = false;
-    bool m_algoModelInitialized = false;
-    int m_previousAlgoModel = 0;    // ZoomInfo 最后上报的 Model
-    int m_currentAlgoModel = 0;
-    int m_previousDisplayMode = 0;  // ZoomInfo 最后上报的 PipShow
-    int m_currentResX = 2688;       // 当前可见光实际水平分辨率（从设备 ImageSize 更新）
-    int m_currentResY = 1520;       // 当前可见光实际垂直分辨率
-    
-    // ── 跟踪状态管理（地图目标/轨迹逻辑） ──
-    struct TrackState {
-        QString id;             // 当前跟踪目标 ID
-        double lat = 0, lon = 0; // 最后已知位置
-        int cls = 0;            // 最后 Class
-        QDateTime lostSince;    // 首次失锁时间（空 = 锁定中）
-        double prevLat = 0, prevLon = 0; // 上一个轨迹点位置（速度计算用）
-        QDateTime prevTime;     // 上一个轨迹点时间
-
-        // 抽稀状态：记录上次实际绘制到地图的点
-        double plotLat = 0, plotLon = 0;    // 上次绘制点 GPS
-        double plotHeading = -1;            // 上次绘制段航向角（度），<0 = 未初始化
-        QDateTime plotTime;                 // 上次绘制时间（心跳用）
-
-    };
-    TrackState m_track;
-
-    // ── AI 目标距离缓存（用于 ZoomInfo 无激光测距时回退显示） ──
-    double m_lastAiDist = 0;            // 最近一次 AIInfo 目标距离（估算或激光）
-    bool m_lastAiDistEstimated = false; // true 表示该距离来自视觉估算
-
-    // ── 系统参数轮询（200ms 周期查询设备 ImageSetting） ──
-
-    // ── AIInfo 超时清理（设备无目标时不发帧，超时清除残留数据） ──
-    QDateTime m_lastAiInfoTime;
 
     // ── 系统托盘 ──
     QSystemTrayIcon *m_trayIcon;
@@ -201,11 +214,8 @@ public:          // 地图控件（单实例，迷你/全屏切换，含内建�
 
     // ── 私有工具方法 ──
     void updateMotorButtons();                      // 根据电机协议更新按钮状态
-    void setupUiStyles();                           // 加载并应用 QSS 样式表 // 解析 JSON 帧并更新所有 UI
-    void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）
-        // ── 地图辅助方法 ──    // 更新设备在地图上的位置 // 更新地图上的目标标记
-                double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
-    int currentAlgoModel() const;
+    void setupUiStyles();                           // 加载并应用 QSS 样式表
+    bool m_rtspEverOpened = false;                  // 首次连接自动打开 RTSP 标记（Presenter 管理，View 暂存）
 };
 
 #endif // MAINWINDOW_H

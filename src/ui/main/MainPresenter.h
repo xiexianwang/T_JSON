@@ -5,11 +5,12 @@
 #include <QString>
 #include <QJsonObject>
 #include <QRect>
+#include <QDateTime>
 #include <memory>
 #include "core/DeviceState.h"
 #include "infrastructure/tjsonclient.h"
 
-class MainWindow;
+class IMainView;
 class DeviceContext;
 class ConfigManager;
 class DeviceController;
@@ -19,12 +20,13 @@ class PtzForwarder;
 
 // ============================================================================
 // MainPresenter - MainWindow 的控制器 (MVP 模式中的 Presenter)
+// 只依赖 IMainView 窄接口，不再直接操作 Ui::MainWindow 控件
 // ============================================================================
 class MainPresenter : public QObject
 {
     Q_OBJECT
 public:
-    explicit MainPresenter(MainWindow* view, ConfigManager* cfg, QObject *parent = nullptr);
+    explicit MainPresenter(IMainView* view, ConfigManager* cfg, QObject *parent = nullptr);
     ~MainPresenter() override;
 
     // --- 供 View 调用的命令接口 ---
@@ -107,7 +109,7 @@ signals:
     void commandSentToLog(const QString& serialType, const QByteArray& data);
 
 private:
-    MainWindow* m_view;
+    IMainView* m_view;
     ConfigManager* m_cfg;
     
     QString m_currentDeviceId;
@@ -115,8 +117,55 @@ private:
     // ACK 处理：记录最近一次发送的帧类型，用于判断 ACK 状态码含义
     FrameType m_lastAckFrameType = FrameType::Status;
 
+    // ── 设备状态缓存（原 MainWindow 字段，随业务收敛迁移至此） ──
+    double m_currentVisZoom = 1.0;      // 当前可见光镜头倍率
+    double m_currentIrZoom = 1.0;       // 当前红外镜头倍率
+    double m_currentTilt = 0.0;         // 当前云台俯仰角（原始值，用于地图计算）
+    int m_currentPipShow = 0;           // 当前画中画显示模式（0~4）
+    int m_previousWorkMode = 0;         // 最近上报的 WorkMode
+    bool m_workModeInitialized = false;
+    bool m_displayModeInitialized = false;
+    bool m_algoModelInitialized = false;
+    int m_previousAlgoModel = 0;        // 最近上报的 Model
+    int m_currentAlgoModel = 0;
+    int m_previousDisplayMode = 0;      // 最近上报的 PipShow
+    int m_currentResX = 2688;           // 当前可见光实际水平分辨率
+    int m_currentResY = 1520;           // 当前可见光实际垂直分辨率
+    bool m_updatingFromDevice = false;  // 防递归更新标志
+
+    // ── 跟踪状态管理（地图目标/轨迹逻辑） ──
+    struct TrackState {
+        QString id;
+        double lat = 0, lon = 0;
+        int cls = 0;
+        QDateTime lostSince;
+        double prevLat = 0, prevLon = 0;
+        QDateTime prevTime;
+
+        double plotLat = 0, plotLon = 0;
+        double plotHeading = -1;
+        QDateTime plotTime;
+    };
+    TrackState m_track;
+
+    // ── AI 目标距离缓存（用于 ZoomInfo 无激光测距时回退显示） ──
+    double m_lastAiDist = 0;
+    bool m_lastAiDistEstimated = false;
+
+    // ── AIInfo 超时清理 ──
+    QDateTime m_lastAiInfoTime;
+
+    // ── 设备高度（手动下发经纬度时更新） ──
+    double m_deviceHeight = 0;
+
+    // ── 首次连接自动打开 RTSP 标记 ──
+    bool m_rtspEverOpened = false;
+
     void setupEventBus();
     void showAck(quint8 statusCode);
+    void updateLensStats();
+    double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
+    int currentAlgoModel() const { return m_currentAlgoModel; }
 
     // Presenter 内部访问当前设备的底层组件（View 不得直接调用）
     DeviceController* motorController() const;

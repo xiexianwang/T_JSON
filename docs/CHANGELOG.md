@@ -5,6 +5,51 @@
 
 ---
 
+## 2026-08-14 · 阶段 4：收敛 Presenter/View 边界（IMainView 窄接口）
+
+### 解决的问题 / 实现功能
+
+- **新增 `IMainView` 窄接口**（`src/ui/main/IMainView.h`）：Presenter 与 View 的解耦边界，覆盖状态栏/按钮/输入读取/设备状态/AI 表格/跟踪/图像参数/下拉框/复选框/视频网格/地图/校验/回调等全部交互。
+- **MainWindow 实现 `IMainView`**：`MainWindow` 继承 `IMainView`，Presenter 不再直接操作 `Ui::MainWindow` 控件。
+- **Presenter 彻底解耦**：`MainPresenter.cpp` 移除 `ui_mainwindow.h` / `mainwindow.h` include，100+ 处 `getUi()->xxx` 全部改为接口方法调用，不再调用 MainWindow 具体控件方法。
+- **业务状态字段下沉 Presenter**：`m_currentVisZoom/currentIrZoom/currentTilt/currentPipShow`、`m_currentResX/Y`、`m_previous*`、初始化标志（`m_workModeInitialized` 等）、`m_track`（TrackState 结构体）、`m_lastAiDist` 缓存、`m_lastAiInfoTime`、`m_deviceHeight`、`m_updatingFromDevice`、`m_currentAlgoModel` 全部迁移至 `MainPresenter` 私有区。
+- **计算逻辑下沉**：`calcVisualDistance()`、`updateLensStats()`、`currentAlgoModel()` 从 `MainWindow` 迁至 `MainPresenter`，View 仅剩纯展示。
+- **弹窗归属**：Presenter 通过 `IMainView::asWidget()` 获取父窗口，`QMessageBox` 弹窗保留归属。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，产物 `LSSVideoManager.exe`。
+
+### 阶段 4 验收核对（代码层面）
+
+| 验收项 | 结论 |
+|---|---|
+| `MainPresenter.cpp` 不再 include `ui_mainwindow.h` | ✅ include 列表已无 ui_mainwindow.h / mainwindow.h |
+| Presenter 不再调用 `ui->xxx` | ✅ 100+ 处 `getUi()->` 全部替换为接口方法 |
+| Presenter 不再调用 MainWindow 具体控件方法 | ✅ 经 `IMainView` 接口交互，`refreshStyle` 等内部实现 |
+| MainWindow 只保留布局、信号连接和展示逻辑 | ✅ 计算/状态字段下沉，View 收敛为哑巴视图 |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/ui/main/IMainView.h` | 新增窄 View 接口（约 45 个纯虚方法） |
+| `src/ui/main/MainPresenter.h` | `m_view` 改为 `IMainView*`；迁移全部业务状态字段；新增 `calcVisualDistance/updateLensStats` |
+| `src/ui/main/MainPresenter.cpp` | 全部 UI 交互改为接口调用；计算逻辑下沉 |
+| `src/ui/views/mainwindow.h/.cpp` | 继承并实现 `IMainView`；移除业务字段与方法 |
+
+### 遗留问题
+
+- **实机验收待办**：双设备并行时状态仪表盘、地图位置、AI 表格/轨迹数据一致性需实机确认。
+- **AIInfo 深度解析保留**：`updateAiInfoFromJson` 仍解析 AI 帧 Object 字典，待后续下沉至 `DeviceState::aiTargets`。
+- **View 内少量业务残留**：`MainWindow::onDeviceConnected` 的首次自动开 RTSP（`m_rtspEverOpened`）逻辑保留在 View，后续可进一步下沉至 Presenter。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 4 改动（建议消息 `refactor: 收敛 Presenter/View 边界`）。
+2. 实机双设备联调验收。
+3. 进入阶段 5：拆分基础设施（`TJsonClient` 协议编解码 / `DeviceController` 传输协议 / `DeviceContext` 业务 API 收口）。
+
+---
+
 ## 2026-08-14 · 阶段 3：收敛状态数据流（Presenter 消费 DeviceState）
 
 ### 解决的问题 / 实现功能

@@ -47,14 +47,6 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_cfg(new ConfigManager(this))
     , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP 视频拉流线程
-    , m_updatingFromDevice(false)            // 防递归更新初始关闭
-    , m_currentVisZoom(1.0)                  // 默认可见光倍率 1.0
-    , m_currentIrZoom(1.0)                   // 默认红外倍率 1.0
-    , m_currentTilt(0.0)                     // 默认俯仰角 0
-    , m_currentPipShow(0)                    // 默认显示模式：大图可见光
-    , m_workModeInitialized(false)
-    , m_currentResX(m_cfg->cam().visResX)    // 默认可见光分辨率
-    , m_currentResY(m_cfg->cam().visResY)
 {
     ui->setupUi(this);
 
@@ -823,14 +815,7 @@ void MainWindow::onDeviceConnected()
     ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
 
-    m_workModeInitialized = false;
-    m_displayModeInitialized = false;
-    m_algoModelInitialized = false;
     // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
-
-    // 连接后同步所有缓存开关状态，确保设备与 UI 一致
-
-    // 启动系统参数定时下发
 
     // 首次连接设备时自动打开 RTSP，后续不再覆盖用户操作
     if (!m_rtspEverOpened) {
@@ -1283,87 +1268,231 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 }
 
 
-
-int MainWindow::currentAlgoModel() const
-{
-    return m_currentAlgoModel;
-}
-
-
 void MainWindow::refreshStyle(QWidget *w) {
     w->style()->unpolish(w);
     w->style()->polish(w);
 }
 
 
-void MainWindow::updateLensStats()
+//============================================================================
+// ---- IMainView 接口实现 ----
+//============================================================================
+QWidget* MainWindow::asWidget() { return this; }
+
+void MainWindow::showStatusMessage(const QString& msg, int timeoutMs)
 {
-    CameraConfig& cam = m_cfg->cam();
-    const double kRad2Deg = 180.0 / 3.14159265358979323846;
+    ui->statusbar->showMessage(msg, timeoutMs);
+}
 
-    double visFocal = cam.visMinFocal * m_currentVisZoom;
-    double irFocal  = cam.irMinFocal * m_currentIrZoom;
+void MainWindow::setConnectButton(const QString& text, bool enabled,
+                                  const QString& state, bool cancelVisible)
+{
+    ui->btnConnect->setText(text);
+    ui->btnConnect->setEnabled(enabled);
+    ui->btnConnect->setProperty("state", state.isEmpty() ? QVariant() : QVariant(state));
+    refreshStyle(ui->btnConnect);
+    ui->btnCancelConnect->setVisible(cancelVisible);
+}
 
-    ui->statZoomVis->setText(QString::number(m_currentVisZoom, 'f', 2) + QStringLiteral("x"));
+void MainWindow::setVideoConnectButton(const QString& text, bool enabled)
+{
+    ui->btnVideoConnect->setEnabled(enabled);
+    ui->btnVideoConnect->setText(text);
+}
+
+QString MainWindow::ipText() const { return ui->lineEditIp->text(); }
+QString MainWindow::rtspUrlText() const { return ui->lineEditRtsp->text(); }
+QString MainWindow::targetPanText() const { return ui->editTargetPan->text(); }
+QString MainWindow::targetTiltText() const { return ui->editTargetTilt->text(); }
+QString MainWindow::targetLonText() const { return ui->editTargetLon->text(); }
+QString MainWindow::targetLatText() const { return ui->editTargetLat->text(); }
+QString MainWindow::targetAltText() const { return ui->editTargetAlt->text(); }
+QString MainWindow::setLatText() const { return ui->editSetLat->text(); }
+QString MainWindow::setLonText() const { return ui->editSetLon->text(); }
+QString MainWindow::setHeightText() const { return ui->editSetHeight->text(); }
+int MainWindow::wiperCurrentMa() const { return ui->editWiperCurrent->text().toInt(); }
+int MainWindow::presetValue() const { return ui->spinPreset->value(); }
+int MainWindow::workModeIndex() const { return ui->comboWorkMode->currentIndex(); }
+int MainWindow::algoModel2Index() const { return ui->comboAlgoModel2->currentIndex(); }
+int MainWindow::displayModeIndex() const { return ui->comboDisplayMode->currentIndex(); }
+
+QString MainWindow::statLatitudeText() const { return ui->statLatitude->text(); }
+QString MainWindow::statLongitudeText() const { return ui->statLongitude->text(); }
+QString MainWindow::statPanAngleText() const { return ui->statPanAngle->text(); }
+QString MainWindow::statTiltAngleText() const { return ui->statTiltAngle->text(); }
+
+void MainWindow::showDeviceState(int camMode, const QString& lat, const QString& lon,
+                                 const QString& height, const QString& pan, const QString& tilt)
+{
+    // 语义：null 字符串 = 不更新该字段；非 null 空串 = 清除；非空 = 设置
+    if (camMode >= 0)
+        ui->statCamMode->setText(QString::number(camMode));
+    if (!lat.isNull())
+        ui->statLatitude->setText(lat);
+    if (!lon.isNull())
+        ui->statLongitude->setText(lon);
+    if (!height.isNull()) {
+        if (height.isEmpty()) ui->statHeight->clear();
+        else ui->statHeight->setText(height);
+    }
+    if (!pan.isNull()) {
+        if (pan.isEmpty()) ui->statPanAngle->clear();
+        else ui->statPanAngle->setText(pan);
+    }
+    if (!tilt.isNull()) {
+        if (tilt.isEmpty()) ui->statTiltAngle->clear();
+        else ui->statTiltAngle->setText(tilt);
+    }
+}
+
+void MainWindow::showLensStats(double visZoom, double visFocal, double visHfov,
+                               double irZoom, double irFocal, double irHfov)
+{
+    ui->statZoomVis->setText(QString::number(visZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalVis->setText(QString::number(visFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusVis->clear();
+    ui->statFovVis->setText(QString::number(visHfov, 'f', 2) + QStringLiteral("°"));
 
-    // HFOV = 2 * atan( sensor_width_mm / (2 * focal_mm) )
-    double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
-    ui->statFovVis->setText(QString::number(visHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
-
-    ui->statZoomIR->setText(QString::number(m_currentIrZoom, 'f', 2) + QStringLiteral("x"));
+    ui->statZoomIR->setText(QString::number(irZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalIR->setText(QString::number(irFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusIR->clear();
-
-    double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
-    ui->statFovIR->setText(QString::number(irHfov * kRad2Deg, 'f', 2) + QStringLiteral("°"));
+    ui->statFovIR->setText(QString::number(irHfov, 'f', 2) + QStringLiteral("°"));
 }
 
-// calcVisualDistance - 封装了"无激光测距时用视觉法估算距离"的公共逻辑
-// obj: 目标 JSON 对象（已有 Distance 字段和 Points 字段）
-// cls: 目标 Class 编码
-// updateTrackLabel: 是否更新 trackDistance 状态栏文本（跟踪锁定/丢失时 true）
-// 返回值：已有激光距离则返回原值，否则返回估算值
-double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
+void MainWindow::setIdentifyCount(const QString& text)
 {
-    double dist = obj.value("Distance").toDouble(0);
-    if (dist > 0 || !obj.contains("Points"))
-        return dist;
-
-    int low = currentAlgoModel() % 10;
-    double ref = m_cfg->cam().targetRefSize(low, cls);
-
-    // 跟踪状态 (0xB1/0xB2) 无法通过 Class 查到参考尺寸
-    // → 用算法模型遍历已知 Class 做视觉估算
-    if (ref <= 0 && (cls == 0xB1 || cls == 0xB2)) {
-        static const int fallback[] = {0xA1, 0xA2, 0xA3, 0xA4};
-        for (int fc : fallback) {
-            ref = m_cfg->cam().targetRefSize(low, fc);
-            if (ref > 0) break;
-        }
-    }
-
-    if (ref <= 0)
-        return dist;
-
-    QJsonObject pts = obj.value("Points").toObject();
-    int boxPx = qMax(pts.value("Right").toInt() - pts.value("Left").toInt(),
-                     pts.value("Bottom").toInt() - pts.value("Top").toInt());
-    if (boxPx <= 0)
-        return dist;
-
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
-    double pxSize = isVis ? m_cfg->cam().visPixelSize : m_cfg->cam().irPixelSize;
-    double focal = isVis ? m_cfg->cam().visMinFocal * m_currentVisZoom
-                          : m_cfg->cam().irMinFocal * m_currentIrZoom;
-
-    dist = GeoCalculator::estimateTargetDistance(boxPx, focal, pxSize, ref);
-    if (updateTrackLabel)
-        ui->trackDistance->setText(QString::number(dist, 'f', 1) + QStringLiteral(" m (估算)"));
-    return dist;
+    ui->lblIdentifyCount->setText(text);
 }
 
+void MainWindow::clearIdentifyTable()
+{
+    ui->tableIdentify->setRowCount(0);
+}
+
+void MainWindow::addIdentifyRow(const QString& id, int cls, double dist,
+                                const QString& pos, const QString& miss)
+{
+    int r = ui->tableIdentify->rowCount();
+    ui->tableIdentify->insertRow(r);
+    ui->tableIdentify->setItem(r, 0, new QTableWidgetItem(id));
+    ui->tableIdentify->setItem(r, 1, new QTableWidgetItem(QString::number(cls)));
+    ui->tableIdentify->setItem(r, 2, new QTableWidgetItem(QString::number(dist, 'f', 1)));
+    if (!pos.isNull())
+        ui->tableIdentify->setItem(r, 3, new QTableWidgetItem(pos));
+    if (!miss.isNull())
+        ui->tableIdentify->setItem(r, 4, new QTableWidgetItem(miss));
+}
+
+void MainWindow::showTrackStatus(const QString& text, const QString& state)
+{
+    ui->lblTrackStatus->setText(text);
+    ui->lblTrackStatus->setProperty("state", state);
+    refreshStyle(ui->lblTrackStatus);
+}
+
+void MainWindow::setTrackDistance(const QString& text)
+{
+    if (text.isEmpty()) ui->trackDistance->clear();
+    else ui->trackDistance->setText(text);
+}
+
+void MainWindow::setTrackPos(const QString& text)
+{
+    if (text.isEmpty()) ui->trackPos->clear();
+    else ui->trackPos->setText(text);
+}
+
+void MainWindow::setTrackMissDistance(const QString& text)
+{
+    if (text.isEmpty()) ui->trackMissDistance->clear();
+    else ui->trackMissDistance->setText(text);
+}
+
+void MainWindow::showImageParams(const QString& resolution, const QString& bitrate,
+                                 const QString& codec, const QString& workMode,
+                                 const QString& pipShow, const QString& algoModel,
+                                 const QString& maxVisFL, const QString& maxIRFL)
+{
+    ui->paramResolution->setText(resolution);
+    ui->paramBitrate->setText(bitrate);
+    ui->paramCodec->setText(codec);
+    ui->paramWorkMode->setText(workMode);
+    ui->paramPipShow->setText(pipShow);
+    ui->paramAlgoModel->setText(algoModel);
+    ui->paramMaxVisFL->setText(maxVisFL);
+    ui->paramMaxIRFL->setText(maxIRFL);
+}
+
+void MainWindow::setAlgoModel1Index(int high)
+{
+    ui->comboAlgoModel1->blockSignals(true);
+    ui->comboAlgoModel1->setCurrentIndex(high);
+    ui->comboAlgoModel1->blockSignals(false);
+}
+
+void MainWindow::setAlgoModel2Index(int low)
+{
+    ui->comboAlgoModel2->blockSignals(true);
+    ui->comboAlgoModel2->setCurrentIndex(low);
+    ui->comboAlgoModel2->blockSignals(false);
+}
+
+void MainWindow::setDisplayModeIndex(int index)
+{
+    ui->comboDisplayMode->blockSignals(true);
+    ui->comboDisplayMode->setCurrentIndex(index);
+    ui->comboDisplayMode->blockSignals(false);
+}
+
+void MainWindow::setWorkModeIndex(int index)
+{
+    ui->comboWorkMode->blockSignals(true);
+    ui->comboWorkMode->setCurrentIndex(index);
+    ui->comboWorkMode->blockSignals(false);
+}
+
+void MainWindow::setDigitalZoomChecked(bool checked)
+{
+    ui->checkDigitalZoom->blockSignals(true);
+    ui->checkDigitalZoom->setChecked(checked);
+    ui->checkDigitalZoom->blockSignals(false);
+}
+
+void MainWindow::setAutoZoomChecked(bool checked)
+{
+    ui->checkAutoZoom->blockSignals(true);
+    ui->checkAutoZoom->setChecked(checked);
+    ui->checkAutoZoom->blockSignals(false);
+}
+
+void MainWindow::setCaptureUploadChecked(bool checked)
+{
+    ui->checkCaptureUpload->blockSignals(true);
+    ui->checkCaptureUpload->setChecked(checked);
+    ui->checkCaptureUpload->blockSignals(false);
+}
+
+void MainWindow::setPosResetChecked(bool checked)
+{
+    ui->checkPosReset->blockSignals(true);
+    ui->checkPosReset->setChecked(checked);
+    ui->checkPosReset->blockSignals(false);
+}
+
+VideoWidget* MainWindow::videoWidget(const QString& deviceId)
+{
+    return m_videoGrid->bindDevice(deviceId);
+}
+
+void MainWindow::repaintVideoGrid()
+{
+    m_videoGrid->repaint();
+}
+
+MapWidget* MainWindow::mapWidget()
+{
+    return m_mapWidget;
+}
 
 void MainWindow::onDeviceReconnecting(int attempt, int maxRetries) {
     QString total = maxRetries > 0 ? QString("/%1").arg(maxRetries) : QStringLiteral("");

@@ -1,0 +1,20 @@
+# 日志文件
+*.log
+
+# 构建产物与 IDE 配置
+build/
+.qtcreator/
+.vscode/
+installer/
+tests/__pycache__/
+
+# 庞大的第三方库（无需修改）
+thirdparty/aws-sdk-cpp/
+thirdparty/ffmpeg/
+
+# 地图前端第三方 JS（无需修改）
+resources/leaflet.js
+resources/leaflet-semicircle.js
+resources/leaflet.polylineDecorator.js
+resources/tilecache.js
+resources/map.html

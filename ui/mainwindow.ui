@@ -463,20 +463,20 @@
         </layout>
        </widget>
       </item>
-       <item>
-        <widget class="QScrollArea" name="scrollAreaControl">
-         <property name="minimumSize">
-          <size>
-           <width>360</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>440</width>
-           <height>16777215</height>
-          </size>
-         </property>
+      <item>
+       <widget class="QScrollArea" name="scrollAreaControl">
+        <property name="minimumSize">
+         <size>
+          <width>360</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>440</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <property name="horizontalScrollBarPolicy">
          <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
         </property>
@@ -488,26 +488,26 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>564</width>
-           <height>790</height>
+           <width>665</width>
+           <height>817</height>
           </rect>
          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_control">
-           <property name="spacing">
-            <number>4</number>
-           </property>
-           <property name="leftMargin">
-            <number>5</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>20</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
+         <layout class="QVBoxLayout" name="verticalLayout_control">
+          <property name="spacing">
+           <number>4</number>
+          </property>
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>20</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
           <item>
            <widget class="QGroupBox" name="groupAiAlgo">
             <property name="title">
@@ -912,7 +912,6 @@
                </item>
               </layout>
              </item>
-
              <item>
               <layout class="QHBoxLayout" name="horizontalLayout_wiper_current">
                <item>
@@ -924,21 +923,21 @@
                </item>
                <item>
                 <widget class="QLineEdit" name="editWiperCurrent">
-                 <property name="placeholderText">
-                  <string>输入电流0-2000，回车设置</string>
-                 </property>
                  <property name="minimumSize">
                   <size>
                    <width>150</width>
                    <height>0</height>
                   </size>
                  </property>
+                 <property name="placeholderText">
+                  <string>输入电流0-2000，回车设置</string>
+                 </property>
                 </widget>
                </item>
                <item>
                 <spacer name="horizontalSpacer_wiper_current">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>

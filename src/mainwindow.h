@@ -67,12 +67,16 @@ private slots:
     // ── 设备连接相关 ──
     void on_btnConnect_clicked();           // 连接/断开设备按钮
     void on_btnCancelConnect_clicked();     // 取消正在进行的连接
+
+public slots:
+    // 以下槽由 MainPresenter 通过事件总线回调触发
     void onDeviceConnected();               // 设备连接成功回调
     void onDeviceDisconnected();            // 设备断开回调
     void onErrorOccurred(const QString& errorMsg);  // 连接错误处理
-    void onAckReceived(quint8 statusCode);  // T-JSON ACK 应答处理
+    void onDeviceReconnecting(int attempt, int maxRetries);
+    void onDeviceReconnectFailed();         // T-JSON ACK 应答处理
 
-    // ── JSON 数据与抓拍 ──        // 收到设备 JSON 帧
+    // ── JSON 数据与抓拍 ──
     void onImageSnapped(const QByteArray& jpegData,     // 抓拍图像回调
                         const QRect& location);
 
@@ -103,7 +107,8 @@ private slots:
     // ── RTSP 视频流 ──
     void on_btnVideoConnect_clicked();      // 连接 RTSP 视频流
     void on_btnVideoDisconnect_clicked();   // 断开 RTSP 视频流
-    void onRtspFrame(const QImage &frame);  // 收到一帧视频图像
+
+public slots:
     void onRtspOpened();                    // RTSP 连接成功
     void onRtspError(const QString &msg);   // RTSP 连接出错
     void onVideoSelection(int cx, int cy, int pw, int ph); // 视频画面框选
@@ -113,6 +118,7 @@ private:
 public:
     Ui::MainWindow* getUi() const { return ui; }
     bool requireConnected();
+    bool requireMotorReady();                       // 检查电机串口是否就绪
     bool m_rtspEverOpened = false;
     double m_deviceHeight = 0;
     VideoGridWidget *m_videoGrid;
@@ -188,23 +194,18 @@ public:          // 地图控件（单实例，迷你/全屏切换，含内建�
     // ── 日志窗口 ──
     CmdLogDialog *m_logDialog = nullptr;
 
-    // ── ACK 处理：记录最近一次发送的帧类型，用于判断 ACK 状态码含义 ──
-    FrameType m_lastAckFrameType = FrameType::Status;
-
     // ── 迷你地图控制 ──
     void toggleMap();                               // 切换地图显示/隐藏
     void toggleMapMode();                           // 切换迷你/全屏模式
     void updateMapLayout();                         // 更新地图尺寸和位置
 
     // ── 私有工具方法 ──
-    bool requireMotorReady();                       // 检查电机串口是否就绪
     void updateMotorButtons();                      // 根据电机协议更新按钮状态
     void setupUiStyles();                           // 加载并应用 QSS 样式表 // 解析 JSON 帧并更新所有 UI
     void updateLensStats();                         // 更新镜头统计数据（焦距/视场角）
         // ── 地图辅助方法 ──    // 更新设备在地图上的位置 // 更新地图上的目标标记
                 double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
     int currentAlgoModel() const;
-    void sendAlgoModel(int model);
 };
 
 #endif // MAINWINDOW_H

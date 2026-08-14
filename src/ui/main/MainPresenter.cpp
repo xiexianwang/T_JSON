@@ -8,6 +8,7 @@
 #include "core/GeoCalculator.h"
 #include <QMessageBox>
 #include <QVariant>
+#include <QTimer>
 #include "ui/components/VideoGridWidget.h"
 #include <QtMath>
 
@@ -46,10 +47,47 @@ void MainPresenter::setupEventBus()
         }
     });
 
-    // connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId) {
-    //     if (deviceId == m_currentDeviceId) m_view->onDeviceConnected();
-    // 
+    connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId) {
+        if (deviceId == m_currentDeviceId) {
+            // 初始化设备参数
+            motorController()->queryImageParams();
+            motorController()->setDigitalZoom(m_cfg->digitalZoomEnabled());
+            motorController()->setAutoZoom(m_cfg->autoZoomEnabled());
+            motorController()->setCaptureUpload(m_cfg->captureUploadEnabled());
+            motorController()->posReset(m_cfg->posResetEnabled());
+            
+            // 通知 UI 更新
+            m_view->onDeviceConnected();
+        }
+    });
+
+    connect(bus, &EventBus::sigDeviceDisconnected, this, [this](const QString& deviceId) {
+        if (deviceId == m_currentDeviceId) m_view->onDeviceDisconnected();
+    });
+    
+    connect(bus, &EventBus::sigRtspOpened, this, [this](const QString& deviceId) {
+        if (deviceId == m_currentDeviceId) m_view->onRtspOpened();
+    });
+    connect(bus, &EventBus::sigRtspError, this, [this](const QString& deviceId, const QString& msg) {
+        if (deviceId == m_currentDeviceId) m_view->onRtspError(msg);
+    });
+    
     connect(bus, &EventBus::sigJsonReceived, this, &MainPresenter::onJsonReceived);
+    connect(bus, &EventBus::sigDeviceError, this, [this](const QString& deviceId, const QString& errorMsg) {
+        if (deviceId == m_currentDeviceId) m_view->onErrorOccurred(errorMsg);
+    });
+    connect(bus, &EventBus::sigImageSnapped, this, [this](const QString& deviceId, const QByteArray& jpegData, const QRect& location) {
+        if (deviceId == m_currentDeviceId) m_view->onImageSnapped(jpegData, location);
+    });
+    connect(bus, &EventBus::sigAckReceived, this, [this](const QString& deviceId, quint8 statusCode) {
+        if (deviceId == m_currentDeviceId) showAck(statusCode);
+    });
+    connect(bus, &EventBus::sigDeviceReconnecting, this, [this](const QString& deviceId, int attempt, int maxRetries) {
+        if (deviceId == m_currentDeviceId) m_view->onDeviceReconnecting(attempt, maxRetries);
+    });
+    connect(bus, &EventBus::sigDeviceReconnectFailed, this, [this](const QString& deviceId) {
+        if (deviceId == m_currentDeviceId) m_view->onDeviceReconnectFailed();
+    });
 }
 
 void MainPresenter::connectToDevice(const QString& ip, quint16 port)
@@ -934,4 +972,321 @@ void MainPresenter::onJsonReceived(const QString& deviceId, const QJsonObject& d
     if (deviceId == m_currentDeviceId) {
         updateStatusFromJson(doc);
     }
+}
+
+void MainPresenter::startVideoStream(const QString& url) {
+    if (videoStream()) {
+        videoStream()->openStream(url);
+    }
+}
+
+
+
+
+
+
+bool MainPresenter::isDeviceConnected() const {
+    return tcpClient() && tcpClient()->isConnected();
+}
+
+// ============================================================================
+// 电机通道初始化/切换（原 MainWindow 构造函数与设置页逻辑）
+// ============================================================================
+void MainPresenter::initMotorChannel()
+{
+    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
+        motorController()->openMotorSerial(m_cfg->motorComPort());
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        motorController()->openMotorTcp();
+    }
+}
+
+void MainPresenter::applyMotorChannel()
+{
+    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
+        motorController()->openMotorSerial(m_cfg->motorComPort());
+        motorController()->closeMotorTcp();
+    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        motorController()->openMotorTcp();
+        motorController()->closeMotorSerial();
+    } else {
+        motorController()->closeMotorSerial();
+        motorController()->closeMotorTcp();
+    }
+}
+
+// ============================================================================
+// 雨刷电机控制
+// ============================================================================
+void MainPresenter::onWiperStart()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorStart();
+}
+
+void MainPresenter::onWiperStop()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorStop();
+    QTimer::singleShot(50, this, [this]() {
+        motorController()->motorReturnZero();
+    });
+}
+
+void MainPresenter::onWiperJogLeft()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorJogLeft();
+}
+
+void MainPresenter::onWiperJogRight()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorJogRight();
+}
+
+void MainPresenter::onWiperJogStop()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorStop();
+}
+
+void MainPresenter::onWiperZeroCalib()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorZeroCalib();
+}
+
+void MainPresenter::onWiperMode()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorToggleMode();
+    QTimer::singleShot(500, this, [this]() {
+        motorController()->motorCheckMode();
+    });
+}
+
+void MainPresenter::onWiperSilent()
+{
+    if (!m_view->requireMotorReady()) return;
+    motorController()->motorToggleSilentMode();
+}
+
+void MainPresenter::onWiperCurrentSet()
+{
+    if (!m_view->requireMotorReady()) return;
+    int ma = m_view->getUi()->editWiperCurrent->text().toInt();
+    motorController()->motorSetCurrent(ma);
+    m_view->getUi()->statusbar->showMessage(
+        QString("正在下发并固化电机电流: %1 mA").arg(ma), 3000);
+}
+
+void MainPresenter::checkMotorMode()
+{
+    motorController()->motorCheckMode();
+}
+
+// ============================================================================
+// 预置位与复位
+// ============================================================================
+void MainPresenter::on_btnCallPreset_clicked()
+{
+    if (!m_view->requireConnected()) return;
+    motorController()->callPreset(m_view->getUi()->spinPreset->value());
+}
+
+void MainPresenter::on_btnSetPreset_clicked()
+{
+    if (!m_view->requireConnected()) return;
+    motorController()->setPreset(m_view->getUi()->spinPreset->value());
+}
+
+void MainPresenter::on_btnDelPreset_clicked()
+{
+    if (!m_view->requireConnected()) return;
+    motorController()->delPreset(m_view->getUi()->spinPreset->value());
+}
+
+void MainPresenter::on_btnPtzReset_clicked()
+{
+    if (!m_view->requireConnected()) return;
+    motorController()->callPreset(0);
+}
+
+// ============================================================================
+// 附加功能开关（下发设备指令 + 持久化配置 + ACK 帧类型记录）
+// ============================================================================
+void MainPresenter::onCheckDigitalZoomToggled(bool checked)
+{
+    if (!m_view->requireConnected()) {
+        m_view->getUi()->checkDigitalZoom->blockSignals(true);
+        m_view->getUi()->checkDigitalZoom->setChecked(!checked);
+        m_view->getUi()->checkDigitalZoom->blockSignals(false);
+        return;
+    }
+    m_lastAckFrameType = FrameType::SetDigitalZoom;
+    motorController()->setDigitalZoom(checked);
+    m_cfg->setDigitalZoomEnabled(checked);
+    m_cfg->save();
+}
+
+void MainPresenter::onCheckAutoZoomToggled(bool checked)
+{
+    if (!m_view->requireConnected()) {
+        m_view->getUi()->checkAutoZoom->blockSignals(true);
+        m_view->getUi()->checkAutoZoom->setChecked(!checked);
+        m_view->getUi()->checkAutoZoom->blockSignals(false);
+        return;
+    }
+    m_lastAckFrameType = FrameType::SetAlgoModel;
+    motorController()->setAutoZoom(checked);
+    m_cfg->setAutoZoomEnabled(checked);
+    m_cfg->save();
+}
+
+void MainPresenter::onCheckCaptureUploadToggled(bool checked)
+{
+    if (!m_view->requireConnected()) {
+        m_view->getUi()->checkCaptureUpload->blockSignals(true);
+        m_view->getUi()->checkCaptureUpload->setChecked(!checked);
+        m_view->getUi()->checkCaptureUpload->blockSignals(false);
+        return;
+    }
+    m_lastAckFrameType = FrameType::SetCaptureState;
+    motorController()->setCaptureUpload(checked);
+    m_cfg->setCaptureUploadEnabled(checked);
+    m_cfg->save();
+}
+
+void MainPresenter::onCheckPosResetToggled(bool checked)
+{
+    if (!m_view->requireConnected()) {
+        m_view->getUi()->checkPosReset->blockSignals(true);
+        m_view->getUi()->checkPosReset->setChecked(!checked);
+        m_view->getUi()->checkPosReset->blockSignals(false);
+        return;
+    }
+    m_lastAckFrameType = FrameType::SetPosReset;
+    motorController()->posReset(checked);
+    m_cfg->setPosResetEnabled(checked);
+    m_cfg->save();
+}
+
+// ============================================================================
+// 框选/点选跟踪
+// ============================================================================
+void MainPresenter::onVideoSelection(int cx, int cy, int pw, int ph)
+{
+    int wm = m_view->getUi()->comboWorkMode->currentIndex();
+    if (wm != 3 && wm != 4) {
+        m_view->getUi()->statusbar->showMessage(
+            QString::fromUtf8("仅在点选跟踪或框选跟踪模式下支持框选"), 3000);
+        return;
+    }
+
+    if (wm == 3) {
+        m_view->getUi()->statusbar->showMessage(
+            QString::fromUtf8("点选跟踪: 像素中心(%1,%2)").arg(cx).arg(cy));
+        if (!m_view->requireConnected()) return;
+        motorController()->setPointTrack(cx, cy);
+    } else {
+        m_view->getUi()->statusbar->showMessage(
+            QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
+                .arg(cx).arg(cy).arg(pw).arg(ph));
+        if (!m_view->requireConnected()) return;
+        motorController()->setBoxTrack(cx, cy, pw, ph);
+    }
+}
+
+// ============================================================================
+// 工作模式 / 算法模型 / 显示模式
+// ============================================================================
+void MainPresenter::onComboWorkModeChanged(int index)
+{
+    // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
+    if (auto vw = m_view->m_videoGrid->getWidget("default_device"))
+        vw->setSelectionEnabled(index == 3 || index == 4);
+
+    if (m_view->m_updatingFromDevice) return;
+
+    if (!m_view->requireConnected()) {
+        m_view->m_updatingFromDevice = true;
+        m_view->getUi()->comboWorkMode->setCurrentIndex(m_view->m_previousWorkMode);
+        m_view->m_updatingFromDevice = false;
+        return;
+    }
+    m_view->m_previousWorkMode = index;
+    motorController()->setWorkMode(index);
+    motorController()->queryImageParams();
+}
+
+void MainPresenter::sendAlgoModel(int model)
+{
+    if (m_view->m_updatingFromDevice) return;
+    if (!m_view->requireConnected()) return;
+    m_view->m_currentAlgoModel = model;
+    m_view->m_previousAlgoModel = model;
+    motorController()->setAlgoModel(model);
+    motorController()->queryImageParams();
+}
+
+void MainPresenter::onComboDisplayModeChanged(int index)
+{
+    if (!m_view->requireConnected()) {
+        m_view->getUi()->comboDisplayMode->blockSignals(true);
+        m_view->getUi()->comboDisplayMode->setCurrentIndex(m_view->m_previousDisplayMode);
+        m_view->getUi()->comboDisplayMode->blockSignals(false);
+        return;
+    }
+    if (m_view->m_updatingFromDevice) return;
+    // 根据显示模式自动切换算法模型：0/2/3→可见光模型，1/4→红外模型
+    // 直接下发不触发 queryImageParams，避免设备返回旧数据覆盖显示模式
+    {
+        int algoIdx = (index == 1 || index == 4) ? 1 : 0;
+        if ((m_view->m_currentAlgoModel / 10) != algoIdx) {
+            int low = m_view->getUi()->comboAlgoModel2->currentIndex();
+            int model = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
+            m_view->m_currentAlgoModel = model;
+            m_view->getUi()->comboAlgoModel1->blockSignals(true);
+            m_view->getUi()->comboAlgoModel1->setCurrentIndex(algoIdx);
+            m_view->getUi()->comboAlgoModel1->blockSignals(false);
+            motorController()->setAlgoModel(model);
+        }
+    }
+    // 延后发送显示模式，避免与 setAlgoModel 间隔过近被设备忽略
+    QTimer::singleShot(150, this, [this]() {
+        if (isDeviceConnected()) {
+            int idx = m_view->getUi()->comboDisplayMode->currentIndex();
+            motorController()->setDisplayMode(idx);
+        }
+    });
+}
+
+// ============================================================================
+// ACK 应答处理（原 MainWindow::onAckReceived）
+// ACK 状态码: 0=正常, 1=包不完整, 2=协议内容错误
+// SetDigitalZoom/SetCaptureState/SetPosReset 设备固定回 1，按成功处理
+// ============================================================================
+void MainPresenter::showAck(quint8 statusCode)
+{
+    if (statusCode == 0) {
+        m_view->getUi()->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
+        return;
+    }
+    if (statusCode == 1) {
+        if (m_lastAckFrameType == FrameType::SetDigitalZoom
+            || m_lastAckFrameType == FrameType::SetCaptureState
+            || m_lastAckFrameType == FrameType::SetPosReset) {
+            m_view->getUi()->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
+            return;
+        }
+        m_view->getUi()->statusbar->showMessage(QString::fromUtf8("[ACK] 包不完整"), 3000);
+        return;
+    }
+    QString msg;
+    switch (statusCode) {
+    case 2: msg = QString::fromUtf8("协议内容错误"); break;
+    default: msg = QString::fromUtf8("未知状态码: %1").arg(statusCode);
+    }
+    m_view->getUi()->statusbar->showMessage(QString::fromUtf8("[ACK] %1").arg(msg), 3000);
 }

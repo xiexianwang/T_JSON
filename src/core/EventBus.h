@@ -28,7 +28,12 @@ public:
     // --- 发布事件的方法 (向总线投递) ---
     void postDeviceConnected(const QString& deviceId);
     void postDeviceDisconnected(const QString& deviceId);
+    void postAckReceived(const QString& deviceId, quint8 statusCode);
+    void postDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries);
+    void postDeviceReconnectFailed(const QString& deviceId);
     void postDeviceError(const QString& deviceId, const QString& errorMsg);
+    void postRtspOpened(const QString& deviceId);
+    void postRtspError(const QString& deviceId, const QString& errorMsg);
     void postJsonReceived(const QString& deviceId, const QJsonObject& doc);
     void postImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
     void postPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
@@ -41,7 +46,12 @@ signals:
     // --- 订阅事件的信号 (业务层或 UI 层去监听) ---
     void sigDeviceConnected(const QString& deviceId);
     void sigDeviceDisconnected(const QString& deviceId);
+    void sigAckReceived(const QString& deviceId, quint8 statusCode);
+    void sigDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries);
+    void sigDeviceReconnectFailed(const QString& deviceId);
     void sigDeviceError(const QString& deviceId, const QString& errorMsg);
+    void sigRtspOpened(const QString& deviceId);
+    void sigRtspError(const QString& deviceId, const QString& errorMsg);
     void sigJsonReceived(const QString& deviceId, const QJsonObject& doc);
     void sigImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
     void sigPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);

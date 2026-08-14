@@ -64,3 +64,17 @@ void EventBus::postDeviceFrameReady(const QString& deviceId, const QImage& frame
     emit sigDeviceFrameReady(deviceId, frame);
 }
 
+
+void EventBus::postRtspOpened(const QString& deviceId)
+{
+    emit sigRtspOpened(deviceId);
+}
+
+void EventBus::postRtspError(const QString& deviceId, const QString& errorMsg)
+{
+    emit sigRtspError(deviceId, errorMsg);
+}
+
+void EventBus::postAckReceived(const QString& deviceId, quint8 statusCode) { emit sigAckReceived(deviceId, statusCode); }
+void EventBus::postDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries) { emit sigDeviceReconnecting(deviceId, attempt, maxRetries); }
+void EventBus::postDeviceReconnectFailed(const QString& deviceId) { emit sigDeviceReconnectFailed(deviceId); }

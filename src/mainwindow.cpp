@@ -128,12 +128,8 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
 
-    // 根据配置自动初始化连接
-    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
-        m_presenter->motorController()->openMotorSerial(m_cfg->motorComPort());
-    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
-        m_presenter->motorController()->openMotorTcp();
-    }
+    // 根据配置自动初始化电机通道
+    m_presenter->initMotorChannel();
 
     connect(m_presenter->ptzForwarder(), &PtzForwarder::ptzAnglesUpdated, this, [this](double, double) {
         // 转台角度已改用 8089 端口 JSON 数据更新
@@ -223,9 +219,6 @@ MainWindow::MainWindow(QWidget *parent)
     // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
     // VideoWidget 的 selectionFinished 信号用于框选跟踪
     //============================================================================
-    connect(m_presenter->videoStream(), &RtspThread::frameReady, this, &MainWindow::onRtspFrame);
-    connect(m_presenter->videoStream(), &RtspThread::streamOpened, this, &MainWindow::onRtspOpened);
-    connect(m_presenter->videoStream(), &RtspThread::streamError, this, &MainWindow::onRtspError);
     if (VideoWidget* vw = m_videoGrid->getWidget("default_device")) {
         connect(vw, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
     }
@@ -234,31 +227,11 @@ MainWindow::MainWindow(QWidget *parent)
     // T-JSON 协议信号连接
     // TJsonClient 管理 TCP 长连接、心跳保活、JSON 帧收发与自动重连
     //============================================================================
-    connect(m_presenter->tcpClient(), &TJsonClient::deviceConnected, this, &MainWindow::onDeviceConnected);
-    connect(m_presenter->tcpClient(), &TJsonClient::deviceDisconnected, this, &MainWindow::onDeviceDisconnected);
-    connect(m_presenter->tcpClient(), &TJsonClient::errorOccurred, this, &MainWindow::onErrorOccurred);
-    connect(m_presenter->tcpClient(), &TJsonClient::imageSnapped, this, &MainWindow::onImageSnapped);
-    connect(m_presenter->tcpClient(), &TJsonClient::ackReceived, this, &MainWindow::onAckReceived);
     
     // 自动重连信号：每次重连尝试时更新按钮文本与状态栏提示
-    connect(m_presenter->tcpClient(), &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
-        Q_UNUSED(maxRetries);
-        ui->btnConnect->setText(QString::fromUtf8("重连中(次数:%1)").arg(attempt));
-        ui->btnConnect->setEnabled(false);
-        ui->btnConnect->setProperty("state", "reconnecting");
-        refreshStyle(ui->btnConnect);
-        ui->btnCancelConnect->setVisible(true);
-        ui->statusbar->showMessage(QString::fromUtf8("网络波动，正在进行第 %1 次自动探测重连...").arg(attempt));
-    });
+
     // 重连失败：恢复按钮初始状态
-    connect(m_presenter->tcpClient(), &TJsonClient::reconnectFailed, this, [this]() {
-        ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-        ui->btnConnect->setEnabled(true);
-        ui->btnConnect->setProperty("state", QVariant());
-        refreshStyle(ui->btnConnect);
-        ui->btnCancelConnect->setVisible(false);
-        ui->statusbar->showMessage(QString::fromUtf8("重连失败，已放弃连接"), 5000);
-    });
+
 
     //============================================================================
     // 云台八方向控制 (基于 Pelco-D 协议)
@@ -267,7 +240,7 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
         connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_presenter->motorController()->ptzMove(dir); });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->tcpClient()->isConnected()) return; m_presenter->motorController()->ptzStop(); });
+        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->motorController()->ptzStop(); });
     };
 
     connectPtzBtn(ui->btnPtzUp, PtzDir::Up);
@@ -310,7 +283,7 @@ MainWindow::MainWindow(QWidget *parent)
             else if (op == 2) m_presenter->motorController()->lensFocusIn(t);
             else m_presenter->motorController()->lensFocusOut(t);
         });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->tcpClient()->isConnected()) return; m_presenter->motorController()->lensStop(); });
+        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->motorController()->lensStop(); });
     };
 
     connectLensBtn(ui->btnZoomIn, 0);
@@ -336,16 +309,13 @@ MainWindow::MainWindow(QWidget *parent)
     // 通过 spinPreset 选择预置位编号，调用 DeviceController 中的协议封装
     //============================================================================
     connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
-        if (!requireConnected()) return;
-        m_presenter->motorController()->callPreset(ui->spinPreset->value());
+        m_presenter->on_btnCallPreset_clicked();
     });
     connect(ui->btnSetPreset, &QPushButton::clicked, this, [this]() {
-        if (!requireConnected()) return;
-        m_presenter->motorController()->setPreset(ui->spinPreset->value());
+        m_presenter->on_btnSetPreset_clicked();
     });
     connect(ui->btnDelPreset, &QPushButton::clicked, this, [this]() {
-        if (!requireConnected()) return;
-        m_presenter->motorController()->delPreset(ui->spinPreset->value());
+        m_presenter->on_btnDelPreset_clicked();
     });
 
     //============================================================================
@@ -353,43 +323,22 @@ MainWindow::MainWindow(QWidget *parent)
     // 每个 CheckBox 直连对应的设备指令
     //============================================================================
     connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) { ui->checkDigitalZoom->blockSignals(true); ui->checkDigitalZoom->setChecked(!checked); ui->checkDigitalZoom->blockSignals(false); return; }
-        m_lastAckFrameType = FrameType::SetDigitalZoom;
-        m_presenter->motorController()->setDigitalZoom(checked);
-        m_cfg->setDigitalZoomEnabled(checked);
-        m_cfg->save();
+        m_presenter->onCheckDigitalZoomToggled(checked);
     });
     connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) { ui->checkAutoZoom->blockSignals(true); ui->checkAutoZoom->setChecked(!checked); ui->checkAutoZoom->blockSignals(false); return; }
-        m_lastAckFrameType = FrameType::SetAlgoModel;
-        m_presenter->motorController()->setAutoZoom(checked);
-        m_cfg->setAutoZoomEnabled(checked);
-        m_cfg->save();
+        m_presenter->onCheckAutoZoomToggled(checked);
     });
     connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) { ui->checkCaptureUpload->blockSignals(true); ui->checkCaptureUpload->setChecked(!checked); ui->checkCaptureUpload->blockSignals(false); return; }
-        m_lastAckFrameType = FrameType::SetCaptureState;
-        m_presenter->motorController()->setCaptureUpload(checked);
-        m_cfg->setCaptureUploadEnabled(checked);
-        m_cfg->save();
+        m_presenter->onCheckCaptureUploadToggled(checked);
     });
     connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!requireConnected()) { ui->checkPosReset->blockSignals(true); ui->checkPosReset->setChecked(!checked); ui->checkPosReset->blockSignals(false); return; }
-        m_lastAckFrameType = FrameType::SetPosReset;
-        m_presenter->motorController()->posReset(checked);
-        m_cfg->setPosResetEnabled(checked);
-        m_cfg->save();
+        m_presenter->onCheckPosResetToggled(checked);
     });
     connect(ui->btnWiperStart, &QPushButton::clicked, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorStart();
+        m_presenter->onWiperStart();
     });
     connect(ui->btnWiperStop, &QPushButton::clicked, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorStop();
-        QTimer::singleShot(50, this, [this]() {
-            m_presenter->motorController()->motorReturnZero();
-        });
+        m_presenter->onWiperStop();
     });
     connect(m_presenter->motorController(), &DeviceController::motorModeResult, this, [this](bool isManual) {
         ui->statWiperStatus->setText(isManual ? "手动" : "自动");
@@ -399,49 +348,36 @@ MainWindow::MainWindow(QWidget *parent)
         qWarning() << "电机串口错误:" << msg;
     });
     connect(ui->btnWiperLeft, &QPushButton::pressed, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorJogLeft();
+        m_presenter->onWiperJogLeft();
     });
     connect(ui->btnWiperLeft, &QPushButton::released, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorStop();
+        m_presenter->onWiperJogStop();
     });
     connect(ui->btnWiperRight, &QPushButton::pressed, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorJogRight();
+        m_presenter->onWiperJogRight();
     });
     connect(ui->btnWiperRight, &QPushButton::released, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorStop();
+        m_presenter->onWiperJogStop();
     });
     connect(ui->btnWiperZeroCalib, &QPushButton::clicked, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorZeroCalib();
+        m_presenter->onWiperZeroCalib();
     });
     connect(ui->btnWiperMode, &QPushButton::clicked, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorToggleMode();
-        QTimer::singleShot(500, this, [this]() {
-            m_presenter->motorController()->motorCheckMode();
-        });
+        m_presenter->onWiperMode();
     });
     connect(ui->btnWiperSilent, &QPushButton::clicked, this, [this]() {
-        if (!requireMotorReady()) return;
-        m_presenter->motorController()->motorToggleSilentMode();
+        m_presenter->onWiperSilent();
     });
     connect(m_presenter->motorController(), &DeviceController::motorSilentResult, this, [this](bool isSilent) {
         ui->btnWiperSilent->setText(isSilent ? "狂暴模式" : "静音模式");
         ui->statusbar->showMessage(isSilent ? "电机已切换为：静音模式 (StealthChop)" : "电机已切换为：狂暴模式 (SpreadCycle)", 3000);
     });
     connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, [this]() {
-        int ma = ui->editWiperCurrent->text().toInt();
-        m_presenter->motorController()->motorSetCurrent(ma);
-        ui->statusbar->showMessage(QString("正在下发并固化电机电流: %1 mA").arg(ma), 3000);
+        m_presenter->onWiperCurrentSet();
     });
 
     connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
-        if (!requireConnected()) return;
-        m_presenter->motorController()->callPreset(0);
+        m_presenter->on_btnPtzReset_clicked();
     });
 
     //============================================================================
@@ -615,8 +551,8 @@ void MainWindow::onTrayExit()
         if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
         m_presenter->videoStream()->closeStream();
     }
-    if (m_presenter->tcpClient()->isConnected())
-        m_presenter->tcpClient()->disconnectDevice();
+    if (m_presenter->isDeviceConnected())
+        m_presenter->disconnectDevice();
     qApp->quit();
 }
 
@@ -640,16 +576,7 @@ void MainWindow::on_btnNavSettings_clicked() {
     dlg.exec();
 
     // 电机协议变更后重新打开串口
-    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
-        m_presenter->motorController()->openMotorSerial(m_cfg->motorComPort());
-        m_presenter->motorController()->closeMotorTcp();
-    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
-        m_presenter->motorController()->openMotorTcp();
-        m_presenter->motorController()->closeMotorSerial();
-    } else {
-        m_presenter->motorController()->closeMotorSerial();
-        m_presenter->motorController()->closeMotorTcp();
-    }
+    m_presenter->applyMotorChannel();
     updateMotorButtons();
 
     // 重启 PTZ 转发服务
@@ -858,13 +785,7 @@ void MainWindow::on_btnVideoDisconnect_clicked()
 // onRtspFrame - 收到一帧 RTSP 视频图像
 // 将解码后的 QImage 传递给 VideoWidget 进行渲染
 //============================================================================
-void MainWindow::onRtspFrame(const QImage &frame)
-{
-    QString devId = m_presenter->currentDeviceId();
-    if (VideoWidget* vw = m_videoGrid->getWidget(devId)) {
-        vw->setFrame(frame);
-    }
-}
+
 
 //============================================================================
 // onRtspOpened - RTSP 视频流成功打开
@@ -905,25 +826,7 @@ void MainWindow::onRtspError(const QString &msg)
 //============================================================================
 void MainWindow::onVideoSelection(int cx, int cy, int pw, int ph)
 {
-    int wm = ui->comboWorkMode->currentIndex();
-    if (wm != 3 && wm != 4) {
-        ui->statusbar->showMessage(QString::fromUtf8("仅在点选跟踪或框选跟踪模式下支持框选"), 3000);
-        return;
-    }
-
-    if (wm == 3) {
-        ui->statusbar->showMessage(
-            QString::fromUtf8("点选跟踪: 像素中心(%1,%2)")
-                .arg(cx).arg(cy));
-        if (!requireConnected()) return;
-        m_presenter->motorController()->setPointTrack(cx, cy);
-    } else {
-        ui->statusbar->showMessage(
-            QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
-                .arg(cx).arg(cy).arg(pw).arg(ph));
-        if (!requireConnected()) return;
-        m_presenter->motorController()->setBoxTrack(cx, cy, pw, ph);
-    }
+    m_presenter->onVideoSelection(cx, cy, pw, ph);
 }
 
 //============================================================================
@@ -943,13 +846,8 @@ void MainWindow::onDeviceConnected()
     m_displayModeInitialized = false;
     m_algoModelInitialized = false;
     // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
-    m_presenter->motorController()->queryImageParams();
 
     // 连接后同步所有缓存开关状态，确保设备与 UI 一致
-    m_presenter->motorController()->setDigitalZoom(m_cfg->digitalZoomEnabled());
-    m_presenter->motorController()->setAutoZoom(m_cfg->autoZoomEnabled());
-    m_presenter->motorController()->setCaptureUpload(m_cfg->captureUploadEnabled());
-    m_presenter->motorController()->posReset(m_cfg->posResetEnabled());
 
     // 启动系统参数定时下发
 
@@ -960,7 +858,7 @@ void MainWindow::onDeviceConnected()
             m_rtspEverOpened = true;
             ui->btnVideoConnect->setEnabled(false);
             ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
-            m_presenter->videoStream()->openStream(rtspUrl);
+            m_presenter->startVideoStream(rtspUrl);
         }
     }
 }
@@ -1003,35 +901,8 @@ void MainWindow::onErrorOccurred(const QString& errorMsg)
 }
 
 //============================================================================
-// onAckReceived - 处理设备返回的 ACK 应答
-// ACK 状态码:
-//   0 = 执行正常, 1 = 包不完整, 2 = 协议内容错误
-// SetDigitalZoom/SetCaptureState/SetPosReset 这三个指令设备固定回 1，按成功处理
+// onAckReceived - 已迁移至 MainPresenter::showAck（经 EventBus 回调）
 //============================================================================
-void MainWindow::onAckReceived(quint8 statusCode)
-{
-    if (statusCode == 0) {
-        ui->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
-        return;
-    }
-    if (statusCode == 1) {
-        // SetDigitalZoom/SetCaptureState/SetPosReset 设备固定回 1，视为成功
-        if (m_lastAckFrameType == FrameType::SetDigitalZoom
-            || m_lastAckFrameType == FrameType::SetCaptureState
-            || m_lastAckFrameType == FrameType::SetPosReset) {
-            ui->statusbar->showMessage(QString::fromUtf8("[ACK] 指令执行成功"), 3000);
-            return;
-        }
-        ui->statusbar->showMessage(QString::fromUtf8("[ACK] 包不完整"), 3000);
-        return;
-    }
-    QString msg;
-    switch (statusCode) {
-    case 2: msg = QString::fromUtf8("协议内容错误"); break;
-    default: msg = QString::fromUtf8("未知状态码: %1").arg(statusCode);
-    }
-    ui->statusbar->showMessage(QString::fromUtf8("[ACK] %1").arg(msg), 3000);
-}
 
 //============================================================================
 
@@ -1069,7 +940,7 @@ void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& locatio
 //============================================================================
 bool MainWindow::requireConnected()
 {
-    if (!m_presenter->tcpClient()->isConnected()) {
+    if (!m_presenter->isDeviceConnected()) {
         QMessageBox msgBox(this);
         msgBox.setWindowTitle(QStringLiteral("提示"));
         msgBox.setText(QStringLiteral("请连接设备"));
@@ -1130,7 +1001,7 @@ void MainWindow::updateMotorButtons()
     ui->btnWiperSilent->setEnabled(isTcp);
 
     if (isModbus && m_presenter->motorController()->isMotorSerialOpen()) {
-        m_presenter->motorController()->motorCheckMode();
+        m_presenter->checkMotorMode();
     }
 }
 
@@ -1140,20 +1011,7 @@ void MainWindow::updateMotorButtons()
 //============================================================================
 void MainWindow::on_comboWorkMode_currentIndexChanged(int index)
 {
-    // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
-    if (auto vw = m_videoGrid->getWidget("default_device")) vw->setSelectionEnabled(index == 3 || index == 4);
-
-    if (m_updatingFromDevice) return;
-
-    if (!requireConnected()) {
-        m_updatingFromDevice = true;
-        ui->comboWorkMode->setCurrentIndex(m_previousWorkMode);
-        m_updatingFromDevice = false;
-        return;
-    }
-    m_presenter->motorController()->setWorkMode(index);
-    m_previousWorkMode = index;
-    m_presenter->motorController()->queryImageParams();
+    m_presenter->onComboWorkModeChanged(index);
 }
 
 //============================================================================
@@ -1194,21 +1052,12 @@ void MainWindow::on_btnPanZeroCalib_clicked()
 void MainWindow::on_comboAlgoModel1_currentIndexChanged(int index)
 {
     int low = ui->comboAlgoModel2->currentIndex();
-    sendAlgoModel(index * 10 + (low >= 0 ? low + 2 : 0));
+    m_presenter->sendAlgoModel(index * 10 + (low >= 0 ? low + 2 : 0));
 }
 void MainWindow::on_comboAlgoModel2_currentIndexChanged(int index)
 {
     int high = ui->comboAlgoModel1->currentIndex();
-    sendAlgoModel(high * 10 + (index + 2));
-}
-void MainWindow::sendAlgoModel(int model)
-{
-    if (m_updatingFromDevice) return;
-    if (!requireConnected()) { return; }
-    m_currentAlgoModel = model;
-    m_presenter->motorController()->setAlgoModel(model);
-    m_previousAlgoModel = model;
-    m_presenter->motorController()->queryImageParams();
+    m_presenter->sendAlgoModel(high * 10 + (index + 2));
 }
 
 //============================================================================
@@ -1217,29 +1066,7 @@ void MainWindow::sendAlgoModel(int model)
 //============================================================================
 void MainWindow::on_comboDisplayMode_currentIndexChanged(int index)
 {
-    if (!requireConnected()) { ui->comboDisplayMode->blockSignals(true); ui->comboDisplayMode->setCurrentIndex(m_previousDisplayMode); ui->comboDisplayMode->blockSignals(false); return; }
-    if (m_updatingFromDevice) return;
-    // 根据显示模式自动切换算法模型：0/2/3→可见光模型，1/4→红外模型
-    // 直接下发不触发 queryImageParams，避免设备返回旧数据覆盖显示模式
-    {
-        int algoIdx = (index == 1 || index == 4) ? 1 : 0;
-        if ((m_currentAlgoModel / 10) != algoIdx) {
-            int low = ui->comboAlgoModel2->currentIndex();
-            int model = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
-            m_currentAlgoModel = model;
-            m_presenter->motorController()->setAlgoModel(model);
-            ui->comboAlgoModel1->blockSignals(true);
-            ui->comboAlgoModel1->setCurrentIndex(algoIdx);
-            ui->comboAlgoModel1->blockSignals(false);
-        }
-    }
-    // 延后发送显示模式，避免与 setAlgoModel 间隔过近被设备忽略
-    QTimer::singleShot(150, this, [this]() {
-        if (m_presenter->tcpClient()->isConnected()) {
-            int idx = ui->comboDisplayMode->currentIndex();
-            m_presenter->motorController()->setDisplayMode(idx);
-        }
-    });
+    m_presenter->onComboDisplayModeChanged(index);
 }
 
 //============================================================================
@@ -1556,3 +1383,22 @@ double MainWindow::calcVisualDistance(const QJsonObject& obj, int cls, bool upda
     return dist;
 }
 
+
+void MainWindow::onDeviceReconnecting(int attempt, int maxRetries) {
+    Q_UNUSED(maxRetries);
+    ui->btnConnect->setText(QString::fromUtf8("连接中(重试:%1)").arg(attempt));
+    ui->btnConnect->setEnabled(false);
+    ui->btnConnect->setProperty("state", "reconnecting");
+    refreshStyle(ui->btnConnect);
+    ui->btnCancelConnect->setVisible(true);
+    ui->statusbar->showMessage(QString::fromUtf8("断开，重连 %1 次...").arg(attempt));
+}
+
+void MainWindow::onDeviceReconnectFailed() {
+    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
+    ui->btnConnect->setEnabled(true);
+    ui->btnConnect->setProperty("state", QVariant());
+    refreshStyle(ui->btnConnect);
+    ui->btnCancelConnect->setVisible(false);
+    ui->statusbar->showMessage(QString::fromUtf8("重连失败"), 5000);
+}

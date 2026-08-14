@@ -125,6 +125,12 @@ void DeviceContext::setupTimers()
     connect(m_video, &RtspThread::frameReady, this, [this](const QImage& frame) {
         EventBus::instance()->postDeviceFrameReady(m_deviceId, frame);
     });
+    connect(m_video, &RtspThread::streamOpened, this, [this]() {
+        EventBus::instance()->postRtspOpened(m_deviceId);
+    });
+    connect(m_video, &RtspThread::streamError, this, [this](const QString& msg) {
+        EventBus::instance()->postRtspError(m_deviceId, msg);
+    });
 
     connect(m_tcp, &TJsonClient::deviceDisconnected, this, [this]() {
         m_sysParamTimer->stop();
@@ -136,6 +142,15 @@ void DeviceContext::setupTimers()
     });
     connect(m_tcp, &TJsonClient::imageSnapped, this, [this](const QByteArray& jpegData, const QRect& location) {
         EventBus::instance()->postImageSnapped(m_deviceId, jpegData, location);
+    });
+    connect(m_tcp, &TJsonClient::ackReceived, this, [this](quint8 statusCode) {
+        EventBus::instance()->postAckReceived(m_deviceId, statusCode);
+    });
+    connect(m_tcp, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
+        EventBus::instance()->postDeviceReconnecting(m_deviceId, attempt, maxRetries);
+    });
+    connect(m_tcp, &TJsonClient::reconnectFailed, this, [this]() {
+        EventBus::instance()->postDeviceReconnectFailed(m_deviceId);
     });
     connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc) {
         EventBus::instance()->postJsonReceived(m_deviceId, doc);

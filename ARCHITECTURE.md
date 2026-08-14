@@ -38,7 +38,10 @@ T-JSON-V1.0/
 │   │   ├── DeviceContext.*   # 单设备聚合根（TCP+RTSP+PTZ+State）
 │   │   └── DeviceManager.*   # 多设备生命周期管理（单例）
 │   └── infrastructure/       # 基础设施层
-│       ├── tjsonclient.*     # TCP 8089 协议客户端（粘包/心跳/重连）
+│       ├── tjsonframe.h      # 协议帧常量与 FrameType 枚举（Codec/Parser/Client 共享）
+│       ├── tjsonframecodec.* # 帧编解码器（粘包/半包/重同步/组包）
+│       ├── tjsonprotocolparser.* # 载荷解析（JSON/ACK/抓拍）
+│       ├── tjsonclient.*     # TCP 8089 协议客户端（Socket/心跳/重连/分发）
 │       ├── devicecontroller.*# 设备指令控制器（ProtocolBuilder）
 │       ├── rtspthread.*      # FFmpeg RTSP 拉流解码线程
 │       ├── ptzforwarder.*    # Pelco-D 串口服务器转发 + 角度偏移
@@ -63,7 +66,8 @@ T-JSON-V1.0/
 └──────────────┬──────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────── 基础设施层 ─────────────────┐
-│ infrastructure/ tjsonclient │ rtspthread │ devicecontroller │   │
+│ infrastructure/ tjsonframecodec │ tjsonprotocolparser │         │
+│ tjsonclient │ rtspthread │ devicecontroller │                  │
 │ ptzforwarder │ configmanager                                    │
 └──────────────┬──────────────────────────────────────────────────┘
                │
@@ -87,7 +91,9 @@ T-JSON-V1.0/
 | 帧解析 | `core/JsonFrameParser.*` | ZoomInfoData / AiInfoData / ImageSettingData 提取 | — | ✅ |
 | 设备上下文 | `service/DeviceContext.*` | 单设备聚合根：持有 TCP/RTSP/PTZ/State，管理定时器 | TJsonClient, RtspThread, DeviceController, PtzForwarder | ✅ |
 | 设备管理器 | `service/DeviceManager.*` | 多设备增删查，全局单例 | DeviceContext | ✅ |
-| TCP 客户端 | `infrastructure/tjsonclient.*` | 0xEC 0x91 帧收发、粘包/半包、心跳 10s、指数退避重连 | QTcpSocket | ✅ |
+| TCP 客户端 | `infrastructure/tjsonclient.*` | Socket、连接/断开、心跳 10s、指数退避重连、事件分发 | QTcpSocket, TJsonFrameCodec, TJsonProtocolParser | ✅ |
+| 帧编解码 | `infrastructure/tjsonframecodec.*` | 帧头识别、长度解析、粘包/半包、重同步、发送组包 | TJsonFrame, QByteArray | ✅ |
+| 载荷解析 | `infrastructure/tjsonprotocolparser.*` | JSON 状态帧 / ACK / 抓拍帧解析（校验和与帧尾校验） | TJsonFrame, QJsonObject | ✅ |
 | 指令控制器 | `infrastructure/devicecontroller.*` | ProtocolBuilder（Pelco-D/VISCA）、云台/镜头/预置位/雨刷、电机串口/TCP | TJsonClient, ConfigManager | ✅ |
 | RTSP 线程 | `infrastructure/rtspthread.*` | FFmpeg 拉流解码、16:9 渲染、断线重连、32 字节对齐缓冲 | FFmpeg | ✅ |
 | PTZ 转发 | `infrastructure/ptzforwarder.*` | Pelco-D 串口服务器双向转发、角度偏移、零点标定 | QTcpSocket/Server | ✅ |
@@ -138,7 +144,7 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 | 心跳 | `0x11` 双向，10s 周期，4 字节无负载 |
 | ACK | `0x12` 双向，负载 2B：`0x00 00`正常 / `0x00 01`不完整 / `0x00 02`内容错误 |
 
-主要帧类型（`tjsonclient.h` `enum class FrameType`）：Status 0x01 / Control 0x03 / ImageSnap 0x04 / QueryImageParams 0x05 / SetAreaDot 0x06 / SetDisplayMode 0x07 / SetAlgoModel 0x08 / SetCaptureState 0x09 / SetDigitalZoom 0x0A / SetPosReset 0x0B / QueryTofu7 0x0C-0x0F / Heartbeat 0x11 / Ack 0x12 / SetLocation 0x20。
+主要帧类型（`tjsonframe.h` `enum class FrameType`）：Status 0x01 / Control 0x03 / ImageSnap 0x04 / QueryImageParams 0x05 / SetAreaDot 0x06 / SetDisplayMode 0x07 / SetAlgoModel 0x08 / SetCaptureState 0x09 / SetDigitalZoom 0x0A / SetPosReset 0x0B / QueryTofu7 0x0C-0x0F / Heartbeat 0x11 / Ack 0x12 / SetLocation 0x20。
 
 **电机协议**：Pelco-D 指令包见 `docs/指令.md`；VISCA 变倍/变焦；MODBUS-RTU（9600-8-N-1）；STM32-TCP-V4.0（`5A A5 02+长度+序号+JSON`）。通道与协议经 `ConfigManager` 配置，`DeviceController` 三选一分发。
 
@@ -158,8 +164,11 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 | 死代码 | `infrastructure/s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
 | 生命周期风险 | `service/DeviceContext.*`、`infrastructure/rtspthread.*` | 设备销毁、RTSP 停止与后台线程退出需要持续验证 |
 | 多设备收口 | `ui/main/MainPresenter.cpp`、`ui/views/mainwindow.cpp` | 当前设备切换与视频控件绑定仍需继续收敛，避免业务依赖默认设备 |
+| DeviceController 过重 | `infrastructure/devicecontroller.*` | 仍同时承担 Pelco-D/VISCA/MODBUS-RTU/STM32-TCP 与串口/TCP 传输，待 5.2 拆分（`sendMotorTcpV4` 的 `waitForConnected(500)` 可能阻塞 UI 线程） |
+| DeviceContext 暴露底层 | `service/DeviceContext.*` | 仍公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()`，待 5.3 收口为业务 API |
 
 > ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
+> ✅ 已解决：`TJsonClient` 职责过重 —— 帧编解码已拆为 `TJsonFrameCodec`，载荷解析已拆为 `TJsonProtocolParser`（阶段 5.1）。
 
 ## 9. 文档导航
 

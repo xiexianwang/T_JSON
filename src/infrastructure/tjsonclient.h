@@ -2,7 +2,9 @@
 // 文件: tjsonclient.h
 // 描述: T-JSON 协议客户端。基于 TCP Socket 实现与后端设备的
 //       通信，支持 JSON 指令、二进制指令、串口透传、心跳保活
-//       以及断线自动重连。协议帧使用固定帧头 + 长度 + 载荷格式。
+//       以及断线自动重连。协议帧的编解码与载荷解析已拆分为
+//       TJsonFrameCodec / TJsonProtocolParser，本类仅负责
+//       Socket 传输、连接生命周期与事件分发。
 // ============================================================
 
 #ifndef TJSONCLIENT_H
@@ -16,28 +18,8 @@
 #include <QByteArray>
 #include <QRect>
 #include <QImage>
-
-// 帧类型枚举：定义 T-JSON 协议中所有指令帧的类型字节
-// 每个值对应帧头的第三个字节，用于区分不同功能
-enum class FrameType : quint8 {
-    Status = 0x01,              // 状态上报帧（设备 -> 客户端）
-    Control = 0x03,             // 通用控制帧
-    ImageSnap = 0x04,           // 图像抓拍帧（特殊帧头 0xEB 0x92）
-    QueryImageParams = 0x05,    // 查询图像参数
-    SetAreaDot = 0x06,          // 设置区域/点位
-    SetDisplayMode = 0x07,      // 设置显示模式（画中画等）
-    SetAlgoModel = 0x08,        // 设置算法模型
-    SetCaptureState = 0x09,     // 设置抓拍上传状态
-    SetDigitalZoom = 0x0A,      // 设置数字变焦
-    SetPosReset = 0x0B,         // 设置位置归零
-    QueryTofu7Params = 0x0C,    // 查询 Tofu7 参数
-    SetTofu7Params = 0x0D,      // 设置 Tofu7 参数
-    QueryTofu7Ignore = 0x0E,    // 查询 Tofu7 忽略区域
-    SetTofu7Ignore = 0x0F,      // 设置 Tofu7 忽略区域
-    Heartbeat = 0x11,           // 心跳帧（双向保活）
-    Ack = 0x12,                 // 确认应答帧（含状态码）
-    SetLocation = 0x20          // 设置 GPS 经纬度位置
-};
+#include "infrastructure/tjsonframe.h"
+#include "infrastructure/tjsonframecodec.h"
 
 // T-JSON 协议客户端类
 // 封装了与设备建立 TCP 连接、发送/接收协议帧、心跳保活、
@@ -93,7 +75,7 @@ private slots:
 private:
     QTcpSocket* m_socket;               // TCP Socket 实例
     QTimer* m_heartbeatTimer;           // 心跳定时器（周期 10 秒）
-    QByteArray m_buffer;                // 接收缓冲区，用于粘包处理
+    TJsonFrameCodec m_codec;            // 协议帧编解码器（粘包/半包/重同步）
 
     // 断线自动重连相关参数
     QTimer* m_reconnectTimer;           // 重连延迟定时器（单次触发）
@@ -104,9 +86,7 @@ private:
     int m_currentDelay;                 // 当前重连延迟（指数退避，初始 2 秒）
     bool m_autoReconnectEnabled;        // 自动重连是否启用
 
-    void processBuffer();               // 从缓冲区解析并分发完整协议帧
-    void parseJsonFrame(const QByteArray& payload);             // 解析 JSON 载荷
-    void parseImageSnapFrame(const QByteArray& payload);        // 解析图像抓拍帧
+    void dispatchFrame(TJsonFrameKind kind, FrameType type, const QByteArray& payload);  // 分发解析后的完整帧
     void handleReconnect();             // 触发自动重连流程（指数退避调度）
 };
 

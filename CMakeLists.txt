@@ -49,6 +49,11 @@ qt_add_executable(T-JSON
     src/ui/views/mainwindow.cpp
     src/ui/views/mainwindow.h
     ui/mainwindow.ui
+    src/infrastructure/tjsonframe.h
+    src/infrastructure/tjsonframecodec.cpp
+    src/infrastructure/tjsonframecodec.h
+    src/infrastructure/tjsonprotocolparser.cpp
+    src/infrastructure/tjsonprotocolparser.h
     src/infrastructure/tjsonclient.cpp
     src/infrastructure/tjsonclient.h
     src/infrastructure/devicecontroller.cpp

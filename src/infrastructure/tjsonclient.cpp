@@ -1,16 +1,15 @@
 ﻿// ============================================================
 // 文件: tjsonclient.cpp
-// 描述: TJsonClient 类的实现。实现了基于 TCP 的 T-JSON 协议
-//       客户端，包括帧封装/解析、心跳保活、断线自动重连（指数
-//       退避）、JSON 指令发送以及图像帧接收等功能。
+// 描述: TJsonClient 类的实现。基于 TCP 的 T-JSON 协议客户端，
+//       负责 Socket 生命周期、心跳保活、断线自动重连（指数退避）
+//       与事件分发。帧编解码由 TJsonFrameCodec 完成，载荷解析
+//       由 TJsonProtocolParser 完成。
 // ============================================================
 
 #include "tjsonclient.h"
-#include "core/EventBus.h"
-#include <QDataStream>
+#include "infrastructure/tjsonprotocolparser.h"
 #include <QtEndian>
 #include <QDebug>
-#include <QJsonParseError>
 #include <QNetworkProxy>
 
 // 构造函数：初始化 Socket、心跳定时器和重连定时器
@@ -127,26 +126,12 @@ void TJsonClient::sendJsonCmd(const QJsonObject& cmd, FrameType type)
     sendBinaryCmd(type, jsonData);
 }
 
-// 发送二进制协议帧
-// 帧格式: [0xEC][0x91][type(1B)][length(4B big-endian)][payload]
+// 发送二进制协议帧（组包由 TJsonFrameCodec 完成）
 void TJsonClient::sendBinaryCmd(FrameType type, const QByteArray& payload)
 {
     if (!isConnected()) return;
 
-    quint32 length = payload.size();
-    QByteArray frame;
-    frame.append(static_cast<char>(0xEC));      // 帧头字节 1
-    frame.append(static_cast<char>(0x91));      // 帧头字节 2
-    frame.append(static_cast<char>(type));      // 帧类型
-
-    // 载荷长度，以大端序写入 4 字节
-    quint32 lenBE = qToBigEndian(length);
-    frame.append(reinterpret_cast<const char*>(&lenBE), 4);
-
-    if (length > 0) {
-        frame.append(payload);                  // 附加载荷
-    }
-    m_socket->write(frame);                     // 写入 Socket 发送
+    m_socket->write(TJsonFrameCodec::buildStandardFrame(type, payload));
 }
 
 // 构建串口透传 JSON 指令
@@ -166,20 +151,19 @@ void TJsonClient::sendSerialCmd(const QString& serialType, const QByteArray& dat
     sendJsonCmd(cmd, FrameType::Control);       // 以控制帧类型发送
 }
 
-// 发送心跳帧（固定字节：EC 91 11 00 00 00 00）
+// 发送心跳帧
 void TJsonClient::sendHeartbeat()
 {
     if (!isConnected()) return;
 
-    QByteArray frame = QByteArray::fromHex("EC911100000000");
-    m_socket->write(frame);
+    m_socket->write(TJsonFrameCodec::buildHeartbeatFrame());
 }
 
 // Socket 连接成功建立后的处理
 // 清空缓冲区、重置重连参数、启动心跳定时器并立即发送一次心跳
 void TJsonClient::onSocketConnected()
 {
-    m_buffer.clear();                           // 清空残留在缓冲区中的数据
+    m_codec.clear();                            // 清空残留在缓冲区中的数据
     m_retryCount = 0;                           // 重置重连计数
     m_currentDelay = 2000;                      // 重置退避延迟
     m_reconnectTimer->stop();                   // 停止待处理重连
@@ -213,168 +197,44 @@ void TJsonClient::onSocketError(QAbstractSocket::SocketError)
 }
 
 // Socket 可读数据的入口
-// 将新到达的数据追加到缓冲区后调用 processBuffer 进行解析
+// 将新到达的数据追加到编解码器后切帧并分发
 void TJsonClient::onReadyRead()
 {
-    m_buffer.append(m_socket->readAll());
-    processBuffer();
+    m_codec.feed(m_socket->readAll());
+
+    TJsonFrameKind kind;
+    FrameType type;
+    QByteArray payload;
+    while (m_codec.nextFrame(kind, type, payload)) {
+        dispatchFrame(kind, type, payload);
+    }
 }
 
-// 协议缓冲区解析核心逻辑
-// 循环检测缓冲区中的帧头并提取完整帧，支持两种帧格式：
-//   1. 标准帧头 0xEC91 —— JSON/控制/状态帧
-//   2. 特殊帧头 0xEB92 —— 图像抓拍帧
-// 对于无法识别的数据，向后搜索下一个有效帧头进行对齐
-void TJsonClient::processBuffer()
+// 完整帧分发：按帧类别解析并发射对应信号
+//   - ACK 帧：状态码 2 字节大端整数
+//   - 心跳帧：忽略
+//   - 抓拍帧：解析 JPEG 数据与画面区域
+//   - 其余标准帧：按 JSON 解析
+void TJsonClient::dispatchFrame(TJsonFrameKind kind, FrameType type, const QByteArray& payload)
 {
-    const quint32 MAX_JSON_LENGTH = 10 * 1024 * 1024;   // JSON 帧最大 10 MB
-    const quint32 MAX_JPEG_LENGTH = 50 * 1024 * 1024;   // JPEG 帧最大 50 MB
+    if (kind == TJsonFrameKind::Snap) {
+        TJsonProtocolParser::SnapResult result;
+        if (TJsonProtocolParser::parseImageSnap(payload, result)) {
+            emit imageSnapped(result.jpegData, result.location);
+        }
+        return;
+    }
 
-    // 最小帧头为 7 字节（2 字节帧头 + 1 字节类型 + 4 字节长度）
-    while (m_buffer.size() >= 7) {
-        quint8 b1 = static_cast<quint8>(m_buffer.at(0));
-        quint8 b2 = static_cast<quint8>(m_buffer.at(1));
+    if (type == FrameType::Ack && payload.size() == 2) {
+        emit ackReceived(TJsonProtocolParser::parseAck(payload));
+        return;
+    }
 
-        if (b1 == 0xEC && b2 == 0x91) {
-            // ----- 标准帧 (0xEC91) 处理 -----
-            quint32 length;
-            memcpy(&length, m_buffer.constData() + 3, 4);
-            length = qFromBigEndian(length);            // 大端转主机字节序
-
-            // 长度合法性检查，防止恶意或异常数据导致内存问题
-            if (length > MAX_JSON_LENGTH) {
-                qWarning() << "Abnormal JSON length detected:" << length << ". Discarding header.";
-                m_buffer.remove(0, 2);                  // 丢弃无效帧头的前 2 字节
-                continue;
-            }
-
-            // 检查缓冲区是否已收齐完整帧（7 字节头 + 载荷长度）
-            if (static_cast<quint32>(m_buffer.size()) < 7 + length) {
-                return;                                 // 数据不足，等待更多数据
-            }
-
-            quint8 type = static_cast<quint8>(m_buffer.at(2));
-            QByteArray payload = m_buffer.mid(7, length);
-            m_buffer.remove(0, 7 + length);             // 从缓冲区移除已处理帧
-
-            // ACK 帧：状态码为 2 字节大端整数
-            if (type == static_cast<quint8>(FrameType::Ack) && payload.size() == 2) {
-                quint16 statusCode = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(payload.constData()));
-                emit ackReceived(static_cast<quint8>(statusCode));
-            } else if (type != static_cast<quint8>(FrameType::Heartbeat) && !payload.isEmpty()) {
-                // 非心跳帧且有载荷时，尝试按 JSON 解析
-                parseJsonFrame(payload);
-            }
-
-        } else if (b1 == 0xEB && b2 == 0x92) {
-            // ----- 图像抓拍帧 (0xEB92) 处理 -----
-            // 图像帧固定帧头 18 字节：2(帧头) + 1(类型) + 4(JPEG大小) + 11(坐标/保留)
-            if (m_buffer.size() < 18) return;
-
-            quint32 jpegSize;
-            memcpy(&jpegSize, m_buffer.constData() + 3, 4);
-            jpegSize = qFromBigEndian(jpegSize);
-
-            // JPEG 大小合法性检查
-            if (jpegSize > MAX_JPEG_LENGTH) {
-                qWarning() << "Abnormal JPEG length detected:" << jpegSize << ". Discarding header.";
-                m_buffer.remove(0, 2);
-                continue;
-            }
-
-            quint32 totalFrameSize = 18 + jpegSize;     // 完整帧大小
-            if (static_cast<quint32>(m_buffer.size()) < totalFrameSize) {
-                return;                                 // 数据不足
-            }
-
-            QByteArray frameData = m_buffer.left(totalFrameSize);
-            m_buffer.remove(0, totalFrameSize);
-
-            parseImageSnapFrame(frameData);              // 解析图像帧
-
-        } else {
-            // ----- 未知数据：向后搜索下一个有效帧头 -----
-            int nextEc = m_buffer.indexOf(QByteArray::fromHex("EC91"), 1);
-            int nextEb = m_buffer.indexOf(QByteArray::fromHex("EB92"), 1);
-
-            // 取两个帧头中较近的一个作为对齐位置
-            int nextHeader = -1;
-            if (nextEc != -1 && nextEb != -1) nextHeader = qMin(nextEc, nextEb);
-            else if (nextEc != -1) nextHeader = nextEc;
-            else if (nextEb != -1) nextHeader = nextEb;
-
-            if (nextHeader != -1) {
-                m_buffer.remove(0, nextHeader);         // 跳到下一个帧头位置
-            } else {
-                m_buffer.clear();                       // 无可识别帧头，清空缓冲区
-            }
+    // 非心跳帧且有载荷时，尝试按 JSON 解析
+    if (type != FrameType::Heartbeat && !payload.isEmpty()) {
+        QJsonObject doc;
+        if (TJsonProtocolParser::parseJson(payload, doc)) {
+            emit jsonReceived(doc);
         }
     }
-}
-
-// 解析 JSON 载荷
-// 尝试将载荷解析为 JSON 对象，成功则发射 jsonReceived 信号
-void TJsonClient::parseJsonFrame(const QByteArray& payload)
-{
-    QJsonParseError err;
-    QJsonDocument doc = QJsonDocument::fromJson(payload, &err);
-    if (err.error == QJsonParseError::NoError && doc.isObject()) {
-        emit jsonReceived(doc.object());
-    } else {
-        qDebug() << "Failed to parse JSON:" << err.errorString();   // 解析失败日志
-    }
-}
-
-// 解析图像抓拍帧
-// 从完整的图像帧数据中提取 JPEG 数据块和图像在画面中的位置区域
-// 帧结构:
-//   [0xEB][0x92][0x04][jpegSize(4B)][left(2B)][top(2B)][width(2B)][height(2B)]
-//   [jpegData(NB)][checksum(1B)][0xFB][0x92]
-// 帧校验 = (0xEB + 0x92 + 0x04 + jpegSize 的 4 字节) & 0xFF
-void TJsonClient::parseImageSnapFrame(const QByteArray& payload)
-{
-    if (payload.size() < 18) return;
-
-    // JPEG 数据大小（偏移 3 处）
-    quint32 jpegSize;
-    memcpy(&jpegSize, payload.constData() + 3, 4);
-    jpegSize = qFromBigEndian(jpegSize);
-
-    quint32 totalFrameSize = 18 + jpegSize;
-    if (static_cast<quint32>(payload.size()) < totalFrameSize) return;
-
-    // 校验帧校验和：前 7 字节累加
-    quint8 expectedSum = 0;
-    for (int i = 0; i < 7; ++i)
-        expectedSum += static_cast<quint8>(payload.at(i));
-    quint8 actualSum = static_cast<quint8>(payload.at(15 + jpegSize));
-    if (actualSum != expectedSum) {
-        qWarning() << "Image snap checksum mismatch: expected" << expectedSum << "got" << actualSum;
-        return;
-    }
-
-    // 校验帧尾标识 0xFB 0x92
-    if (static_cast<quint8>(payload.at(16 + jpegSize)) != 0xFB ||
-        static_cast<quint8>(payload.at(17 + jpegSize)) != 0x92) {
-        qWarning() << "Image snap footer mismatch";
-        return;
-    }
-
-    // 从偏移 7 处读取画面区域坐标（大端序）
-    quint16 left, top, width, height;
-    memcpy(&left, payload.constData() + 7, 2);
-    memcpy(&top, payload.constData() + 9, 2);
-    memcpy(&width, payload.constData() + 11, 2);
-    memcpy(&height, payload.constData() + 13, 2);
-
-    left = qFromBigEndian(left);
-    top = qFromBigEndian(top);
-    width = qFromBigEndian(width);
-    height = qFromBigEndian(height);
-
-    // JPEG 数据从偏移 15 处开始
-    QByteArray jpegData = payload.mid(15, jpegSize);
-    QRect loc(left, top, width, height);                // 图像在原始画面中的位置
-
-    emit imageSnapped(jpegData, loc);
 }

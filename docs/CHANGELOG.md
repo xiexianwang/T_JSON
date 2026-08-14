@@ -5,6 +5,52 @@
 
 ---
 
+## 2026-08-14 · 阶段 5.1：拆分 TJsonClient 协议编解码（TJsonFrameCodec / TJsonProtocolParser）
+
+### 解决的问题 / 实现功能
+
+- **新增 `TJsonFrameCodec`**（`src/infrastructure/tjsonframecodec.*`）：纯 C++ 帧编解码器（无 Qt 信号依赖），负责帧头识别、长度解析、粘包/半包缓冲、异常数据重同步（`0xEC91` / `0xEB92`），并提供发送帧组包（`buildStandardFrame` / `buildHeartbeatFrame`）。
+- **新增 `TJsonProtocolParser`**（`src/infrastructure/tjsonprotocolparser.*`）：纯 C++ 载荷解析器，负责 JSON 状态帧、ACK 应答帧（2 字节大端状态码）与图像抓拍帧（校验和 + 帧尾校验）解析。
+- **新增 `TJsonFrame` 协议常量头**（`src/infrastructure/tjsonframe.h`）：`FrameType` 枚举与帧布局常量自 `tjsonclient.h` 迁出，供 Codec/Parser/Client 共享；`tjsonclient.h` 保留 include，外部 `FrameType` 引用不受影响。
+- **TJsonClient 瘦身**：移除 `processBuffer` / `parseJsonFrame` / `parseImageSnapFrame`，接收链路改为 `codec.feed → nextFrame → dispatchFrame`（委托 Parser 解析）；发送链路改用 `TJsonFrameCodec::buildStandardFrame/buildHeartbeatFrame`；`TJsonClient` 仅保留 Socket、连接/断开、心跳、指数退避重连与事件分发。
+- **行为等价验证**：独立临时测试程序验证标准帧组包/切帧、心跳帧、粘包/半包（逐字节）、重同步、抓拍帧（校验和/帧尾/坐标）、ACK/JSON 解析全部通过。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，产物 `LSSVideoManager.exe`。
+
+### 阶段 5.1 验收核对（代码层面）
+
+| 验收项 | 结论 |
+|---|---|
+| `TJsonClient` 不再包含帧切分/载荷解析逻辑 | ✅ 已拆至 Codec / Parser |
+| Codec / Parser 无 Qt 信号依赖，可单元测试 | ✅ 纯 C++ 类，独立测试程序验证通过 |
+| 外部 `FrameType` 引用不受影响 | ✅ 枚举迁至 `tjsonframe.h`，`tjsonclient.h` 保留 include |
+| 粘包/半包/重同步/非法长度行为保持原样 | ✅ 逐字节半包、异常长度丢弃、重同步对齐均验证通过 |
+| Debug 构建通过 | ✅ 产物 `LSSVideoManager.exe` |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/infrastructure/tjsonframe.h` | 新增：`FrameType` 枚举 + 帧布局常量 |
+| `src/infrastructure/tjsonframecodec.h/.cpp` | 新增：帧编解码器（feed/nextFrame/组包/重同步） |
+| `src/infrastructure/tjsonprotocolparser.h/.cpp` | 新增：载荷解析器（JSON/ACK/抓拍） |
+| `src/infrastructure/tjsonclient.h/.cpp` | 移除帧切分/载荷解析，改用 Codec + Parser |
+| `CMakeLists.txt` | 加入 5 个新文件 |
+
+### 遗留问题
+
+- **阶段 6 测试落地**：`tests/test_tjsonframecodec.cpp`、`test_jsonframeparser.cpp` 与 CTest 集成待阶段 6 建立。
+- **实机验收待办**：TCP 8089 状态/抓拍/ACK 链路需实机确认。
+- **5.2 / 5.3 未动**：DeviceController 传输协议拆分、DeviceContext 业务 API 收口留待后续阶段。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 5.1 改动（建议消息 `refactor: 拆分 TJsonClient 协议编解码`）。
+2. 实机联调验收（状态帧/抓拍帧/ACK）。
+3. 进入阶段 5.2：拆分 DeviceController（DeviceCommandService + PelcoD/VISCA 协议 + Modbus/STM32 传输）。
+
+---
+
 ## 2026-08-14 · 阶段 4：收敛 Presenter/View 边界（IMainView 窄接口）
 
 ### 解决的问题 / 实现功能

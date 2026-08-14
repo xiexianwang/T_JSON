@@ -256,7 +256,7 @@ void MainPresenter::on_btnVideoConnect_clicked()
 
 void MainPresenter::on_btnVideoDisconnect_clicked()
 {
-    if (auto vw = m_view->m_videoGrid->getWidget("default_device")) vw->clearFrame();
+    if (auto vw = m_view->m_videoGrid->getWidget(m_currentDeviceId)) vw->clearFrame();
     m_view->m_videoGrid->repaint();
     this->videoStream()->closeStream();
     m_view->getUi()->btnVideoConnect->setEnabled(true);
@@ -425,21 +425,20 @@ void MainPresenter::onDeviceDoubleClicked(const QString& name, const QString& ip
 {
     QString deviceId = QString("dev_%1").arg(ip);
 
+    m_currentDeviceId = deviceId;
+
     DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
     if (!ctx) {
         ctx = DeviceManager::instance()->addDevice(deviceId);
     }
 
-    ctx->startConnection(ip, m_cfg->deviceTcpPort());
-
     VideoWidget* vw = m_view->m_videoGrid->bindDevice(deviceId);
 
+    ctx->startConnection(ip, m_cfg->deviceTcpPort());
 
     if (!rtspUrl.isEmpty()) {
         ctx->videoStream()->openStream(rtspUrl);
     }
-
-    m_currentDeviceId = deviceId;
 }
 
 
@@ -1261,7 +1260,7 @@ void MainPresenter::onVideoSelection(int cx, int cy, int pw, int ph)
 void MainPresenter::onComboWorkModeChanged(int index)
 {
     // 非点选/框选跟踪模式时禁止鼠标框选（本地 UI 状态，不涉及设备指令）
-    if (auto vw = m_view->m_videoGrid->getWidget("default_device"))
+    if (auto vw = m_view->m_videoGrid->getWidget(m_currentDeviceId))
         vw->setSelectionEnabled(index == 3 || index == 4);
 
     if (m_view->m_updatingFromDevice) return;

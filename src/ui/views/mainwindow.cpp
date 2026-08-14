@@ -68,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent)
     if (ui->widgetDisplay->layout()) {
         ui->widgetDisplay->layout()->addWidget(m_videoGrid);
     }
-    m_videoGrid->bindDevice("default_device");
+    m_videoGrid->bindDevice(m_presenter->currentDeviceId());
 
 
     
@@ -205,14 +205,15 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 初始化框选启用状态
     int wm = ui->comboWorkMode->currentIndex();
-    if (auto vw = m_videoGrid->getWidget("default_device")) vw->setSelectionEnabled(wm == 3 || wm == 4);
+    if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId()))
+        vw->setSelectionEnabled(wm == 3 || wm == 4);
 
     //============================================================================
     // RTSP 视频流信号连接
     // RtspThread 在工作线程中拉流解码，通过信号将帧数据传回主线程
     // VideoWidget 的 selectionFinished 信号用于框选跟踪
     //============================================================================
-    if (VideoWidget* vw = m_videoGrid->getWidget("default_device")) {
+    if (VideoWidget* vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) {
         connect(vw, &VideoWidget::selectionFinished, this, &MainWindow::onVideoSelection);
     }
 
@@ -537,7 +538,7 @@ void MainWindow::onTrayExit()
 {
     m_trayIcon->hide();
     m_presenter->closeVideoStream();
-    if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
+    if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) vw->clearFrame();
     if (m_presenter->isDeviceConnected())
         m_presenter->disconnectDevice();
     qApp->quit();
@@ -786,7 +787,7 @@ void MainWindow::onRtspOpened()
 //============================================================================
 void MainWindow::onRtspError(const QString &msg)
 {
-    if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
+    if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) vw->clearFrame();
     if (m_presenter->isVideoStreamRunning()) {
         // 线程还在运行说明是自动重连中，保持按钮在"重连中..."状态
         ui->btnVideoConnect->setText(QString::fromUtf8("重连中..."));

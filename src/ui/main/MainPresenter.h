@@ -31,6 +31,10 @@ public:
     void ptzMove(int direction);
     void ptzStop();
 
+    // --- 镜头控制（op: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut） ---
+    void lensMove(int op);
+    void lensStop();
+
     // --- 提取的业务按钮逻辑 ---
     void on_btnConnect_clicked();
     void startVideoStream(const QString& url);
@@ -46,6 +50,11 @@ public:
     // --- 电机通道初始化/切换 ---
     void initMotorChannel();        // 根据配置自动打开电机通道（启动时）
     void applyMotorChannel();       // 设置页协议变更后重新打开电机通道
+    bool isMotorSerialOpen() const; // MODBUS-RTU 串口是否就绪
+    bool isMotorTcpOpen() const;    // STM32-TCP 通道是否就绪
+
+    // --- PTZ 转发服务（Pelco-D 串口服务器） ---
+    void initPtzForwarder();        // 启动 PTZ 转发 + 应用角度偏移（启动/设置变更后调用）
 
     // --- 雨刷电机控制 ---
     void onWiperStart();
@@ -83,12 +92,17 @@ public:
     void onDeviceDoubleClicked(const QString& name, const QString& ip, const QString& rtspUrl);
     QString currentDeviceId() const { return m_currentDeviceId; }
 
-    // 过渡期接口：为了不一次性引发几百个编译错误，提供底层组件的访问器
-    DeviceController* motorController() const;
+    // --- 视频流状态查询/关闭 ---
+    bool isVideoStreamRunning() const;
+    void closeVideoStream();
     bool isDeviceConnected() const;
-    TJsonClient* tcpClient() const;
-    RtspThread* videoStream() const;
-    PtzForwarder* ptzForwarder() const;
+
+signals:
+    // --- 底层信号经 Presenter 转发给 View（View 不直接连接底层组件） ---
+    void motorModeChanged(bool isManual);
+    void motorSerialErrorOccurred(const QString& msg);
+    void motorSilentChanged(bool isSilent);
+    void commandSentToLog(const QString& serialType, const QByteArray& data);
 
 private:
     MainWindow* m_view;
@@ -101,6 +115,12 @@ private:
 
     void setupEventBus();
     void showAck(quint8 statusCode);
+
+    // Presenter 内部访问当前设备的底层组件（View 不得直接调用）
+    DeviceController* motorController() const;
+    TJsonClient* tcpClient() const;
+    RtspThread* videoStream() const;
+    PtzForwarder* ptzForwarder() const;
 
 private slots:
     void onJsonReceived(const QString& deviceId, const QJsonObject& doc);

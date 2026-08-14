@@ -154,11 +154,11 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 
 | 债务 | 位置 | 说明 |
 |---|---|---|
-| 超大文件 | `ui/views/mainwindow.cpp`(1404 行)、`ui/main/MainPresenter.cpp`(1292 行) | 违反"方法超 80 行拆分"规则 |
-| 过渡期访问器 | `ui/main/MainPresenter.h` `motorController()/tcpClient()/videoStream()/ptzForwarder()` | View 仍可直取底层，未达"哑巴视图" |
-| 未迁移残留 | `ui/views/mainwindow.cpp:242-286` | PTZ 方向/镜头按钮仍在 View lambda 直接调 `motorController()` |
+| 超大文件 | `ui/views/mainwindow.cpp`(约 1400 行)、`ui/main/MainPresenter.cpp`(约 1290 行) | 违反"方法超 80 行拆分"规则 |
 | 死代码 | `infrastructure/s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
-| 未提交改动 | 见 `git status` | 目录重组后 `src/ui/views/*`/`src/infrastructure/*` 等有未提交改动 |
+| 未提交改动 | 见 `git status` | 本次"按钮迁移 + 移除过渡期访问器"改动未提交 |
+
+> ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
 
 ## 9. 文档导航
 

@@ -131,16 +131,9 @@ MainWindow::MainWindow(QWidget *parent)
     // 根据配置自动初始化电机通道
     m_presenter->initMotorChannel();
 
-    connect(m_presenter->ptzForwarder(), &PtzForwarder::ptzAnglesUpdated, this, [this](double, double) {
-        // 转台角度已改用 8089 端口 JSON 数据更新
-    });
-
     // PTZ Forwarder start（延迟到事件循环启动后）
     QTimer::singleShot(0, this, [this]() {
-        if (m_cfg->serialServerEnabled()) {
-            m_presenter->ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
-            m_presenter->ptzForwarder()->setOffsets(m_cfg->ptzPanOffset(), m_cfg->ptzTiltOffset());
-        }
+        m_presenter->initPtzForwarder();
     });
 
     // 迷你地图：容器 → MapWidget → 覆盖层
@@ -239,8 +232,8 @@ MainWindow::MainWindow(QWidget *parent)
     // 八个按钮分别对应 Up/Down/Left/Right 及四个对角线方向
     //============================================================================
     auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
-        connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_presenter->motorController()->ptzMove(dir); });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->motorController()->ptzStop(); });
+        connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_presenter->ptzMove(static_cast<int>(dir)); });
+        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->ptzStop(); });
     };
 
     connectPtzBtn(ui->btnPtzUp, PtzDir::Up);
@@ -272,18 +265,14 @@ MainWindow::MainWindow(QWidget *parent)
     // 镜头控制 (Zoom 变倍 / Focus 调焦)
     // 按下按钮 → 持续变倍/调焦；释放按钮 → 停止
     // op 值: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut
-    // 镜头目标根据显示模式自动判断：PipShow 1/4=红外(target=1)，其余=可见光(target=0)
+    // 镜头目标（可见光/红外）由 Presenter 根据显示模式自动判断
     //============================================================================
     auto connectLensBtn = [this](QPushButton* btn, int op) {
         connect(btn, &QPushButton::pressed, this, [this, op]() {
             if (!requireConnected()) return;
-            int t = (m_currentPipShow == 1 || m_currentPipShow == 4) ? 1 : 0;
-            if (op == 0) m_presenter->motorController()->lensZoomIn(t);
-            else if (op == 1) m_presenter->motorController()->lensZoomOut(t);
-            else if (op == 2) m_presenter->motorController()->lensFocusIn(t);
-            else m_presenter->motorController()->lensFocusOut(t);
+            m_presenter->lensMove(op);
         });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->motorController()->lensStop(); });
+        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->lensStop(); });
     };
 
     connectLensBtn(ui->btnZoomIn, 0);
@@ -340,10 +329,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnWiperStop, &QPushButton::clicked, this, [this]() {
         m_presenter->onWiperStop();
     });
-    connect(m_presenter->motorController(), &DeviceController::motorModeResult, this, [this](bool isManual) {
+    connect(m_presenter, &MainPresenter::motorModeChanged, this, [this](bool isManual) {
         ui->statWiperStatus->setText(isManual ? "手动" : "自动");
     });
-    connect(m_presenter->motorController(), &DeviceController::motorSerialError, this, [this](const QString& msg) {
+    connect(m_presenter, &MainPresenter::motorSerialErrorOccurred, this, [this](const QString& msg) {
         ui->statWiperStatus->setText("故障");
         qWarning() << "电机串口错误:" << msg;
     });
@@ -368,7 +357,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnWiperSilent, &QPushButton::clicked, this, [this]() {
         m_presenter->onWiperSilent();
     });
-    connect(m_presenter->motorController(), &DeviceController::motorSilentResult, this, [this](bool isSilent) {
+    connect(m_presenter, &MainPresenter::motorSilentChanged, this, [this](bool isSilent) {
         ui->btnWiperSilent->setText(isSilent ? "狂暴模式" : "静音模式");
         ui->statusbar->showMessage(isSilent ? "电机已切换为：静音模式 (StealthChop)" : "电机已切换为：狂暴模式 (SpreadCycle)", 3000);
     });
@@ -385,7 +374,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 实时显示所有下发给设备的指令内容，方便调试与协议分析
     //============================================================================
     m_logDialog = new CmdLogDialog(this);
-    connect(m_presenter->motorController(), &DeviceController::commandSent, m_logDialog, &CmdLogDialog::appendLog);
+    connect(m_presenter, &MainPresenter::commandSentToLog, m_logDialog, &CmdLogDialog::appendLog);
 
     //============================================================================
     // 系统托盘
@@ -547,10 +536,8 @@ void MainWindow::onTrayShow()
 void MainWindow::onTrayExit()
 {
     m_trayIcon->hide();
-    if (m_presenter->videoStream()) {
-        if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
-        m_presenter->videoStream()->closeStream();
-    }
+    m_presenter->closeVideoStream();
+    if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
     if (m_presenter->isDeviceConnected())
         m_presenter->disconnectDevice();
     qApp->quit();
@@ -580,12 +567,7 @@ void MainWindow::on_btnNavSettings_clicked() {
     updateMotorButtons();
 
     // 重启 PTZ 转发服务
-    if (m_cfg->serialServerEnabled()) {
-        m_presenter->ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
-    } else {
-        // 应该也停止它，但目前没有停止方法。假设 start 足够或者是单次触发。
-        // Let's assume PtzForwarder doesn't have stop or it doesn't matter for now.
-    }
+    m_presenter->initPtzForwarder();
 }
 
 //============================================================================
@@ -805,7 +787,7 @@ void MainWindow::onRtspOpened()
 void MainWindow::onRtspError(const QString &msg)
 {
     if (auto vw = m_videoGrid->getWidget("default_device")) vw->clearFrame();
-    if (m_presenter->videoStream()->isRunning()) {
+    if (m_presenter->isVideoStreamRunning()) {
         // 线程还在运行说明是自动重连中，保持按钮在"重连中..."状态
         ui->btnVideoConnect->setText(QString::fromUtf8("重连中..."));
         ui->statusbar->showMessage(msg.isEmpty()
@@ -957,7 +939,7 @@ bool MainWindow::requireConnected()
 bool MainWindow::requireMotorReady()
 {
     if (m_cfg->motorProtocol() == "MODBUS-RTU") {
-        if (m_cfg->motorCommandChannel() == "串口" && !m_presenter->motorController()->isMotorSerialOpen()) {
+        if (m_cfg->motorCommandChannel() == "串口" && !m_presenter->isMotorSerialOpen()) {
             QMessageBox msgBox(this);
             msgBox.setWindowTitle(QStringLiteral("提示"));
             msgBox.setText(QStringLiteral("电机串口未打开，请在设置中配置"));
@@ -967,7 +949,7 @@ bool MainWindow::requireMotorReady()
             return false;
         }
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
-        if (!m_presenter->motorController()->isMotorTcpOpen()) {
+        if (!m_presenter->isMotorTcpOpen()) {
             QMessageBox msgBox(this);
             msgBox.setWindowTitle(QStringLiteral("提示"));
             msgBox.setText(QStringLiteral("电机 TCP 正在连接或连接失败，请检查配置"));
@@ -1000,7 +982,7 @@ void MainWindow::updateMotorButtons()
     // 根据文档，action 6/7 属于 V4.0 TCP 接口
     ui->btnWiperSilent->setEnabled(isTcp);
 
-    if (isModbus && m_presenter->motorController()->isMotorSerialOpen()) {
+    if (isModbus && m_presenter->isMotorSerialOpen()) {
         m_presenter->checkMotorMode();
     }
 }

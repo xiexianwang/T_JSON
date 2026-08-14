@@ -5,6 +5,40 @@
 
 ---
 
+## 2026-08-14 · MVP 收尾：PTZ/镜头按钮迁移 + 移除过渡期访问器
+
+### 解决的问题 / 实现功能
+
+- **PTZ 八方向按钮迁入 Presenter**：`mainwindow.cpp` 不再直连 `motorController()`，改为 `m_presenter->ptzMove(dir)` / `ptzStop()`。
+- **镜头控制迁入 Presenter**：新增 `lensMove(op)` / `lensStop()`，可见光/红外目标由 Presenter 按显示模式自动判定，View 不再传 target。
+- **PTZ 转发启动收口**：新增 `initPtzForwarder()`，启动（构造函数延迟单发）与设置页协议变更后重启统一由 Presenter 处理。
+- **底层信号改经 Presenter 转发**：`motorModeResult` / `motorSerialError` / `motorSilentResult` / `commandSent` 经新增信号 `motorModeChanged` / `motorSerialErrorOccurred` / `motorSilentChanged` / `commandSentToLog` 转发给 View，View 不再连接 DeviceController。
+- **新增状态查询业务方法**：`isMotorSerialOpen()` / `isMotorTcpOpen()` / `isVideoStreamRunning()` / `closeVideoStream()`，取代 View 直取底层做判空/状态检查。
+- **移除过渡期访问器**：`motorController()/tcpClient()/videoStream()/ptzForwarder()` 移出 MainPresenter 公有接口（降为私有内部助手），View 不再直取底层组件，仅经业务方法交互。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，产物 `LSSVideoManager.exe`。
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/ui/main/MainPresenter.h` | 新增 `lensMove/lensStop/initPtzForwarder/isMotorSerialOpen/isMotorTcpOpen/isVideoStreamRunning/closeVideoStream` 及 4 个转发信号；过渡期访问器移入私有区 |
+| `src/ui/main/MainPresenter.cpp` | 构造函数转发默认设备电机/指令日志信号；新增上述方法实现 |
+| `src/ui/views/mainwindow.cpp` | PTZ 方向/镜头按钮、PTZ 转发启动/重启、电机信号连接、视频流关闭/状态检查全部改为调用 Presenter 业务方法 |
+
+### 遗留问题
+
+- **改动未提交**：`MainPresenter.*`、`mainwindow.cpp` 本次改动未提交。
+- **多设备电机信号**：电机结果信号仅在默认设备上转发，多设备切换后仍沿用默认设备信号（与迁移前行为一致）。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标按当前分辨率/黑边的真实逆映射。
+
+### 下一步计划
+
+1. 提交本次改动。
+2. 实机联调验证：PTZ 八方向、镜头变倍/调焦、电机模式/静音状态显示、指令日志、雨刷、PTZ 转发服务。
+3. 解决遗留功能 TODO：Pelco-D 焦聚控制、框选坐标真实逆映射。
+
+---
+
 ## 2026-08-14 · MVP 改造收尾 + 雨刷电机逻辑梳理
 
 ### 解决的问题 / 实现功能

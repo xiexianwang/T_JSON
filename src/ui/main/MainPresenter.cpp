@@ -23,6 +23,16 @@ MainPresenter::MainPresenter(MainWindow* view, ConfigManager* cfg, QObject *pare
     
     // 2. 预先创建一个默认设备（兼容旧版单设备架构）
     DeviceManager::instance()->addDevice(m_currentDeviceId);
+
+    // 2.5 转发默认设备的电机/指令日志信号给 View（避免 View 直连底层组件）
+    if (DeviceContext* ctx = DeviceManager::instance()->getDevice(m_currentDeviceId)) {
+        if (DeviceController* mc = ctx->motorController()) {
+            connect(mc, &DeviceController::motorModeResult, this, &MainPresenter::motorModeChanged);
+            connect(mc, &DeviceController::motorSerialError, this, &MainPresenter::motorSerialErrorOccurred);
+            connect(mc, &DeviceController::motorSilentResult, this, &MainPresenter::motorSilentChanged);
+            connect(mc, &DeviceController::commandSent, this, &MainPresenter::commandSentToLog);
+        }
+    }
     
     // 3. 挂载事件总线
     setupEventBus();
@@ -120,6 +130,53 @@ void MainPresenter::ptzStop()
             ctx->motorController()->ptzStop();
         }
     }
+}
+
+void MainPresenter::lensMove(int op)
+{
+    if (!motorController()) return;
+    // 镜头目标根据显示模式自动判断：PipShow 1/4=红外(target=1)，其余=可见光(target=0)
+    int target = (m_view->m_currentPipShow == 1 || m_view->m_currentPipShow == 4) ? 1 : 0;
+    switch (op) {
+    case 0: motorController()->lensZoomIn(target); break;
+    case 1: motorController()->lensZoomOut(target); break;
+    case 2: motorController()->lensFocusIn(target); break;
+    case 3: motorController()->lensFocusOut(target); break;
+    default: break;
+    }
+}
+
+void MainPresenter::lensStop()
+{
+    if (motorController()) motorController()->lensStop();
+}
+
+void MainPresenter::initPtzForwarder()
+{
+    if (!m_cfg->serialServerEnabled()) return;
+    if (!ptzForwarder()) return;
+    ptzForwarder()->start(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
+    ptzForwarder()->setOffsets(m_cfg->ptzPanOffset(), m_cfg->ptzTiltOffset());
+}
+
+bool MainPresenter::isMotorSerialOpen() const
+{
+    return motorController() && motorController()->isMotorSerialOpen();
+}
+
+bool MainPresenter::isMotorTcpOpen() const
+{
+    return motorController() && motorController()->isMotorTcpOpen();
+}
+
+bool MainPresenter::isVideoStreamRunning() const
+{
+    return videoStream() && videoStream()->isRunning();
+}
+
+void MainPresenter::closeVideoStream()
+{
+    if (videoStream()) videoStream()->closeStream();
 }
 
 DeviceController* MainPresenter::motorController() const

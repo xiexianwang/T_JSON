@@ -5,6 +5,8 @@
 #include <QString>
 #include <QJsonObject>
 #include <QRect>
+#include <memory>
+#include "core/DeviceState.h"
 #include "infrastructure/tjsonclient.h"
 
 class MainWindow;
@@ -123,10 +125,12 @@ private:
     PtzForwarder* ptzForwarder() const;
 
 private slots:
-    void onJsonReceived(const QString& deviceId, const QJsonObject& doc);
-    void updateStatusFromJson(const QJsonObject& doc);
+    void onDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
+    void onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
+    void updateStatusFromState(const DeviceState& state);
+    void updateAiInfoFromJson(const QJsonObject& aiDoc);
     void updateMapTargets(const QJsonObject& doc, int workMode);
-    void updateMapDevicePosition(const QJsonObject& doc);
+    void updateMapDevicePosition(const DeviceState& state);
     void onDeviceAiTimeout(const QString& deviceId);
 };
 

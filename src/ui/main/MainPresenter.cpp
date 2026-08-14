@@ -82,7 +82,8 @@ void MainPresenter::setupEventBus()
         if (deviceId == m_currentDeviceId) m_view->onRtspError(msg);
     });
     
-    connect(bus, &EventBus::sigJsonReceived, this, &MainPresenter::onJsonReceived);
+    connect(bus, &EventBus::sigDeviceStateUpdated, this, &MainPresenter::onDeviceStateUpdated);
+    connect(bus, &EventBus::sigDeviceAiInfoUpdated, this, &MainPresenter::onDeviceAiInfoUpdated);
     connect(bus, &EventBus::sigDeviceError, this, [this](const QString& deviceId, const QString& errorMsg) {
         if (deviceId == m_currentDeviceId) m_view->onErrorOccurred(errorMsg);
     });
@@ -442,15 +443,14 @@ void MainPresenter::onDeviceDoubleClicked(const QString& name, const QString& ip
 }
 
 
-void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
+void MainPresenter::updateAiInfoFromJson(const QJsonObject& doc)
 {
-    QString controlType = doc.value("ControlType").toString();
     CameraConfig& cam = m_cfg->cam();
 
     //==========================================================================
-    // 1) AIInfo - AI 识别与跟踪结果帧
+    // AIInfo - AI 识别与跟踪结果帧
     //==========================================================================
-    if (controlType == "AIInfo") {
+    {
         m_view->m_lastAiInfoTime = QDateTime::currentDateTime();
         int workMode = doc.value("WorkMode").toInt();
         int count = doc.value("ObjectCount").toInt();
@@ -578,29 +578,35 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
                 m_view->getUi()->trackDistance->clear();
             }
         }
+    }
+}
+
+void MainPresenter::updateStatusFromState(const DeviceState& state)
+{
+    CameraConfig& cam = m_cfg->cam();
 
     //==========================================================================
-    // 2) ZoomInfo - 镜头倍率与设备状态帧
+    // 1) ZoomInfo - 镜头倍率与设备状态帧
     // 更新变倍倍率、GPS 坐标、高度、激光测距、云台水平/垂直角
     // 同时触发镜头统计信息更新与地图设备位置更新
     //==========================================================================
-    } else if (controlType == "ZoomInfo") {
-        m_view->m_currentVisZoom = doc.value("ZoomInfo").toDouble(1.0);
-        m_view->m_currentIrZoom = doc.value("ZoomInfoIR").toDouble(1.0);
+    {
+        m_view->m_currentVisZoom = state.currentVisZoom;
+        m_view->m_currentIrZoom = state.currentIrZoom;
 
-        m_view->getUi()->statCamMode->setText(QString::number(doc.value("CamShowMode").toInt()));
-        m_view->getUi()->statLatitude->setText(doc.value("Latitude").toString());
-        m_view->getUi()->statLongitude->setText(doc.value("Longitude").toString());
+        m_view->getUi()->statCamMode->setText(QString::number(state.camShowMode));
+        m_view->getUi()->statLatitude->setText(state.latitudeRaw);
+        m_view->getUi()->statLongitude->setText(state.longitudeRaw);
         {
-            double h = doc.value("Height").toDouble();
+            double h = state.altitude;
             if (h != 0.0)
                 m_view->getUi()->statHeight->setText(QString::number(h, 'f', 1) + QStringLiteral(" m"));
             else
                 m_view->getUi()->statHeight->clear();
         }
 
-        double rawPan = doc.value("PTZInfoH").toDouble();
-        double rawTilt = doc.value("PTZInfoV").toDouble();
+        double rawPan = state.currentPan;
+        double rawTilt = state.currentTilt;
 
         if (m_cfg->softwarePtzCalibrationEnabled()) {
             rawPan -= m_cfg->ptzPanOffset();
@@ -617,49 +623,45 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
         m_view->getUi()->statTiltAngle->setText(QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
 
         m_view->updateLensStats();
-        this->updateMapDevicePosition(doc);
+        this->updateMapDevicePosition(state);
+    }
 
     //==========================================================================
-    // 3) ImageSetting - 图像参数配置帧
+    // 2) ImageSetting - 图像参数配置帧
     // 设备主动推送或响应查询，更新分辨率/码率/编码/工作模式/显示模式/算法
     // 并根据设备当前值同步 UI 下拉框，同时设置 m_updatingFromDevice 标志
     // 防止 UI 变化再次触发设备指令造成死循环
     //==========================================================================
-    } else if (controlType == "ImageSetting") {
+    {
         // 图像分辨率映射表
         static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
-        int imgSize = doc.value("ImageSize").toInt();
+        int imgSize = state.imgSize;
         m_view->getUi()->paramResolution->setText(imgSize >= 0 && imgSize < 4 ? resMap[imgSize] : QString::number(imgSize));
-        {
-            static const int resTab[][2] = {{1920,1080},{1280,720},{704,576},{2566,1520}};
-            if (imgSize >= 0 && imgSize < 4) {
-                m_view->m_currentResX = resTab[imgSize][0];
-                m_view->m_currentResY = resTab[imgSize][1];
-            }
-        }
+        m_view->m_currentResX = state.resX;
+        m_view->m_currentResY = state.resY;
 
         // 图像码率
-        m_view->getUi()->paramBitrate->setText(QString("%1 Kb/s").arg(doc.value("ImageBit").toInt()));
+        m_view->getUi()->paramBitrate->setText(QString("%1 Kb/s").arg(state.bitrate));
 
         // 编码格式映射表
         static const char* codecMap[] = {"H264", "H265"};
-        int codec = doc.value("ImageCode").toInt();
+        int codec = state.codec;
         m_view->getUi()->paramCodec->setText(codec >= 0 && codec < 2 ? codecMap[codec] : QString::number(codec));
 
         // 工作模式映射表
         static const char* wmMap[] = {"关闭AI", "识别", "自动跟踪", "点选跟踪", "波门/框选跟踪"};
-        int wm = doc.value("WorkMode").toInt();
+        int wm = state.workMode;
         m_view->getUi()->paramWorkMode->setText(wm >= 0 && wm < 5 ? QString::fromUtf8(wmMap[wm]) : QString::number(wm));
         m_view->m_previousWorkMode = wm;
 
         // 显示类型映射表 (PIP = Picture-in-Picture)
         static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
-        int pipRaw = doc.value("PipShow").toInt();
+        int pipRaw = state.currentPipShow;
         int comboIdx = DeviceController::pipShowToComboIndex(pipRaw);
         m_view->getUi()->paramPipShow->setText(comboIdx >= 0 && comboIdx < 5 ? QString::fromUtf8(pipMap[comboIdx]) : QString::number(pipRaw));
 
         // 算法模型编码: 高段(传感器)×10 + 低段(识别类型)
-        int model = doc.value("Model").toInt();
+        int model = state.model;
         int high = model / 10;
         int low  = model % 10;
         static const char* highMap[] = {"可见光", "红外"};
@@ -672,10 +674,10 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
         m_view->getUi()->paramAlgoModel->setText(modelStr.isEmpty() ? QString::number(model) : modelStr);
         m_view->m_previousAlgoModel = model;
 
-        m_view->getUi()->paramMaxVisFL->setText(doc.value("MaxVisFL").toString());
-        m_view->getUi()->paramMaxIRFL->setText(doc.value("MaxIRFL").toString());
+        m_view->getUi()->paramMaxVisFL->setText(state.maxVisFL);
+        m_view->getUi()->paramMaxIRFL->setText(state.maxIRFL);
 
-        m_view->m_currentPipShow = DeviceController::pipShowToComboIndex(doc.value("PipShow").toInt());
+        m_view->m_currentPipShow = DeviceController::pipShowToComboIndex(state.currentPipShow);
         m_view->m_previousDisplayMode = m_view->m_currentPipShow;
 
         // 同步 UI 下拉框到设备当前值，同时抑制信号递归
@@ -691,7 +693,7 @@ void MainPresenter::updateStatusFromJson(const QJsonObject& doc)
                 m_view->getUi()->comboAlgoModel2->setCurrentIndex(low - 2);
             m_view->m_algoModelInitialized = true;
         }
-        int pipShow = doc.value("PipShow").toInt();
+        int pipShow = state.currentPipShow;
         if (!m_view->m_displayModeInitialized) {
             int comboIdx = DeviceController::pipShowToComboIndex(pipShow);
             if (comboIdx >= 0 && comboIdx < m_view->getUi()->comboDisplayMode->count()) {
@@ -963,23 +965,15 @@ void MainPresenter::updateMapTargets(const QJsonObject& doc, int workMode)
 // 未来将进一步下沉至 DeviceContext 与 JsonFrameParser 中。
 // ============================================================================
 
-//============================================================================
-// updateStatusFromJson - JSON 帧解析与 UI 状态更新（核心方法）
-// 根据 ControlType 字段分发处理三种数据类型：
-//   AIInfo     → 识别/跟踪结果 (Object 列表、脱靶量、锁定状态等)
-//   ZoomInfo   → 镜头变倍信息、GPS 坐标、云台角度、激光测距
-//   ImageSetting → 图像参数 (分辨率/码率/编码/工作模式/显示模式/算法模型)
-//============================================================================
-
-void MainPresenter::updateMapDevicePosition(const QJsonObject& doc)
+void MainPresenter::updateMapDevicePosition(const DeviceState& state)
 {
-    QString latStr = doc.value("Latitude").toString();
-    QString lonStr = doc.value("Longitude").toString();
+    QString latStr = state.latitudeRaw;
+    QString lonStr = state.longitudeRaw;
     double lat = GeoCalculator::parseCoord(latStr);
     double lon = GeoCalculator::parseCoord(lonStr);
-    double alt = doc.value("Height").toDouble(0);
-    double pan = doc.value("PTZInfoH").toDouble(0);
-    double tilt = doc.value("PTZInfoV").toDouble(0);
+    double alt = state.altitude;
+    double pan = state.currentPan;
+    double tilt = state.currentTilt;
 
     if (m_cfg->softwarePtzCalibrationEnabled()) {
         pan -= m_cfg->ptzPanOffset();
@@ -990,7 +984,7 @@ void MainPresenter::updateMapDevicePosition(const QJsonObject& doc)
         while (tilt < -180.0) tilt += 360.0;
         while (tilt > 180.0) tilt -= 360.0;
     }
-    double range = doc.value("LaserRange").toDouble(0);
+    double range = state.laserRange;
     bool rangeEstimated = false;
     if (range <= 0) {
         range = m_view->m_lastAiDist;
@@ -1024,9 +1018,15 @@ void MainPresenter::updateMapDevicePosition(const QJsonObject& doc)
 //============================================================================
 
 
-void MainPresenter::onJsonReceived(const QString& deviceId, const QJsonObject& doc) {
+void MainPresenter::onDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state) {
+    if (deviceId == m_currentDeviceId && state) {
+        updateStatusFromState(*state);
+    }
+}
+
+void MainPresenter::onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc) {
     if (deviceId == m_currentDeviceId) {
-        updateStatusFromJson(doc);
+        updateAiInfoFromJson(aiDoc);
     }
 }
 

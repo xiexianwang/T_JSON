@@ -5,6 +5,50 @@
 
 ---
 
+## 2026-08-14 · 阶段 3：收敛状态数据流（Presenter 消费 DeviceState）
+
+### 解决的问题 / 实现功能
+
+- **Presenter 改为订阅结构化事件**：`MainPresenter` 移除 `sigJsonReceived` 订阅，改为 `sigDeviceStateUpdated`（ZoomInfo/ImageSetting）与 `sigDeviceAiInfoUpdated`（AIInfo）。
+- **消除 JSON 重复解析**：原 `updateStatusFromJson` 在 Presenter 中对 ZoomInfo/ImageSetting/AIInfo 二次解析；现拆为 `updateStatusFromState`（从 `DeviceState` 直接读取字段更新 UI）与 `updateAiInfoFromJson`（从 AI 专用事件读取）。
+- **DeviceState 扩展**：新增 `latitudeRaw`/`longitudeRaw` 原始坐标字符串，UI 原样显示；`DeviceContext` 改用 `GeoCalculator::parseCoord` 解析坐标（支持 N/S/E/W 后缀，替代 `toDouble`）。
+- **AI 超时同步状态模型**：`DeviceContext` 的 AI 清理定时器超时后同步清空 `aiObjectCount`/`aiTargets`。
+- **移除无效广播**：`DeviceContext` 不再转发原始 `jsonReceived`（`postJsonReceived` 无订阅者），`sigJsonReceived` 从 UI 业务中彻底移除。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，产物 `LSSVideoManager.exe`。
+
+### 阶段 3 验收核对（代码层面）
+
+| 验收项 | 结论 |
+|---|---|
+| 同一状态帧不再被 Presenter 重复解析 | ✅ ZoomInfo/ImageSetting 消费 DeviceState；AIInfo 消费 AI 专用事件 |
+| UI 只根据结构化状态更新 | ✅ Presenter 不再直接 parse 原始 JSON（AIInfo 深度 Object 数据除外） |
+| AI 超时会同步更新状态模型 | ✅ DeviceContext 超时清空 aiTargets/aiObjectCount |
+| 状态变化可用单元测试验证 | ⏳ 测试体系未建立（阶段 6），待引入 |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/core/DeviceState.h` | 新增 `latitudeRaw`/`longitudeRaw` 原始坐标字符串 |
+| `src/service/DeviceContext.cpp` | `parseCoord` 解析坐标；AI 超时清空状态模型；移除 `postJsonReceived` 转发 |
+| `src/ui/main/MainPresenter.h` | 新增 `onDeviceStateUpdated/onDeviceAiInfoUpdated/updateStatusFromState/updateAiInfoFromJson`，移除 `onJsonReceived/updateStatusFromJson` |
+| `src/ui/main/MainPresenter.cpp` | 订阅结构化事件；拆分状态与 AI 分支；`updateMapDevicePosition` 改从 DeviceState 读取 |
+
+### 遗留问题
+
+- **实机验收待办**：双设备并行时状态仪表盘、地图位置、AI 表格/轨迹数据与旧链路一致性需实机确认。
+- **AIInfo 深度解析保留**：`updateAiInfoFromJson` 仍解析 AI 帧 Object 字典（含视觉测距/轨迹所需原始字段），待后续可下沉至 `DeviceState::aiTargets` 深化。
+- **多设备电机信号**：电机结果信号仅在默认设备上转发。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 3 改动（建议消息 `refactor: Presenter 消费 DeviceState`）。
+2. 实机双设备联调验收（状态仪表盘/地图/AI 数据一致性）。
+3. 进入阶段 4：收敛 Presenter/View 边界（Presenter 不再直接操作 `Ui::MainWindow`）。
+
+---
+
 ## 2026-08-14 · 阶段 2 收口：框选跟踪链路修复 + 多设备验收
 
 ### 解决的问题 / 实现功能

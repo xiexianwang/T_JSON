@@ -32,6 +32,8 @@ struct DeviceState {
     double latitude = 0.0;
     double longitude = 0.0;
     double altitude = 0.0;
+    QString latitudeRaw;    // 设备上报的原始坐标字符串（用于 UI 原样显示）
+    QString longitudeRaw;
     
     // AI 及业务参数
     double lastAiDist = 0.0;

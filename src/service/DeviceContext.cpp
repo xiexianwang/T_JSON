@@ -1,6 +1,7 @@
 ﻿#include "DeviceContext.h"
 #include "core/EventBus.h"
 #include "core/JsonFrameParser.h"
+#include "core/GeoCalculator.h"
 
 DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObject *parent)
     : QObject(parent)
@@ -26,8 +27,10 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
             m_state->camShowMode = zoom.camShowMode;
             m_state->currentPan = zoom.pan;
             m_state->currentTilt = zoom.tilt;
-            m_state->latitude = zoom.latitude.toDouble();
-            m_state->longitude = zoom.longitude.toDouble();
+            m_state->latitudeRaw = zoom.latitude;
+            m_state->longitudeRaw = zoom.longitude;
+            m_state->latitude = GeoCalculator::parseCoord(zoom.latitude);
+            m_state->longitude = GeoCalculator::parseCoord(zoom.longitude);
             m_state->altitude = zoom.height;
             m_state->laserRange = zoom.laserRange;
             EventBus::instance()->postDeviceStateUpdated(m_deviceId, m_state);
@@ -118,6 +121,8 @@ void DeviceContext::setupTimers()
     connect(m_aiCleanupTimer, &QTimer::timeout, this, [this]() {
         if (m_state->lastAiInfoTime.isValid() && m_state->lastAiInfoTime.msecsTo(QDateTime::currentDateTime()) >= 2000) {
             m_state->lastAiInfoTime = QDateTime();
+            m_state->aiObjectCount = 0;
+            m_state->aiTargets.clear();
             EventBus::instance()->postDeviceAiTimeout(m_deviceId);
         }
     });
@@ -156,8 +161,5 @@ void DeviceContext::setupTimers()
     });
     connect(m_tcp, &TJsonClient::reconnectFailed, this, [this]() {
         EventBus::instance()->postDeviceReconnectFailed(m_deviceId);
-    });
-    connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc) {
-        EventBus::instance()->postJsonReceived(m_deviceId, doc);
     });
 }

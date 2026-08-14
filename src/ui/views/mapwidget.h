@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QJsonArray>
 #include <QVector>
-#include "mapbridge.h"
+#include "ui/views/mapbridge.h"
 
 class QWebChannel;
 class QTimer;

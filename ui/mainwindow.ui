@@ -1855,7 +1855,7 @@
   <customwidget>
    <class>VideoWidget</class>
    <extends>QWidget</extends>
-   <header>videowidget.h</header>
+    <header>ui/views/videowidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

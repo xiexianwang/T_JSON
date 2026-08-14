@@ -6,7 +6,7 @@
 #include <QList>
 #include <QString>
 #include "DeviceContext.h"
-#include "configmanager.h"
+#include "infrastructure/configmanager.h"
 
 // ============================================================================
 // DeviceManager - 多设备管理器 (单例)

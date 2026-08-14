@@ -15,10 +15,10 @@
 #include <QDialog>
 #include <QSystemTrayIcon>
 #include <QMenu>
-#include "tjsonclient.h"
-#include "devicecontroller.h"
-#include "configmanager.h"
-#include "ptzforwarder.h"
+#include "infrastructure/tjsonclient.h"
+#include "infrastructure/devicecontroller.h"
+#include "infrastructure/configmanager.h"
+#include "infrastructure/ptzforwarder.h"
 #include "ui/main/MainPresenter.h"
 #ifdef Q_OS_WIN
 #include <windows.h>

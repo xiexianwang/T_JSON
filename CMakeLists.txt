@@ -46,31 +46,31 @@ qt_add_executable(T-JSON
     src/ui/components/VideoGridWidget.h
     src/ui/components/DeviceTreeWidget.cpp
     src/ui/components/DeviceTreeWidget.h
-    src/mainwindow.cpp
-    src/mainwindow.h
+    src/ui/views/mainwindow.cpp
+    src/ui/views/mainwindow.h
     ui/mainwindow.ui
-    src/tjsonclient.cpp
-    src/tjsonclient.h
-    src/devicecontroller.cpp
-    src/devicecontroller.h
-    src/configmanager.cpp
-    src/configmanager.h
-    src/settingsdialog.cpp
-    src/settingsdialog.h
+    src/infrastructure/tjsonclient.cpp
+    src/infrastructure/tjsonclient.h
+    src/infrastructure/devicecontroller.cpp
+    src/infrastructure/devicecontroller.h
+    src/infrastructure/configmanager.cpp
+    src/infrastructure/configmanager.h
+    src/ui/views/settingsdialog.cpp
+    src/ui/views/settingsdialog.h
     ui/settingsdialog.ui
     ui/mapwidget.ui
-    src/videowidget.cpp
-    src/videowidget.h
-    src/rtspthread.cpp
-    src/rtspthread.h
-    src/mapwidget.cpp
-    src/mapwidget.h
-    src/mapbridge.cpp
-    src/mapbridge.h
-    src/cmdlogdialog.cpp
-    src/cmdlogdialog.h
-    src/ptzforwarder.cpp
-    src/ptzforwarder.h
+    src/ui/views/videowidget.cpp
+    src/ui/views/videowidget.h
+    src/infrastructure/rtspthread.cpp
+    src/infrastructure/rtspthread.h
+    src/ui/views/mapwidget.cpp
+    src/ui/views/mapwidget.h
+    src/ui/views/mapbridge.cpp
+    src/ui/views/mapbridge.h
+    src/ui/views/cmdlogdialog.cpp
+    src/ui/views/cmdlogdialog.h
+    src/infrastructure/ptzforwarder.cpp
+    src/infrastructure/ptzforwarder.h
     resources/resources.qrc
     resources/app.rc
 )

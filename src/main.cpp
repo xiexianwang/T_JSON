@@ -4,7 +4,7 @@
 //       参数，然后启动主窗口进入事件循环。
 // ============================================================
 
-#include "mainwindow.h"
+#include "ui/views/mainwindow.h"
 
 #include <QApplication>
 #include <QStyleFactory>

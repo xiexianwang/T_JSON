@@ -12,8 +12,8 @@
 #include <QObject>
 #include <QByteArray>
 #include <QSerialPort>
-#include "tjsonclient.h"
-#include "configmanager.h"
+#include "infrastructure/tjsonclient.h"
+#include "infrastructure/configmanager.h"
 
 #include <QTcpSocket>
 #include <QJsonDocument>

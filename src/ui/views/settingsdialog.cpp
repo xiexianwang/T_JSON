@@ -6,7 +6,7 @@
 
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
-#include "configmanager.h"
+#include "infrastructure/configmanager.h"
 #include <QSerialPortInfo>
 
 SettingsDialog::SettingsDialog(ConfigManager *cfg, QWidget *parent)

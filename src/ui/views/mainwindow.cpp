@@ -12,12 +12,12 @@
 #include "ui/components/VideoGridWidget.h"
 #include "ui/components/DeviceTreeWidget.h"
 
-#include "settingsdialog.h"
-#include "rtspthread.h"
-#include "videowidget.h"
-#include "mapwidget.h"
+#include "ui/views/settingsdialog.h"
+#include "infrastructure/rtspthread.h"
+#include "ui/views/videowidget.h"
+#include "ui/views/mapwidget.h"
 #include <QScreen>
-#include "cmdlogdialog.h"
+#include "ui/views/cmdlogdialog.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>

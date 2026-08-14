@@ -5,7 +5,7 @@
 #include <QGridLayout>
 #include <QMap>
 #include <QString>
-#include "videowidget.h"
+#include "ui/views/videowidget.h"
 
 // ============================================================================
 // VideoGridWidget - 多设备视频网格管理器

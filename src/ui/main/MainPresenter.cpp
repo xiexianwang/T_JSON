@@ -1,7 +1,7 @@
-﻿#include "mapwidget.h"
+﻿#include "ui/views/mapwidget.h"
 #include <QJsonArray>
 #include "MainPresenter.h"
-#include "mainwindow.h"
+#include "ui/views/mainwindow.h"
 #include "service/DeviceManager.h"
 #include "core/EventBus.h"
 #include "ui_mainwindow.h"

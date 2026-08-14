@@ -5,7 +5,7 @@
 #include <QString>
 #include <QJsonObject>
 #include <QRect>
-#include "tjsonclient.h"
+#include "infrastructure/tjsonclient.h"
 
 class MainWindow;
 class DeviceContext;

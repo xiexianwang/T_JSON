@@ -18,9 +18,14 @@ T-JSON-V1.0/
 ├── CMakeLists.txt            # 构建定义（Qt6 + FFmpeg 静态链接）
 ├── src/
 │   ├── main.cpp              # 入口：WebEngine 参数 + MainWindow
-│   ├── mainwindow.*          # 主窗口 View（"哑巴视图"，业务经 Presenter）
-│   ├── ui/
+│   ├── ui/                   # 表现层
 │   │   ├── main/MainPresenter.*        # MVP Presenter：UI 逻辑与设备调度
+│   │   ├── views/
+│   │   │   ├── mainwindow.*            # 主窗口 View（"哑巴视图"，业务经 Presenter）
+│   │   │   ├── videowidget.*           # 视频渲染 + 框选坐标映射
+│   │   │   ├── mapwidget.* / mapbridge.*   # 地图 View + JS 桥
+│   │   │   ├── settingsdialog.*        # 参数设置对话框
+│   │   │   └── cmdlogdialog.*          # 十六进制指令日志
 │   │   └── components/
 │   │       ├── DeviceTreeWidget.*      # 多设备树
 │   │       └── VideoGridWidget.*       # 多设备视频宫格
@@ -32,16 +37,12 @@ T-JSON-V1.0/
 │   ├── service/              # 业务上下文层
 │   │   ├── DeviceContext.*   # 单设备聚合根（TCP+RTSP+PTZ+State）
 │   │   └── DeviceManager.*   # 多设备生命周期管理（单例）
-│   └── 基础设施层
+│   └── infrastructure/       # 基础设施层
 │       ├── tjsonclient.*     # TCP 8089 协议客户端（粘包/心跳/重连）
 │       ├── devicecontroller.*# 设备指令控制器（ProtocolBuilder）
 │       ├── rtspthread.*      # FFmpeg RTSP 拉流解码线程
 │       ├── ptzforwarder.*    # Pelco-D 串口服务器转发 + 角度偏移
 │       ├── configmanager.*   # QSettings 配置持久化
-│       ├── mapwidget.* / mapbridge.*   # 地图 View + JS 桥
-│       ├── videowidget.*     # 视频渲染 + 框选坐标映射
-│       ├── settingsdialog.*  # 参数设置对话框
-│       ├── cmdlogdialog.*    # 十六进制指令日志
 │       └── s3uploader.*      # S3 上传（⚠️ 未参与构建，见 §8）
 ├── ui/*.ui                   # Qt Designer 布局（AUTOUIC）
 ├── resources/                # QSS、图标、地图前端（Leaflet + 天地图 内联）
@@ -53,8 +54,8 @@ T-JSON-V1.0/
 
 ```
 ┌──────────────────────────── 表现层 ────────────────────────────┐
-│  mainwindow (View)  ◄────  ui/main/MainPresenter (Presenter)   │
-│  ui/components (DeviceTree/VideoGrid)                           │
+│  ui/views/mainwindow (View)  ◄────  ui/main/MainPresenter (Presenter)   │
+│  ui/views (Video/Map/Settings/CmdLog)  ui/components (DeviceTree/VideoGrid)│
 └──────────────────────────────┬──────────────────────────────────┘
                                │ EventBus（横向解耦枢纽）
 ┌──────────────────────────── 业务层 ────────────────────────────┐
@@ -62,8 +63,8 @@ T-JSON-V1.0/
 └──────────────┬──────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────── 基础设施层 ─────────────────┐
-│ tjsonclient │ rtspthread │ devicecontroller │ ptzforwarder      │
-│ configmanager │ mapwidget/mapbridge │ videowidget               │
+│ infrastructure/ tjsonclient │ rtspthread │ devicecontroller │   │
+│ ptzforwarder │ configmanager                                    │
 └──────────────┬──────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────── 核心领域层 (core/) ─────────────────┐
@@ -78,7 +79,7 @@ T-JSON-V1.0/
 | 模块 | 文件 | 职责 | 关键依赖 | 构建 |
 |---|---|---|---|---|
 | 入口 | `main.cpp` | WebEngine 调试端口 9999、Chromium flags、启动 MainWindow | — | ✅ |
-| 主窗口 View | `mainwindow.*` | 布局、按钮、视频/地图/仪表盘展示；事件回调更新 UI | Presenter, VideoGrid, MapWidget | ✅ |
+| 主窗口 View | `ui/views/mainwindow.*` | 布局、按钮、视频/地图/仪表盘展示；事件回调更新 UI | Presenter, VideoGrid, MapWidget | ✅ |
 | Presenter | `ui/main/MainPresenter.*` | 所有按钮业务逻辑、设备指令下发、EventBus 订阅、多设备切换 | MainWindow, DeviceManager, DeviceController | ✅ |
 | 事件总线 | `core/EventBus.*` | 14 类跨模块事件（连接/状态/PTZ/图像/RTSP/ACK/AI） | DeviceState | ✅ |
 | 数据模型 | `core/DeviceState.h` | 设备运行时纯数据（PTZ/镜头/位置/AI/图像参数） | — | ✅ |
@@ -86,19 +87,19 @@ T-JSON-V1.0/
 | 帧解析 | `core/JsonFrameParser.*` | ZoomInfoData / AiInfoData / ImageSettingData 提取 | — | ✅ |
 | 设备上下文 | `service/DeviceContext.*` | 单设备聚合根：持有 TCP/RTSP/PTZ/State，管理定时器 | TJsonClient, RtspThread, DeviceController, PtzForwarder | ✅ |
 | 设备管理器 | `service/DeviceManager.*` | 多设备增删查，全局单例 | DeviceContext | ✅ |
-| TCP 客户端 | `tjsonclient.*` | 0xEC 0x91 帧收发、粘包/半包、心跳 10s、指数退避重连 | QTcpSocket | ✅ |
-| 指令控制器 | `devicecontroller.*` | ProtocolBuilder（Pelco-D/VISCA）、云台/镜头/预置位/雨刷、电机串口/TCP | TJsonClient, ConfigManager | ✅ |
-| RTSP 线程 | `rtspthread.*` | FFmpeg 拉流解码、16:9 渲染、断线重连、32 字节对齐缓冲 | FFmpeg | ✅ |
-| PTZ 转发 | `ptzforwarder.*` | Pelco-D 串口服务器双向转发、角度偏移、零点标定 | QTcpSocket/Server | ✅ |
-| 配置 | `configmanager.*` | PTZ/镜头/相机/电机配置，QSettings 持久化，FOV 距离常量 | QSettings | ✅ |
-| 地图 View | `mapwidget.*` | WebEngine 天地图、FOV 扇形、目标/轨迹、脏标记批量刷新 | MapBridge, WebChannel | ✅ |
-| 地图桥 | `mapbridge.*` | C++ ↔ JS 双向桥接（初始化/点击/缩放） | QWebChannel | ✅ |
-| 视频控件 | `videowidget.*` | 帧渲染、16:9 锁定、框选区域坐标映射 | QPainter | ✅ |
+| TCP 客户端 | `infrastructure/tjsonclient.*` | 0xEC 0x91 帧收发、粘包/半包、心跳 10s、指数退避重连 | QTcpSocket | ✅ |
+| 指令控制器 | `infrastructure/devicecontroller.*` | ProtocolBuilder（Pelco-D/VISCA）、云台/镜头/预置位/雨刷、电机串口/TCP | TJsonClient, ConfigManager | ✅ |
+| RTSP 线程 | `infrastructure/rtspthread.*` | FFmpeg 拉流解码、16:9 渲染、断线重连、32 字节对齐缓冲 | FFmpeg | ✅ |
+| PTZ 转发 | `infrastructure/ptzforwarder.*` | Pelco-D 串口服务器双向转发、角度偏移、零点标定 | QTcpSocket/Server | ✅ |
+| 配置 | `infrastructure/configmanager.*` | PTZ/镜头/相机/电机配置，QSettings 持久化，FOV 距离常量 | QSettings | ✅ |
+| 地图 View | `ui/views/mapwidget.*` | WebEngine 天地图、FOV 扇形、目标/轨迹、脏标记批量刷新 | MapBridge, WebChannel | ✅ |
+| 地图桥 | `ui/views/mapbridge.*` | C++ ↔ JS 双向桥接（初始化/点击/缩放） | QWebChannel | ✅ |
+| 视频控件 | `ui/views/videowidget.*` | 帧渲染、16:9 锁定、框选区域坐标映射 | QPainter | ✅ |
 | 设备树 | `ui/components/DeviceTreeWidget.*` | 多设备树增删改、JSON 持久化 | QTreeView | ✅ |
 | 视频宫格 | `ui/components/VideoGridWidget.*` | 多设备 VideoWidget 宫格布局 | VideoWidget | ✅ |
-| 设置对话框 | `settingsdialog.*` | 串口/协议/相机参数编辑 | ConfigManager | ✅ |
-| 指令日志 | `cmdlogdialog.*` | 串口 HEX 收发日志窗口 | — | ✅ |
-| S3 上传 | `s3uploader.*` | AWS S3 上传（`ENABLE_S3_UPLOAD` 宏 + AWS SDK） | aws-sdk-cpp | ❌ |
+| 设置对话框 | `ui/views/settingsdialog.*` | 串口/协议/相机参数编辑 | ConfigManager | ✅ |
+| 指令日志 | `ui/views/cmdlogdialog.*` | 串口 HEX 收发日志窗口 | — | ✅ |
+| S3 上传 | `infrastructure/s3uploader.*` | AWS S3 上传（`ENABLE_S3_UPLOAD` 宏 + AWS SDK） | aws-sdk-cpp | ❌ |
 
 ## 5. 关键数据流
 
@@ -109,7 +110,6 @@ T-JSON-V1.0/
   → DeviceContext → EventBus.postDeviceStateUpdated / postJsonReceived 等
   → MainPresenter（订阅 sig* 信号）→ MainWindow 刷新仪表盘/地图/视频
 ```
-
 ### 5.2 控制下行（UI → 设备）
 
 ```
@@ -154,11 +154,11 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 
 | 债务 | 位置 | 说明 |
 |---|---|---|
-| 超大文件 | `mainwindow.cpp`(1404 行)、`MainPresenter.cpp`(1292 行) | 违反"方法超 80 行拆分"规则 |
-| 过渡期访问器 | `MainPresenter.h` `motorController()/tcpClient()/videoStream()/ptzForwarder()` | View 仍可直取底层，未达"哑巴视图" |
-| 未迁移残留 | `mainwindow.cpp:242-286` | PTZ 方向/镜头按钮仍在 View lambda 直接调 `motorController()` |
-| 死代码 | `s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
-| 未提交改动 | 见 `git status` | `mainwindow.*`/`MainPresenter.*`/`EventBus.*`/`DeviceContext.cpp`/`ui/mainwindow.ui` 有未提交改动 |
+| 超大文件 | `ui/views/mainwindow.cpp`(1404 行)、`ui/main/MainPresenter.cpp`(1292 行) | 违反"方法超 80 行拆分"规则 |
+| 过渡期访问器 | `ui/main/MainPresenter.h` `motorController()/tcpClient()/videoStream()/ptzForwarder()` | View 仍可直取底层，未达"哑巴视图" |
+| 未迁移残留 | `ui/views/mainwindow.cpp:242-286` | PTZ 方向/镜头按钮仍在 View lambda 直接调 `motorController()` |
+| 死代码 | `infrastructure/s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
+| 未提交改动 | 见 `git status` | 目录重组后 `src/ui/views/*`/`src/infrastructure/*` 等有未提交改动 |
 
 ## 9. 文档导航
 

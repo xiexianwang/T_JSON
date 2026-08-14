@@ -5,11 +5,11 @@
 #include <memory>
 #include <QString>
 #include "core/DeviceState.h"
-#include "tjsonclient.h"
-#include "devicecontroller.h"
-#include "rtspthread.h"
-#include "ptzforwarder.h"
-#include "configmanager.h"
+#include "infrastructure/tjsonclient.h"
+#include "infrastructure/devicecontroller.h"
+#include "infrastructure/rtspthread.h"
+#include "infrastructure/ptzforwarder.h"
+#include "infrastructure/configmanager.h"
 #include <QTimer>
 
 // ============================================================================

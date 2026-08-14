@@ -42,7 +42,12 @@ T-JSON-V1.0/
 │       ├── tjsonframecodec.* # 帧编解码器（粘包/半包/重同步/组包）
 │       ├── tjsonprotocolparser.* # 载荷解析（JSON/ACK/抓拍）
 │       ├── tjsonclient.*     # TCP 8089 协议客户端（Socket/心跳/重连/分发）
-│       ├── devicecontroller.*# 设备指令控制器（ProtocolBuilder）
+│       ├── pelcodprotocol.h  # Pelco-D 语义化组包器（含 PtzDir）
+│       ├── viscaprotocol.h   # VISCA 组包器
+│       ├── modbustransport.* # MODBUS-RTU 串口传输层 + CRC16
+│       ├── stm32tcptransport.* # STM32-TCP-V4.0 传输层 + 帧组包
+│       ├── devicecommandservice.* # 电机指令编排（协议选择）
+│       ├── devicecontroller.*# 设备指令控制器（协议选择与业务编排）
 │       ├── rtspthread.*      # FFmpeg RTSP 拉流解码线程
 │       ├── ptzforwarder.*    # Pelco-D 串口服务器转发 + 角度偏移
 │       ├── configmanager.*   # QSettings 配置持久化
@@ -67,8 +72,9 @@ T-JSON-V1.0/
                │
 ┌──────────────▼───────────────────── 基础设施层 ─────────────────┐
 │ infrastructure/ tjsonframecodec │ tjsonprotocolparser │         │
-│ tjsonclient │ rtspthread │ devicecontroller │                  │
-│ ptzforwarder │ configmanager                                    │
+│ tjsonclient │ pelcodprotocol │ viscaprotocol │                  │
+│ modbustransport │ stm32tcptransport │ devicecommandservice │    │
+│ rtspthread │ devicecontroller │ ptzforwarder │ configmanager   │
 └──────────────┬──────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────── 核心领域层 (core/) ─────────────────┐
@@ -94,7 +100,11 @@ T-JSON-V1.0/
 | TCP 客户端 | `infrastructure/tjsonclient.*` | Socket、连接/断开、心跳 10s、指数退避重连、事件分发 | QTcpSocket, TJsonFrameCodec, TJsonProtocolParser | ✅ |
 | 帧编解码 | `infrastructure/tjsonframecodec.*` | 帧头识别、长度解析、粘包/半包、重同步、发送组包 | TJsonFrame, QByteArray | ✅ |
 | 载荷解析 | `infrastructure/tjsonprotocolparser.*` | JSON 状态帧 / ACK / 抓拍帧解析（校验和与帧尾校验） | TJsonFrame, QJsonObject | ✅ |
-| 指令控制器 | `infrastructure/devicecontroller.*` | ProtocolBuilder（Pelco-D/VISCA）、云台/镜头/预置位/雨刷、电机串口/TCP | TJsonClient, ConfigManager | ✅ |
+| 指令控制器 | `infrastructure/devicecontroller.*` | 协议选择与业务编排：JSON 设备指令、PTZ/镜头/预置位组包透传、电机指令委托 | PelcoDProtocol, ViscaProtocol, DeviceCommandService, TJsonClient | ✅ |
+| 协议组包 | `infrastructure/pelcodprotocol.h` / `viscaprotocol.h` | Pelco-D（含 `PtzDir`）/ VISCA 帧语义化组包 | — | ✅ |
+| 电机指令服务 | `infrastructure/devicecommandservice.*` | 电机指令编排：MODBUS-RTU / STM32-TCP-V4.0 / Pelco-D 三通道选择，模式/静音状态记录 | ModbusTransport, Stm32TcpTransport, ConfigManager | ✅ |
+| MODBUS 传输 | `infrastructure/modbustransport.*` | MODBUS-RTU 串口传输（9600-8-N-1）+ CRC16 | QSerialPort | ✅ |
+| STM32 传输 | `infrastructure/stm32tcptransport.*` | STM32-TCP-V4.0 TCP 传输 + `5A A5 02` 帧组包 + seq | QTcpSocket | ✅ |
 | RTSP 线程 | `infrastructure/rtspthread.*` | FFmpeg 拉流解码、16:9 渲染、断线重连、32 字节对齐缓冲 | FFmpeg | ✅ |
 | PTZ 转发 | `infrastructure/ptzforwarder.*` | Pelco-D 串口服务器双向转发、角度偏移、零点标定 | QTcpSocket/Server | ✅ |
 | 配置 | `infrastructure/configmanager.*` | PTZ/镜头/相机/电机配置，QSettings 持久化，FOV 距离常量 | QSettings | ✅ |
@@ -120,7 +130,8 @@ T-JSON-V1.0/
 
 ```
 MainWindow 按钮 → MainPresenter.onXxx()
-  → DeviceController（ProtocolBuilder 组包）
+  → DeviceController（协议选择：PelcoDProtocol/ViscaProtocol 组包；
+    DeviceCommandService 电机指令 → ModbusTransport/Stm32TcpTransport）
   → TJsonClient.sendSerialCmd / sendJsonCmd → TCP 8089 → 设备
 ```
 
@@ -164,11 +175,11 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 | 死代码 | `infrastructure/s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
 | 生命周期风险 | `service/DeviceContext.*`、`infrastructure/rtspthread.*` | 设备销毁、RTSP 停止与后台线程退出需要持续验证 |
 | 多设备收口 | `ui/main/MainPresenter.cpp`、`ui/views/mainwindow.cpp` | 当前设备切换与视频控件绑定仍需继续收敛，避免业务依赖默认设备 |
-| DeviceController 过重 | `infrastructure/devicecontroller.*` | 仍同时承担 Pelco-D/VISCA/MODBUS-RTU/STM32-TCP 与串口/TCP 传输，待 5.2 拆分（`sendMotorTcpV4` 的 `waitForConnected(500)` 可能阻塞 UI 线程） |
 | DeviceContext 暴露底层 | `service/DeviceContext.*` | 仍公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()`，待 5.3 收口为业务 API |
 
 > ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
 > ✅ 已解决：`TJsonClient` 职责过重 —— 帧编解码已拆为 `TJsonFrameCodec`，载荷解析已拆为 `TJsonProtocolParser`（阶段 5.1）。
+> ✅ 已解决：`DeviceController` 职责过重 —— 协议组包拆为 `PelcoDProtocol`/`ViscaProtocol`，传输拆为 `ModbusTransport`/`Stm32TcpTransport`，电机编排拆为 `DeviceCommandService`（阶段 5.2）。残留：`Stm32TcpTransport::send` 的 `waitForConnected(500)` 仍同步等待（行为等价保留，联调时评估异步化）。
 
 ## 9. 文档导航
 

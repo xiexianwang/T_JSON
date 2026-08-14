@@ -5,6 +5,57 @@
 
 ---
 
+## 2026-08-14 · 阶段 5.2：拆分 DeviceController（协议组包 / 传输层 / 指令服务）
+
+### 解决的问题 / 实现功能
+
+- **新增 `PelcoDProtocol`**（`src/infrastructure/pelcodprotocol.h`）：纯静态 Pelco-D 组包器，含 `PtzDir` 方向枚举与语义化组包方法（`buildMove` / `buildStop` / `buildPanTo` / `buildTiltTo` / `buildSetZero` / 预置位三连 / 红外镜头 / 雨刷开合），替代原 `ProtocolBuilder`。
+- **新增 `ViscaProtocol`**（`src/infrastructure/viscaprotocol.h`）：纯静态 VISCA 组包器（`buildZoom` / `buildFocus` / `buildStop`）。
+- **新增 `ModbusTransport`**（`src/infrastructure/modbustransport.*`）：QSerialPort 封装，固定 9600-8-N-1，负责串口开闭/收发与 CRC16 计算，仅做字节级收发。
+- **新增 `Stm32TcpTransport`**（`src/infrastructure/stm32tcptransport.*`）：QTcpSocket 封装，负责 STM32-TCP-V4.0 帧头（`5A A5 02` + 长度 + 序号 + CRC）组包、命令序列号管理与连接生命周期。
+- **新增 `DeviceCommandService`**（`src/infrastructure/devicecommandservice.*`）：电机指令编排。按配置在 MODBUS-RTU / STM32-TCP-V4.0 / Pelco-D 透传间选择协议，封装雨刷电机启停/点动/校准/模式切换/电流设置；Pelco-D 透传经注入回调由 `DeviceController` 接 TJsonClient。
+- **DeviceController 收窄为"协议选择 + 业务编排"**：移除 `ProtocolBuilder`、`QSerialPort` / `QTcpSocket` 直连、CRC16 及电机指令实现；PTZ/镜头/预置位改用 `PelcoDProtocol` / `ViscaProtocol` 组包，电机全部委托 `DeviceCommandService`，并通过信号转发保持对外 `signals` 不变。
+- **行为等价验证**：Pelco-D/VISCA 组包字节与电机指令（MODBUS 固定帧、STM32 JSON + 帧头、cmd_id 自增前取值、Pelco-D 透传）逐字节比对原实现一致；构建通过。
+
+### 阶段 5.2 验收核对（代码层面）
+
+| 验收项 | 结论 |
+|---|---|
+| `DeviceController` 不再直连串口/TCP 与 CRC16 | ✅ 已拆至 ModbusTransport / Stm32TcpTransport |
+| 协议组包不再散落于控制器内 | ✅ PelcoDProtocol / ViscaProtocol 独立成类 |
+| 电机指令编排独立成服务 | ✅ DeviceCommandService（协议选择 + 状态记录） |
+| 对外 API 与信号保持兼容（Presenter 零改动） | ✅ 方法签名与 4 个信号原样保留，仅内部转发 |
+| 字节级行为等价 | ✅ 组包/指令逐字节核对一致 |
+| Debug 构建通过 | ✅ 产物 `LSSVideoManager.exe` |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/infrastructure/pelcodprotocol.h` | 新增：Pelco-D 语义化组包器 + `PtzDir` 枚举 |
+| `src/infrastructure/viscaprotocol.h` | 新增：VISCA 组包器 |
+| `src/infrastructure/modbustransport.*` | 新增：MODBUS-RTU 串口传输层 + CRC16 |
+| `src/infrastructure/stm32tcptransport.*` | 新增：STM32-TCP-V4.0 传输层 + 帧组包 + seq |
+| `src/infrastructure/devicecommandservice.*` | 新增：电机指令编排服务 |
+| `src/infrastructure/devicecontroller.h/.cpp` | 移除 ProtocolBuilder / 串口 / TCP / 电机实现，改为委托 |
+| `CMakeLists.txt` | 加入 7 个新文件 |
+
+### 遗留问题
+
+- **`sendMotorTcpV4` 的 `waitForConnected(500)` 同步等待仍保留**：已随实现迁入 `Stm32TcpTransport`，行为保持原样；后续若需彻底消除 UI 阻塞，可改为异步重连（阶段 6 联调时评估）。
+- **阶段 6 测试落地**：`tests/test_protocolbuilder.cpp`（Pelco-D checksum / VISCA 组包）、`test_modbustransport.cpp` 等 CTest 集成待阶段 6 建立。
+- **实机验收待办**：电机 MODBUS/STM32/Pelco-D 三通道指令需实机确认。
+- **5.3 未动**：DeviceContext 业务 API 收口（`motorController()` 等访问器移除）留待阶段 5.3。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 5.2 改动（建议消息 `refactor: 拆分 DeviceController 协议与传输`）。
+2. 实机联调验收（电机三通道指令、PTZ/镜头）。
+3. 进入阶段 5.3：封装 DeviceContext 业务 API（移除 `tcpClient()/motorController()/videoStream()/ptzForwarder()` 公开访问器）。
+
+---
+
 ## 2026-08-14 · 阶段 5.1：拆分 TJsonClient 协议编解码（TJsonFrameCodec / TJsonProtocolParser）
 
 ### 解决的问题 / 实现功能

@@ -56,6 +56,14 @@ qt_add_executable(T-JSON
     src/infrastructure/tjsonprotocolparser.h
     src/infrastructure/tjsonclient.cpp
     src/infrastructure/tjsonclient.h
+    src/infrastructure/pelcodprotocol.h
+    src/infrastructure/viscaprotocol.h
+    src/infrastructure/modbustransport.cpp
+    src/infrastructure/modbustransport.h
+    src/infrastructure/stm32tcptransport.cpp
+    src/infrastructure/stm32tcptransport.h
+    src/infrastructure/devicecommandservice.cpp
+    src/infrastructure/devicecommandservice.h
     src/infrastructure/devicecontroller.cpp
     src/infrastructure/devicecontroller.h
     src/infrastructure/configmanager.cpp

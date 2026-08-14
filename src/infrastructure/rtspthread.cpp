@@ -17,7 +17,7 @@ extern "C" {
 int RtspThread::interruptCallback(void *opaque)
 {
     auto *self = static_cast<RtspThread*>(opaque);
-    return self->m_stop ? 1 : 0;
+    return self->stopRequested() ? 1 : 0;
 }
 
 // 构造函数：仅初始化基类，实际资源在线程启动后分配
@@ -31,9 +31,12 @@ RtspThread::RtspThread(QObject *parent)
 RtspThread::~RtspThread()
 {
     closeStream();
-    if (!wait(3000)) {
-        qDebug() << "RtspThread::~RtspThread() - thread timeout, force stop";
-    }
+}
+
+bool RtspThread::stopRequested() const
+{
+    QMutexLocker lock(&m_mutex);
+    return m_stop;
 }
 
 // 打开 RTSP 流（非阻塞接口）
@@ -41,10 +44,7 @@ RtspThread::~RtspThread()
 void RtspThread::openStream(const QString &url)
 {
     // 如果线程已经在运行，必须先发出停止指令并等待其安全退出
-    if (isRunning()) {
-        closeStream();
-        wait(3000);
-    }
+    if (isRunning()) closeStream();
 
     {
         QMutexLocker lock(&m_mutex);
@@ -59,6 +59,7 @@ void RtspThread::openStream(const QString &url)
     }
 
     if (!isRunning()) {
+        QMutexLocker lock(&m_mutex);
         m_connecting = true;
         start();
     }
@@ -66,12 +67,18 @@ void RtspThread::openStream(const QString &url)
 
 void RtspThread::closeStream()
 {
-    QMutexLocker lock(&m_mutex);
-    m_stop = true;
-    m_autoReconnect = false;
-    m_openRequested = false;
-    m_connecting = false;
-    m_cond.wakeOne();
+    {
+        QMutexLocker lock(&m_mutex);
+        m_stop = true;
+        m_autoReconnect = false;
+        m_openRequested = false;
+        m_connecting = false;
+        m_cond.wakeOne();
+    }
+
+    if (isRunning() && QThread::currentThread() != this && !wait(3000)) {
+        qWarning() << "RtspThread::closeStream() - thread did not exit within timeout";
+    }
 }
 
 // 安全释放所有 FFmpeg 资源
@@ -98,7 +105,7 @@ void RtspThread::run()
     AVFrame  *decoded = av_frame_alloc();
     AVFrame  *rgb = av_frame_alloc();
 
-    while (!m_stop) {
+    while (!stopRequested()) {
         // 等待打开请求或自动重连
         {
             QMutexLocker lock(&m_mutex);
@@ -127,7 +134,12 @@ void RtspThread::run()
             }
         }
 
-        QByteArray url8 = m_url.toUtf8();
+        QString url;
+        {
+            QMutexLocker lock(&m_mutex);
+            url = m_url;
+        }
+        QByteArray url8 = url.toUtf8();
         AVDictionary *opts = nullptr;
         av_dict_set(&opts, "rtsp_transport", "tcp", 0);
         av_dict_set(&opts, "stimeout", "2000000", 0);
@@ -247,7 +259,7 @@ void RtspThread::run()
         emit streamOpened();
 
         // ── 解码循环 ──
-        while (!m_stop) {
+        while (!stopRequested()) {
             ret = av_read_frame(m_fmtCtx, pkt);
             if (ret < 0) {
                 qDebug() << "RtspThread - read frame error:" << ret;
@@ -266,7 +278,7 @@ void RtspThread::run()
                     if (sws_scale(m_swsCtx, decoded->data, decoded->linesize,
                                   0, h, rgb->data, rgb->linesize) > 0) {
                         // 检查是否已被要求停止，避免关闭后还发帧导致不黑屏
-                        if (!m_stop && w > 0 && h > 0 && m_rgbBuf && rgb->linesize[0] > 0) {
+                        if (!stopRequested() && w > 0 && h > 0 && m_rgbBuf && rgb->linesize[0] > 0) {
                             QImage img(m_rgbBuf, w, h, rgb->linesize[0], QImage::Format_RGB32);
                             emit frameReady(img.copy());
                         }
@@ -278,9 +290,14 @@ void RtspThread::run()
 
         safeCleanup();
 
-        if (m_stop) break;
+        bool shouldReconnect = false;
+        {
+            QMutexLocker lock(&m_mutex);
+            if (m_stop) break;
+            shouldReconnect = m_autoReconnect;
+        }
 
-        if (m_autoReconnect) {
+        if (shouldReconnect) {
             qDebug() << "RtspThread - stream ended, will auto reconnect";
             emit streamError(QString());
         }

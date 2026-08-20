@@ -21,7 +21,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
 {
     DeviceManager::instance()->init(m_cfg);
 
-    m_deviceService = new PresenterDeviceService(this, view, cfg, this);
+    m_deviceService = new PresenterDeviceService(view, cfg, this);
     m_motorService = new PresenterMotorService(view, cfg, this);
     m_mapService = new PresenterMapService(view, cfg, this);
     m_stateService = new DeviceStateService(this);
@@ -65,6 +65,26 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     connect(m_deviceService, &PresenterDeviceService::deviceReconnectFailed, this, [this](const QString& deviceId) {
         Q_UNUSED(deviceId);
         if (m_view) m_view->onDeviceReconnectFailed();
+    });
+    connect(m_deviceService, &PresenterDeviceService::motorModeChanged, this,
+            [this](const QString& deviceId, bool value) {
+        if (deviceId == currentDeviceId()) emit motorModeChanged(value);
+    });
+    connect(m_deviceService, &PresenterDeviceService::motorSerialError, this,
+            [this](const QString& deviceId, const QString& msg) {
+        if (deviceId == currentDeviceId()) emit motorSerialErrorOccurred(msg);
+    });
+    connect(m_deviceService, &PresenterDeviceService::motorTcpError, this,
+            [this](const QString& deviceId, const QString& msg) {
+        if (deviceId == currentDeviceId()) emit motorTcpErrorOccurred(msg);
+    });
+    connect(m_deviceService, &PresenterDeviceService::motorSilentChanged, this,
+            [this](const QString& deviceId, bool value) {
+        if (deviceId == currentDeviceId()) emit motorSilentChanged(value);
+    });
+    connect(m_deviceService, &PresenterDeviceService::commandSent, this,
+            [this](const QString& deviceId, const QString& type, const QByteArray& data) {
+        if (deviceId == currentDeviceId()) emit commandSentToLog(type, data);
     });
 
     // 设备切换后重置状态缓存

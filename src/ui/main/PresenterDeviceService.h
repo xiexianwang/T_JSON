@@ -9,7 +9,6 @@
 #include <memory>
 #include "core/DeviceState.h"
 
-class MainPresenter;
 class IMainView;
 class ConfigManager;
 class DeviceContext;
@@ -25,7 +24,7 @@ class PresenterDeviceService : public QObject
 {
     Q_OBJECT
 public:
-    explicit PresenterDeviceService(MainPresenter* parentPresenter, IMainView* view, ConfigManager* cfg, QObject *parent = nullptr);
+    explicit PresenterDeviceService(IMainView* view, ConfigManager* cfg, QObject *parent = nullptr);
     ~PresenterDeviceService() override;
 
     // ================= 设备连接/断开 =================
@@ -71,6 +70,11 @@ signals:
     void deviceReconnectFailed(const QString& deviceId);
     // 设备切换后通知 MainPresenter 刷新仪表盘
     void deviceSwitched();
+    void motorModeChanged(const QString& deviceId, bool isManual);
+    void motorSerialError(const QString& deviceId, const QString& msg);
+    void motorTcpError(const QString& deviceId, const QString& msg);
+    void motorSilentChanged(const QString& deviceId, bool isSilent);
+    void commandSent(const QString& deviceId, const QString& serialType, const QByteArray& data);
 
 private:
     bool acceptsEvent(const QString& deviceId, quint64 generation) const;
@@ -78,7 +82,6 @@ private:
     void connectDeviceSignals(DeviceContext* ctx);
     void disconnectDeviceSignals();
 
-    MainPresenter* m_presenter;
     IMainView* m_view;
     ConfigManager* m_cfg;
     DeviceSessionService* m_session;

@@ -1,5 +1,4 @@
 #include "PresenterDeviceService.h"
-#include "MainPresenter.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"
 #include "ui/main/IMainView.h"
@@ -7,8 +6,8 @@
 #include "infrastructure/configmanager.h"
 #include "ui/main/DeviceSessionService.h"
 
-PresenterDeviceService::PresenterDeviceService(MainPresenter* parentPresenter, IMainView* view, ConfigManager* cfg, QObject *parent)
-    : QObject(parent), m_presenter(parentPresenter), m_view(view), m_cfg(cfg)
+PresenterDeviceService::PresenterDeviceService(IMainView* view, ConfigManager* cfg, QObject *parent)
+    : QObject(parent), m_view(view), m_cfg(cfg)
     , m_session(new DeviceSessionService(cfg, this))
     , m_currentDeviceId("default_device")
 {
@@ -185,11 +184,19 @@ void PresenterDeviceService::removeDevice(const QString& ip)
 void PresenterDeviceService::connectDeviceSignals(DeviceContext* ctx)
 {
     if (!ctx) return;
-    m_motorModeConn = connect(ctx, &DeviceContext::motorModeResult, m_presenter, &MainPresenter::motorModeChanged);
-    m_motorErrorConn = connect(ctx, &DeviceContext::motorSerialError, m_presenter, &MainPresenter::motorSerialErrorOccurred);
-    m_motorTcpErrorConn = connect(ctx, &DeviceContext::motorTcpError, m_presenter, &MainPresenter::motorTcpErrorOccurred);
-    m_motorSilentConn = connect(ctx, &DeviceContext::motorSilentResult, m_presenter, &MainPresenter::motorSilentChanged);
-    m_commandLogConn = connect(ctx, &DeviceContext::commandSent, m_presenter, &MainPresenter::commandSentToLog);
+    const QString deviceId = ctx->deviceId();
+    m_motorModeConn = connect(ctx, &DeviceContext::motorModeResult, this,
+                              [this, deviceId](bool value) { emit motorModeChanged(deviceId, value); });
+    m_motorErrorConn = connect(ctx, &DeviceContext::motorSerialError, this,
+                               [this, deviceId](const QString& msg) { emit motorSerialError(deviceId, msg); });
+    m_motorTcpErrorConn = connect(ctx, &DeviceContext::motorTcpError, this,
+                                  [this, deviceId](const QString& msg) { emit motorTcpError(deviceId, msg); });
+    m_motorSilentConn = connect(ctx, &DeviceContext::motorSilentResult, this,
+                                [this, deviceId](bool value) { emit motorSilentChanged(deviceId, value); });
+    m_commandLogConn = connect(ctx, &DeviceContext::commandSent, this,
+                               [this, deviceId](const QString& type, const QByteArray& data) {
+        emit commandSent(deviceId, type, data);
+    });
 }
 
 void PresenterDeviceService::disconnectDeviceSignals()

@@ -28,6 +28,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_stateService = new DeviceStateService(this);
     m_stateViewService = new PresenterStateViewService(view, cfg, m_mapService, this);
     m_mediaService = new PresenterMediaService(view, this);
+    m_aiViewService = new PresenterAiViewService(view, cfg, m_mapService, this);
     m_controlService = new DeviceControlService(cfg, this);
 
     // DeviceService 初始化默认设备

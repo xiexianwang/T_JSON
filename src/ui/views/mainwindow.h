@@ -8,7 +8,6 @@
 
 #include <QMainWindow>
 #include <QPushButton>
-#include <QDateTime>
 #include <QTimer>
 #include <QDialog>
 #include <QSystemTrayIcon>
@@ -21,7 +20,6 @@
 #include <windowsx.h>
 #endif
 
-class RtspThread;
 class VideoWidget;
 class MapWidget;
 class CmdLogDialog;

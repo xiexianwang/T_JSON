@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QString>
 #include <QJsonObject>
-#include <QRect>
 #include <memory>
 #include "core/DeviceState.h"
 #include "infrastructure/tjsonframe.h"

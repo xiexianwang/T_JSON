@@ -12,8 +12,6 @@
 #include "ui/components/VideoGridWidget.h"
 #include "ui/components/DeviceTreeWidget.h"
 
-#include "infrastructure/rtspthread.h"
-#include "ui/views/videowidget.h"
 #include "ui/views/mapwidget.h"
 #include "ui/views/cmdlogdialog.h"
 #include "ui/views/MainWindowNavigation.h"

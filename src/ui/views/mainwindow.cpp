@@ -18,6 +18,8 @@
 #include "ui/views/cmdlogdialog.h"
 #include "ui/views/MainWindowNavigation.h"
 #include "ui/views/MainWindowDialogService.h"
+#include "ui/views/MainWindowLayoutService.h"
+#include "ui/views/MainWindowSystemService.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>

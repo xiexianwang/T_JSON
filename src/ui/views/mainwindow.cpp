@@ -20,6 +20,7 @@
 #include "ui/views/MainWindowDialogService.h"
 #include "ui/views/MainWindowLayoutService.h"
 #include "ui/views/MainWindowSystemService.h"
+#include "ui/views/MainWindowControlService.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>
@@ -238,151 +239,23 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     //============================================================================
-    // 云台八方向控制 (基于 Pelco-D 协议)
-    // 按下按钮 → 发送持续转动指令；释放按钮 → 发送停止指令
-    // 八个按钮分别对应 Up/Down/Left/Right 及四个对角线方向
+    // 控制服务：PTZ/镜头/预置位/雨刷电机/附加功能开关
     //============================================================================
-    auto connectPtzBtn = [this](QPushButton* btn, PtzDir dir) {
-        connect(btn, &QPushButton::pressed, this, [this, dir]() { if (!requireConnected()) return; m_presenter->ptzMove(static_cast<int>(dir)); });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->ptzStop(); });
-    };
-
-    connectPtzBtn(ui->btnPtzUp, PtzDir::Up);
-    connectPtzBtn(ui->btnPtzDown, PtzDir::Down);
-    connectPtzBtn(ui->btnPtzLeft, PtzDir::Left);
-    connectPtzBtn(ui->btnPtzRight, PtzDir::Right);
-    connectPtzBtn(ui->btnPtzTopLeft, PtzDir::UpLeft);
-    connectPtzBtn(ui->btnPtzTopRight, PtzDir::UpRight);
-    connectPtzBtn(ui->btnPtzBottomLeft, PtzDir::DownLeft);
-    connectPtzBtn(ui->btnPtzBottomRight, PtzDir::DownRight);
-
-    //============================================================================
-    // 云台速度控制
-    // 滑块与数值输入框双向绑定，值改变时保存到配置持久化
-    // 水平与垂直速度使用相同的数值
-    //============================================================================
-    ui->sliderSpeed->setValue(m_cfg->ptz().panSpeed);
-    ui->spinSpeed->setValue(m_cfg->ptz().panSpeed);
-
-    connect(ui->sliderSpeed, &QSlider::valueChanged, ui->spinSpeed, &QSpinBox::setValue);
-    connect(ui->spinSpeed, QOverload<int>::of(&QSpinBox::valueChanged), ui->sliderSpeed, &QSlider::setValue);
-    connect(ui->spinSpeed, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int val) {
-        m_cfg->ptz().panSpeed = static_cast<quint8>(val);
-        m_cfg->ptz().tiltSpeed = static_cast<quint8>(val);
-        m_cfg->save();
-    });
-
-    //============================================================================
-    // 镜头控制 (Zoom 变倍 / Focus 调焦)
-    // 按下按钮 → 持续变倍/调焦；释放按钮 → 停止
-    // op 值: 0=ZoomIn, 1=ZoomOut, 2=FocusIn, 3=FocusOut
-    // 镜头目标（可见光/红外）由 Presenter 根据显示模式自动判断
-    //============================================================================
-    auto connectLensBtn = [this](QPushButton* btn, int op) {
-        connect(btn, &QPushButton::pressed, this, [this, op]() {
-            if (!requireConnected()) return;
-            m_presenter->lensMove(op);
-        });
-        connect(btn, &QPushButton::released, this, [this]() { if (!m_presenter->isDeviceConnected()) return; m_presenter->lensStop(); });
-    };
-
-    connectLensBtn(ui->btnZoomIn, 0);
-    connectLensBtn(ui->btnZoomOut, 1);
-    connectLensBtn(ui->btnFocusIn, 2);
-    connectLensBtn(ui->btnFocusOut, 3);
-
-    //============================================================================
-    // 镜头速度控制 (变倍速度 / 调焦速度)
-    // 滑块与数值输入框双向绑定，值改变时自动保存配置
-    //============================================================================
-    ui->sliderZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
-    ui->spinZoomSpeed->setValue(m_cfg->lens().zoomSpeed);
-    connect(ui->sliderZoomSpeed, &QSlider::valueChanged, ui->spinZoomSpeed, &QSpinBox::setValue);
-    connect(ui->spinZoomSpeed, QOverload<int>::of(&QSpinBox::valueChanged), ui->sliderZoomSpeed, &QSlider::setValue);
-    connect(ui->spinZoomSpeed, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int val) {
-        m_cfg->lens().zoomSpeed = static_cast<quint8>(val);
-        m_cfg->save();
-    });
-
-    //============================================================================
-    // 预置位控制 (调用/设置/删除)
-    // 通过 spinPreset 选择预置位编号，调用 DeviceController 中的协议封装
-    //============================================================================
-    connect(ui->btnCallPreset, &QPushButton::clicked, this, [this]() {
-        m_presenter->on_btnCallPreset_clicked();
-    });
-    connect(ui->btnSetPreset, &QPushButton::clicked, this, [this]() {
-        m_presenter->on_btnSetPreset_clicked();
-    });
-    connect(ui->btnDelPreset, &QPushButton::clicked, this, [this]() {
-        m_presenter->on_btnDelPreset_clicked();
-    });
-
-    //============================================================================
-    // 附加功能开关 (数字变倍 / 自动变焦 / 抓拍上传 / 位置归零)
-    // 每个 CheckBox 直连对应的设备指令
-    //============================================================================
-    connect(ui->checkDigitalZoom, &QCheckBox::toggled, this, [this](bool checked) {
-        m_presenter->onCheckDigitalZoomToggled(checked);
-    });
-    connect(ui->checkAutoZoom, &QCheckBox::toggled, this, [this](bool checked) {
-        m_presenter->onCheckAutoZoomToggled(checked);
-    });
-    connect(ui->checkCaptureUpload, &QCheckBox::toggled, this, [this](bool checked) {
-        m_presenter->onCheckCaptureUploadToggled(checked);
-    });
-    connect(ui->checkPosReset, &QCheckBox::toggled, this, [this](bool checked) {
-        m_presenter->onCheckPosResetToggled(checked);
-    });
-    connect(ui->btnWiperStart, &QPushButton::clicked, this, [this]() {
-        m_presenter->onWiperStart();
-    });
-    connect(ui->btnWiperStop, &QPushButton::clicked, this, [this]() {
-        m_presenter->onWiperStop();
-    });
-    connect(m_presenter, &MainPresenter::motorModeChanged, this, [this](bool isManual) {
-        ui->statWiperStatus->setText(isManual ? "手动" : "自动");
-    });
-    connect(m_presenter, &MainPresenter::motorSerialErrorOccurred, this, [this](const QString& msg) {
-        ui->statWiperStatus->setText("故障");
-        qWarning() << "电机串口错误:" << msg;
-    });
-    connect(m_presenter, &MainPresenter::motorTcpErrorOccurred, this, [this](const QString& msg) {
-        ui->statWiperStatus->setText("故障");
-        qWarning() << "电机TCP错误:" << msg;
-    });
-    connect(ui->btnWiperLeft, &QPushButton::pressed, this, [this]() {
-        m_presenter->onWiperJogLeft();
-    });
-    connect(ui->btnWiperLeft, &QPushButton::released, this, [this]() {
-        m_presenter->onWiperJogStop();
-    });
-    connect(ui->btnWiperRight, &QPushButton::pressed, this, [this]() {
-        m_presenter->onWiperJogRight();
-    });
-    connect(ui->btnWiperRight, &QPushButton::released, this, [this]() {
-        m_presenter->onWiperJogStop();
-    });
-    connect(ui->btnWiperZeroCalib, &QPushButton::clicked, this, [this]() {
-        m_presenter->onWiperZeroCalib();
-    });
-    connect(ui->btnWiperMode, &QPushButton::clicked, this, [this]() {
-        m_presenter->onWiperMode();
-    });
-    connect(ui->btnWiperSilent, &QPushButton::clicked, this, [this]() {
-        m_presenter->onWiperSilent();
-    });
-    connect(m_presenter, &MainPresenter::motorSilentChanged, this, [this](bool isSilent) {
-        ui->btnWiperSilent->setText(isSilent ? "狂暴模式" : "静音模式");
-        ui->statusbar->showMessage(isSilent ? "电机已切换为：静音模式 (StealthChop)" : "电机已切换为：狂暴模式 (SpreadCycle)", 3000);
-    });
-    connect(ui->editWiperCurrent, &QLineEdit::editingFinished, this, [this]() {
-        m_presenter->onWiperCurrentSet();
-    });
-
-    connect(ui->btnPtzReset, &QPushButton::clicked, this, [this]() {
-        m_presenter->on_btnPtzReset_clicked();
-    });
+    m_controlService = new MainWindowControlService(this);
+    m_controlService->setup({
+        ui->btnPtzUp, ui->btnPtzDown, ui->btnPtzLeft, ui->btnPtzRight,
+        ui->btnPtzTopLeft, ui->btnPtzTopRight, ui->btnPtzBottomLeft, ui->btnPtzBottomRight,
+        ui->sliderSpeed, ui->spinSpeed,
+        ui->btnZoomIn, ui->btnZoomOut, ui->btnFocusIn, ui->btnFocusOut,
+        ui->sliderZoomSpeed, ui->spinZoomSpeed,
+        ui->btnCallPreset, ui->btnSetPreset, ui->btnDelPreset, ui->btnPtzReset,
+        ui->checkDigitalZoom, ui->checkAutoZoom, ui->checkCaptureUpload, ui->checkPosReset,
+        ui->btnWiperStart, ui->btnWiperStop, ui->btnWiperLeft, ui->btnWiperRight,
+        ui->btnWiperZeroCalib, ui->btnWiperMode, ui->btnWiperSilent,
+        ui->editWiperCurrent, ui->statWiperStatus, ui->statusbar
+    }, m_cfg, m_presenter,
+        [this]() { return requireConnected(); },
+        [this]() { return requireMotorReady(); });
 
     //============================================================================
     // 指令日志窗口
@@ -423,7 +296,7 @@ MainWindow::MainWindow(QWidget *parent)
         cb->setFocusPolicy(Qt::StrongFocus);
         cb->installEventFilter(this);
     }
-    updateMotorButtons();
+    m_controlService->updateMotorButtons();
 }
 
 //============================================================================
@@ -496,7 +369,7 @@ void MainWindow::on_btnNavLog_clicked()      {
 }
 void MainWindow::on_btnNavSettings_clicked() {
     m_navigation->onBtnNavSettingsClicked();
-    updateMotorButtons();
+    m_controlService->updateMotorButtons();
 }
 
 //============================================================================
@@ -844,30 +717,6 @@ bool MainWindow::requireConnected()
 bool MainWindow::requireMotorReady()
 {
     return m_dialogService->requireMotorReady();
-}
-
-// 更新电机控制按钮状态
-void MainWindow::updateMotorButtons()
-{
-    bool isModbus = (m_cfg->motorProtocol() == "MODBUS-RTU");
-    bool isTcp = (m_cfg->motorProtocol() == "STM32-TCP-V4.0");
-    bool isPelco = (m_cfg->motorProtocol() == "Pelco-D");
-    
-    // 只有 Modbus 和 TCP 全功能可用，Pelco-D 仅允许雨刷
-    
-    bool othersEnabled = !isPelco;
-    ui->btnWiperLeft->setEnabled(othersEnabled);
-    ui->btnWiperRight->setEnabled(othersEnabled);
-    ui->btnWiperZeroCalib->setEnabled(othersEnabled);
-    ui->btnWiperMode->setEnabled(othersEnabled);
-    
-    // 狂暴/静音模式仅在 STM32-TCP-V4.0 下有效，或者如果您希望 Modbus 也有预留，可以调整
-    // 根据文档，action 6/7 属于 V4.0 TCP 接口
-    ui->btnWiperSilent->setEnabled(isTcp);
-
-    if (isModbus && m_presenter->isMotorSerialOpen()) {
-        m_presenter->checkMotorMode();
-    }
 }
 
 //============================================================================

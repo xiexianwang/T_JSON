@@ -31,6 +31,7 @@ class MainWindowNavigation;
 class MainWindowDialogService;
 class MainWindowLayoutService;
 class MainWindowSystemService;
+class MainWindowControlService;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -212,9 +213,9 @@ public:          // 地图控件（单实例，迷你/全屏切换，含内建�
     MainWindowDialogService *m_dialogService = nullptr;
     MainWindowLayoutService *m_layoutService = nullptr;
     MainWindowSystemService *m_systemService = nullptr;
+    MainWindowControlService *m_controlService = nullptr;
 
     // ── 私有工具方法 ──
-    void updateMotorButtons();                      // 根据电机协议更新按钮状态
     void setupUiStyles();                           // 加载并应用 QSS 样式表
     bool m_rtspEverOpened = false;                  // 首次连接自动打开 RTSP 标记（Presenter 管理，View 暂存）
 };

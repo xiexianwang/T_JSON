@@ -1,6 +1,6 @@
 #include "MainWindowControlService.h"
-#include "MainPresenter.h"
-#include "infrastructure/pelcodprotocol.h"
+#include "../main/MainPresenter.h"
+#include "../../infrastructure/pelcodprotocol.h"
 #include <QSlider>
 #include <QSpinBox>
 #include <QPushButton>

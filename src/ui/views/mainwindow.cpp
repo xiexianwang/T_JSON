@@ -242,18 +242,42 @@ MainWindow::MainWindow(QWidget *parent)
     // 控制服务：PTZ/镜头/预置位/雨刷电机/附加功能开关
     //============================================================================
     m_controlService = new MainWindowControlService(this);
-    m_controlService->setup({
-        ui->btnPtzUp, ui->btnPtzDown, ui->btnPtzLeft, ui->btnPtzRight,
-        ui->btnPtzTopLeft, ui->btnPtzTopRight, ui->btnPtzBottomLeft, ui->btnPtzBottomRight,
-        ui->sliderSpeed, ui->spinSpeed,
-        ui->btnZoomIn, ui->btnZoomOut, ui->btnFocusIn, ui->btnFocusOut,
-        ui->sliderZoomSpeed, ui->spinZoomSpeed,
-        ui->btnCallPreset, ui->btnSetPreset, ui->btnDelPreset, ui->btnPtzReset,
-        ui->checkDigitalZoom, ui->checkAutoZoom, ui->checkCaptureUpload, ui->checkPosReset,
-        ui->btnWiperStart, ui->btnWiperStop, ui->btnWiperLeft, ui->btnWiperRight,
-        ui->btnWiperZeroCalib, ui->btnWiperMode, ui->btnWiperSilent,
-        ui->editWiperCurrent, ui->statWiperStatus, ui->statusbar
-    }, m_cfg, m_presenter,
+    MainWindowControlService::ControlWidgets cw;
+    cw.ptzUp = ui->btnPtzUp;
+    cw.ptzDown = ui->btnPtzDown;
+    cw.ptzLeft = ui->btnPtzLeft;
+    cw.ptzRight = ui->btnPtzRight;
+    cw.ptzTopLeft = ui->btnPtzTopLeft;
+    cw.ptzTopRight = ui->btnPtzTopRight;
+    cw.ptzBottomLeft = ui->btnPtzBottomLeft;
+    cw.ptzBottomRight = ui->btnPtzBottomRight;
+    cw.sliderSpeed = ui->sliderSpeed;
+    cw.spinSpeed = ui->spinSpeed;
+    cw.zoomIn = ui->btnZoomIn;
+    cw.zoomOut = ui->btnZoomOut;
+    cw.focusIn = ui->btnFocusIn;
+    cw.focusOut = ui->btnFocusOut;
+    cw.sliderZoomSpeed = ui->sliderZoomSpeed;
+    cw.spinZoomSpeed = ui->spinZoomSpeed;
+    cw.callPreset = ui->btnCallPreset;
+    cw.setPreset = ui->btnSetPreset;
+    cw.delPreset = ui->btnDelPreset;
+    cw.ptzReset = ui->btnPtzReset;
+    cw.checkDigitalZoom = ui->checkDigitalZoom;
+    cw.checkAutoZoom = ui->checkAutoZoom;
+    cw.checkCaptureUpload = ui->checkCaptureUpload;
+    cw.checkPosReset = ui->checkPosReset;
+    cw.btnWiperStart = ui->btnWiperStart;
+    cw.btnWiperStop = ui->btnWiperStop;
+    cw.btnWiperLeft = ui->btnWiperLeft;
+    cw.btnWiperRight = ui->btnWiperRight;
+    cw.btnWiperZeroCalib = ui->btnWiperZeroCalib;
+    cw.btnWiperMode = ui->btnWiperMode;
+    cw.btnWiperSilent = ui->btnWiperSilent;
+    cw.editWiperCurrent = ui->editWiperCurrent;
+    cw.statWiperStatus = ui->statWiperStatus;
+    cw.statusbar = ui->statusbar;
+    m_controlService->setup(cw, m_cfg, m_presenter,
         [this]() { return requireConnected(); },
         [this]() { return requireMotorReady(); });
 

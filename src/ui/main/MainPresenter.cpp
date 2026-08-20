@@ -20,7 +20,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     , m_view(view)
     , m_cfg(cfg)
 {
-    DeviceManager::instance()->init(m_cfg);
+    DeviceManager::instance().init(m_cfg);
 
     m_deviceService = new PresenterDeviceService(view, cfg, this);
     m_motorService = new PresenterMotorService(view, cfg, this);
@@ -32,7 +32,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_controlService = new DeviceControlService(cfg, this);
 
     // DeviceService 初始化默认设备
-    DeviceManager::instance()->addDevice(m_deviceService->currentDeviceId());
+    DeviceManager::instance().addDevice(m_deviceService->currentDeviceId());
 
     // DeviceService EventBus → MainPresenter 信号连接
     connect(m_deviceService, &PresenterDeviceService::deviceConnected, this, &MainPresenter::onDeviceConnected);
@@ -614,7 +614,7 @@ void MainPresenter::onVideoSelection(const QString& deviceId, int cx, int cy, in
         return;
     }
 
-    if (DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId); ctx && !ctx->isConnected()) {
+    if (DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId); ctx && !ctx->isConnected()) {
         m_view->showStatusMessage(
             QString::fromUtf8("设备未连接: %1").arg(deviceId), 3000);
         return;

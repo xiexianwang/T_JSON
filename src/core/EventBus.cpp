@@ -4,9 +4,10 @@
 
 
 
-EventBus* EventBus::instance()
+EventBus& EventBus::instance()
 {
-    static EventBus* instance = new EventBus(); return instance;
+    static EventBus inst;
+    return inst;
 }
 
 EventBus::EventBus(QObject *parent)

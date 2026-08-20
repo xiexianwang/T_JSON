@@ -23,14 +23,14 @@ PresenterDeviceService::~PresenterDeviceService()
 // ============================================================================
 void PresenterDeviceService::connectToDevice(const QString& deviceId, const QString& ip, quint16 port)
 {
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     if (!ctx) return;
     ctx->connectDevice(ip, port);
 }
 
 void PresenterDeviceService::disconnectDevice(const QString& deviceId)
 {
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     if (!ctx) return;
     ctx->disconnectNetwork();
 }
@@ -38,7 +38,7 @@ void PresenterDeviceService::disconnectDevice(const QString& deviceId)
 void PresenterDeviceService::toggleDeviceConnect(const QString& ip)
 {
     QString deviceId = QString("dev_%1").arg(ip);
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     if (!ctx) return;
 
     if (ctx->isConnected()) {
@@ -50,7 +50,7 @@ void PresenterDeviceService::toggleDeviceConnect(const QString& ip)
 
 bool PresenterDeviceService::isDeviceConnected(const QString& deviceId) const
 {
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     return ctx && ctx->isConnected();
 }
 
@@ -64,13 +64,13 @@ DeviceContext* PresenterDeviceService::currentDevice() const
 
 bool PresenterDeviceService::isMotorSerialOpen(const QString& deviceId) const
 {
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     return ctx && ctx->isMotorSerialOpen();
 }
 
 bool PresenterDeviceService::isMotorTcpOpen(const QString& deviceId) const
 {
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     return ctx && ctx->isMotorTcpOpen();
 }
 
@@ -101,9 +101,9 @@ void PresenterDeviceService::switchToDevice(const QString& newDeviceId, const QS
     m_currentDeviceId = m_session->currentDeviceId();
 
     // 4. 获取或创建设备上下文
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(newDeviceId);
+    DeviceContext* ctx = DeviceManager::instance().getDevice(newDeviceId);
     if (!ctx) {
-        ctx = DeviceManager::instance()->addDevice(newDeviceId);
+        ctx = DeviceManager::instance().addDevice(newDeviceId);
     }
 
     // 5. 绑定新设备电机信号
@@ -141,12 +141,12 @@ void PresenterDeviceService::removeDevice(const QString& ip)
     if (!m_session->removeDevice(deviceId)) return;
 
     if (wasCurrent) {
-        QList<QString> remaining = DeviceManager::instance()->getAllDeviceIds();
+        QList<QString> remaining = DeviceManager::instance().getAllDeviceIds();
         if (!remaining.isEmpty()) {
             QString nextId = remaining.first();
             m_session->selectDevice(nextId);
             m_currentDeviceId = m_session->currentDeviceId();
-            connectDeviceSignals(DeviceManager::instance()->getDevice(nextId));
+            connectDeviceSignals(DeviceManager::instance().getDevice(nextId));
             m_view->setVideoFrame(nextId, QImage());
             emit deviceSwitched();
         } else {
@@ -204,7 +204,7 @@ void PresenterDeviceService::setupEventBus()
     connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId, quint64 generation) {
         if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) {
             // 初始化参数下发
-            DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
+            DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
             if (ctx) {
                 ctx->queryImageParams();
                 ctx->setDigitalZoom(m_cfg->digitalZoomEnabled());

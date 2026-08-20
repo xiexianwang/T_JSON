@@ -6,7 +6,7 @@ DeviceSessionService::DeviceSessionService(ConfigManager* cfg, QObject* parent)
     : QObject(parent)
     , m_cfg(cfg)
 {
-    DeviceManager::instance()->init(m_cfg);
+    DeviceManager::instance().init(m_cfg);
 }
 
 DeviceContext* DeviceSessionService::ensureDevice(const DeviceId& deviceId)
@@ -36,8 +36,8 @@ bool DeviceSessionService::removeDevice(const DeviceId& deviceId)
 {
     const quint64 oldGeneration = m_state.generation(deviceId);
     if (!m_state.contains(deviceId)) return false;
-    DeviceManager::instance()->removeDevice(deviceId);
-    if (DeviceManager::instance()->getDevice(deviceId)) return false;
+    DeviceManager::instance().removeDevice(deviceId);
+    if (DeviceManager::instance().getDevice(deviceId)) return false;
     if (!m_state.remove(deviceId)) return false;
     emit deviceRemoved(deviceId, oldGeneration);
     return true;
@@ -45,5 +45,5 @@ bool DeviceSessionService::removeDevice(const DeviceId& deviceId)
 
 DeviceContext* DeviceSessionService::currentDevice() const
 {
-    return DeviceManager::instance()->getDevice(m_state.selectedDeviceId());
+    return DeviceManager::instance().getDevice(m_state.selectedDeviceId());
 }

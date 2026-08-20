@@ -16,7 +16,7 @@ class DeviceManager : public QObject
 {
     Q_OBJECT
 public:
-    static DeviceManager* instance();
+    static DeviceManager& instance();
 
     // 禁用拷贝与赋值
     DeviceManager(const DeviceManager&) = delete;

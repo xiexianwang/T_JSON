@@ -4,9 +4,10 @@
 
 
 
-DeviceManager* DeviceManager::instance()
+DeviceManager& DeviceManager::instance()
 {
-    static DeviceManager* instance = new DeviceManager(); return instance;
+    static DeviceManager inst;
+    return inst;
 }
 
 DeviceManager::DeviceManager(QObject *parent)
@@ -16,12 +17,8 @@ DeviceManager::DeviceManager(QObject *parent)
 
 DeviceManager::~DeviceManager()
 {
-    // 不在此调用 removeAllDevices() —— MainWindow 析构已负责清理。
-    // 此处仅兜底：若仍有残留设备，逐个关闭但不显式 delete
-    // （QObject 析构会自动清理子对象）。
-    for (auto it = m_devices.begin(); it != m_devices.end(); ++it) {
-        it.value()->shutdown();
-    }
+    // MainWindow 析构已调用 removeAllDevices()，此处仅兜底清空。
+    // 不调用 shutdown() —— 静态析构阶段 QApplication 可能已不存在。
     m_devices.clear();
 }
 

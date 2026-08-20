@@ -12,7 +12,7 @@ PresenterMotorService::PresenterMotorService(IMainView* view, ConfigManager* cfg
 
 DeviceContext* PresenterMotorService::getCtx(const QString& deviceId) const
 {
-    return DeviceManager::instance()->getDevice(deviceId);
+    return DeviceManager::instance().getDevice(deviceId);
 }
 
 void PresenterMotorService::ptzMove(const QString& deviceId, int direction)

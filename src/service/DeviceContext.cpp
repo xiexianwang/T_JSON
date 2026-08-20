@@ -41,7 +41,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
             m_state->longitude = GeoCalculator::parseCoord(zoom.longitude);
             m_state->altitude = zoom.height;
             m_state->laserRange = zoom.laserRange;
-            EventBus::instance()->postDeviceStateUpdated(m_deviceId, m_state, m_sessionGeneration);
+            EventBus::instance().postDeviceStateUpdated(m_deviceId, m_state, m_sessionGeneration);
         }
         else if (controlType == "ImageSetting") {
             auto img = ImageSettingData::parse(doc);
@@ -61,7 +61,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
                 m_state->resY = resTab[img.imgSize][1];
             }
 
-            EventBus::instance()->postDeviceStateUpdated(m_deviceId, m_state, m_sessionGeneration);
+            EventBus::instance().postDeviceStateUpdated(m_deviceId, m_state, m_sessionGeneration);
         }
         else if (controlType == "AIInfo") {
             auto ai = AiInfoData::parse(doc);
@@ -81,7 +81,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
                 item.bottom = t.bottom;
                 m_state->aiTargets.append(item);
             }
-            EventBus::instance()->postDeviceAiInfoUpdated(m_deviceId, doc, m_sessionGeneration);
+            EventBus::instance().postDeviceAiInfoUpdated(m_deviceId, doc, m_sessionGeneration);
         }
     });
 }
@@ -487,7 +487,7 @@ void DeviceContext::setupTimers()
             m_state->lastAiInfoTime = QDateTime();
             m_state->aiObjectCount = 0;
             m_state->aiTargets.clear();
-            EventBus::instance()->postDeviceAiTimeout(m_deviceId, m_sessionGeneration);
+            EventBus::instance().postDeviceAiTimeout(m_deviceId, m_sessionGeneration);
         }
     });
 
@@ -495,45 +495,45 @@ void DeviceContext::setupTimers()
         if (!isActive()) return;
         m_sysParamTimer->start();
         m_aiCleanupTimer->start();
-        EventBus::instance()->postDeviceConnected(m_deviceId, m_sessionGeneration);
+        EventBus::instance().postDeviceConnected(m_deviceId, m_sessionGeneration);
     });
     connect(m_video, &RtspThread::frameReady, this, [this](const QImage& frame) {
         if (!isActive()) return;
-        EventBus::instance()->postDeviceFrameReady(m_deviceId, frame, m_sessionGeneration);
+        EventBus::instance().postDeviceFrameReady(m_deviceId, frame, m_sessionGeneration);
     });
     connect(m_video, &RtspThread::streamOpened, this, [this]() {
         if (!isActive()) return;
-        EventBus::instance()->postRtspOpened(m_deviceId, m_sessionGeneration);
+        EventBus::instance().postRtspOpened(m_deviceId, m_sessionGeneration);
     });
     connect(m_video, &RtspThread::streamError, this, [this](const QString& msg) {
         if (!isActive()) return;
-        EventBus::instance()->postRtspError(m_deviceId, msg, m_sessionGeneration);
+        EventBus::instance().postRtspError(m_deviceId, msg, m_sessionGeneration);
     });
 
     connect(m_tcp, &TJsonClient::deviceDisconnected, this, [this]() {
         if (!isActive()) return;
         m_sysParamTimer->stop();
         m_aiCleanupTimer->stop();
-        EventBus::instance()->postDeviceDisconnected(m_deviceId, m_sessionGeneration);
+        EventBus::instance().postDeviceDisconnected(m_deviceId, m_sessionGeneration);
     });
     connect(m_tcp, &TJsonClient::errorOccurred, this, [this](const QString& errorMsg) {
         if (!isActive()) return;
-        EventBus::instance()->postDeviceError(m_deviceId, errorMsg, m_sessionGeneration);
+        EventBus::instance().postDeviceError(m_deviceId, errorMsg, m_sessionGeneration);
     });
     connect(m_tcp, &TJsonClient::imageSnapped, this, [this](const QByteArray& jpegData, const QRect& location) {
         if (!isActive()) return;
-        EventBus::instance()->postImageSnapped(m_deviceId, jpegData, location, m_sessionGeneration);
+        EventBus::instance().postImageSnapped(m_deviceId, jpegData, location, m_sessionGeneration);
     });
     connect(m_tcp, &TJsonClient::ackReceived, this, [this](quint8 statusCode) {
         if (!isActive()) return;
-        EventBus::instance()->postAckReceived(m_deviceId, statusCode, m_sessionGeneration);
+        EventBus::instance().postAckReceived(m_deviceId, statusCode, m_sessionGeneration);
     });
     connect(m_tcp, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
         if (!isActive()) return;
-        EventBus::instance()->postDeviceReconnecting(m_deviceId, attempt, maxRetries, m_sessionGeneration);
+        EventBus::instance().postDeviceReconnecting(m_deviceId, attempt, maxRetries, m_sessionGeneration);
     });
     connect(m_tcp, &TJsonClient::reconnectFailed, this, [this]() {
         if (!isActive()) return;
-        EventBus::instance()->postDeviceReconnectFailed(m_deviceId, m_sessionGeneration);
+        EventBus::instance().postDeviceReconnectFailed(m_deviceId, m_sessionGeneration);
     });
 }

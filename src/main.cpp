@@ -16,11 +16,14 @@
 
 static LONG WINAPI crashHandler(EXCEPTION_POINTERS* ep)
 {
-    const unsigned int code = ep->ExceptionRecord->ExceptionAddress ? ep->ExceptionRecord->ExceptionCode : 0;
-    QMessageBox::critical(nullptr, "T-JSON Crash",
-        QString("程序崩溃\n异常代码: 0x%1\n异常地址: 0x%2")
-            .arg(code, 8, 16, QChar('0'))
-            .arg(reinterpret_cast<quintptr>(ep->ExceptionRecord->ExceptionAddress), 16, 16, QChar('0')));
+    const unsigned int code = ep->ExceptionRecord->ExceptionCode ? ep->ExceptionRecord->ExceptionCode : 0;
+    const auto addr = reinterpret_cast<quintptr>(ep->ExceptionRecord->ExceptionAddress);
+    if (QCoreApplication::instance() && !QApplication::closingDown()) {
+        QMessageBox::critical(nullptr, "T-JSON Crash",
+            QString("程序崩溃\n异常代码: 0x%1\n异常地址: 0x%2")
+                .arg(code, 8, 16, QChar('0'))
+                .arg(addr, 16, 16, QChar('0')));
+    }
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif

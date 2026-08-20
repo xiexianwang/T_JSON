@@ -19,7 +19,7 @@ class EventBus : public QObject
 {
     Q_OBJECT
 public:
-    static EventBus* instance();
+    static EventBus& instance();
 
     // 禁用拷贝与赋值
     EventBus(const EventBus&) = delete;

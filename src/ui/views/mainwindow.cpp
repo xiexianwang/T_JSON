@@ -329,6 +329,11 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
+    // 0. 移除构造时安装在 QComboBox 上的 eventFilter（防止析构期间访问已销毁的 m_layoutService）
+    for (auto *cb : findChildren<QComboBox *>()) {
+        cb->removeEventFilter(this);
+    }
+
     // 1. 移除 MainWindow 作为过滤器安装到子控件上的 eventFilter
     if (ui && ui->titleBar) ui->titleBar->removeEventFilter(this);
     if (m_mapOverlay)       m_mapOverlay->removeEventFilter(this);
@@ -339,7 +344,7 @@ MainWindow::~MainWindow()
     disconnect(nullptr, nullptr, this, nullptr);
 
     // 3. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
-    DeviceManager::instance()->removeAllDevices();
+    DeviceManager::instance().removeAllDevices();
 
     // 4. 不手动 delete 服务/m_pipDialog —— 它们是 QObject 子对象，
     //    由 ~QMainWindow() 按构造逆序自动销毁。

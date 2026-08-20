@@ -178,18 +178,29 @@ MainWindow::MainWindow(QWidget *parent)
     connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
 
-    // MapWidget 工具栏信号 → MainWindow
+    m_layoutService = new MainWindowLayoutService(this);
+    m_layoutService->setup({
+        ui->widgetDisplay, m_mapContainer, m_mapWidget, m_mapOverlay,
+        m_pipDialog, m_pipTitle, m_videoGrid, ui->btnMapToggle,
+        [this]() {
+            if (m_videoGrid->parent() != ui->widgetDisplay) {
+                m_videoGrid->setParent(ui->widgetDisplay);
+                ui->verticalLayout_display->addWidget(m_videoGrid);
+            }
+            m_videoGrid->setVisible(true);
+        },
+        [](const QString& value) { return GeoCalculator::parseCoord(value); },
+        [this]() { return qMakePair(ui->statLatitude->text(), ui->statLongitude->text()); }
+    });
     connect(m_mapWidget, &MapWidget::miniRequested,
-            this, [this]() { toggleMapMode(); });
+            m_layoutService, &MainWindowLayoutService::toggleMapMode);
     connect(m_mapWidget, &MapWidget::closeRequested,
-            this, [this]() { toggleMap(); });
+            m_layoutService, &MainWindowLayoutService::toggleMap);
     connect(m_mapWidget, &MapWidget::enlargeRequested,
-            this, [this]() { toggleMapMode(); });
+            m_layoutService, &MainWindowLayoutService::toggleMapMode);
     connect(ui->btnMapToggle, &QPushButton::clicked,
-            this, [this]() { toggleMap(); });
-
-    // 首次布局
-    updateMapLayout();
+            m_layoutService, &MainWindowLayoutService::toggleMap);
+    m_layoutService->updateMapLayout();
 
     // 系统参数轮询：500ms 周期查询设备 ImageSetting
     
@@ -381,22 +392,31 @@ MainWindow::MainWindow(QWidget *parent)
     m_navigation->setLogDialog(m_logDialog);
     m_dialogService->setLogDialog(m_logDialog);
 
-    //============================================================================
-    // 系统托盘
-    // 关闭窗口时最小化到托盘，右键菜单可退出程序
-    //============================================================================
-    m_trayIcon = new QSystemTrayIcon(this);
-    m_trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
-    m_trayIcon->setToolTip(QStringLiteral("LSS视频管理客户端"));
-
-    m_trayMenu = new QMenu(this);
-    m_trayMenu->addAction(QStringLiteral("显示主窗口"), this, &MainWindow::onTrayShow);
-    m_trayMenu->addSeparator();
-    m_trayMenu->addAction(QStringLiteral("退出"), this, &MainWindow::onTrayExit);
-
-    m_trayIcon->setContextMenu(m_trayMenu);
-    connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
-    m_trayIcon->show();
+    auto* trayIcon = new QSystemTrayIcon(this);
+    trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
+    trayIcon->setToolTip(QStringLiteral("LSS视频管理客户端"));
+    auto* trayMenu = new QMenu(this);
+    m_systemService = new MainWindowSystemService(this);
+    m_systemService->setup({
+        ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close, trayIcon, trayMenu, m_cfg,
+        [this, trayIcon]() {
+            if (m_dialogService->showCloseConfirmation()) {
+                trayIcon->hide();
+                qApp->quit();
+            }
+        },
+        [this]() {
+            m_presenter->closeVideoStream();
+            if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) vw->clearFrame();
+            if (m_presenter->isDeviceConnected()) m_presenter->disconnectDevice();
+        },
+        [this]() { return isMaximized(); },
+        [this]() { showMinimized(); },
+        [this]() { isMaximized() ? showNormal() : showMaximized(); },
+        [this]() { showNormal(); activateWindow(); raise(); },
+        [this]() { hide(); },
+        [this]() { show(); }
+    });
 
     for (auto *cb : findChildren<QComboBox *>()) {
         cb->setFocusPolicy(Qt::StrongFocus);
@@ -429,23 +449,17 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_btnMenu_Min_clicked()
 {
-    showMinimized();
+    m_systemService->onMinimize();
 }
 
 void MainWindow::on_btnMenu_Max_clicked()
 {
-    if (isMaximized())
-        showNormal();
-    else
-        showMaximized();
+    m_systemService->onMaximize();
 }
 
 void MainWindow::on_btnMenu_Close_clicked()
 {
-    if (m_dialogService->showCloseConfirmation()) {
-        m_trayIcon->hide();
-        qApp->quit();
-    }
+    m_systemService->onClose();
 }
 
 //============================================================================
@@ -454,50 +468,20 @@ void MainWindow::on_btnMenu_Close_clicked()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    auto action = m_cfg->closeAction();
-    if (action == ConfigManager::Exit) {
-        m_trayIcon->hide();
-        qApp->quit();
-        event->accept();
-        return;
-    }
-    if (action == ConfigManager::Minimize) {
-        hide();
-        event->ignore();
-        return;
-    }
-    if (m_trayIcon->isVisible()) {
-        hide();
-        m_trayIcon->showMessage(QStringLiteral("LSS Video Manager"),
-                                QStringLiteral("程序已最小化到系统托盘"),
-                                QSystemTrayIcon::Information, 2000);
-        event->ignore();
-    } else {
-        event->accept();
-    }
+    m_systemService->handleCloseEvent(event);
 }
 
 void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
-{
-    if (reason == QSystemTrayIcon::DoubleClick)
-        onTrayShow();
-}
+{ m_systemService->onTrayActivated(reason); }
 
 void MainWindow::onTrayShow()
 {
-    showNormal();
-    activateWindow();
-    raise();
+    m_systemService->onTrayShow();
 }
 
 void MainWindow::onTrayExit()
 {
-    m_trayIcon->hide();
-    m_presenter->closeVideoStream();
-    if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) vw->clearFrame();
-    if (m_presenter->isDeviceConnected())
-        m_presenter->disconnectDevice();
-    qApp->quit();
+    m_systemService->onTrayExit();
 }
 
 //============================================================================
@@ -520,15 +504,7 @@ void MainWindow::on_btnNavSettings_clicked() {
 
 void MainWindow::changeEvent(QEvent *event)
 {
-    if (event->type() == QEvent::WindowStateChange) {
-        bool max = isMaximized();
-        ui->btnMenu_Max->setIcon(QIcon(max
-            ? QStringLiteral(":/qss/blacksoft/restore.png")
-            : QStringLiteral(":/qss/blacksoft/maximize.png")));
-        ui->btnMenu_Max->setToolTip(max
-            ? QString::fromUtf8("窗口化")
-            : QString::fromUtf8("最大化"));
-    }
+    m_systemService->handleChangeEvent(event);
     QMainWindow::changeEvent(event);
 }
 
@@ -1003,111 +979,9 @@ void MainWindow::on_btnGetImageParams_clicked()
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
-    updateMapLayout();
+    m_layoutService->updateMapLayout();
 }
 
-//============================================================================
-// toggleMap - 切换地图显示/隐藏
-// 由 m_btnMap 触发
-//============================================================================
-void MainWindow::toggleMap()
-{
-    m_mapVisible = !m_mapVisible;
-    ui->btnMapToggle->setChecked(m_mapVisible);
-    if (m_mapVisible) {
-        m_mapExpanded = false;
-        updateMapLayout();
-    } else {
-        m_pipDialog->hide();
-        if (m_videoGrid->parent() != ui->widgetDisplay) {
-            m_videoGrid->setParent(ui->widgetDisplay);
-            ui->verticalLayout_display->addWidget(m_videoGrid);
-        }
-        m_mapContainer->setVisible(false);
-    }
-}
-
-//============================================================================
-// toggleMapMode - 切换迷你/全屏模式
-// 迷你模式下单击地图触发展开；全屏模式下点 ✕ 收回
-//============================================================================
-void MainWindow::toggleMapMode()
-{
-    m_mapExpanded = !m_mapExpanded;
-    updateMapLayout();
-}
-
-//============================================================================
-// updateMapLayout - 三模式布局
-//   地图隐藏    → videoWidget 填满 widgetDisplay
-//   迷你模式    → videoWidget 全屏 + 280 圆形浮层
-//   全屏/大地图  → mapWidget 填满 widgetDisplay + 独立 PiP 对话框
-//============================================================================
-void MainWindow::updateMapLayout()
-{
-    QSize ps = ui->widgetDisplay->size();
-    if (ps.isEmpty()) return;
-
-    if (!m_mapVisible) {
-        if (m_videoGrid->parent() != ui->widgetDisplay) {
-            m_videoGrid->setParent(ui->widgetDisplay);
-            ui->verticalLayout_display->addWidget(m_videoGrid);
-            m_videoGrid->setVisible(true);
-        }
-        m_mapContainer->setVisible(false);
-        m_pipDialog->hide();
-        return;
-    }
-
-    m_mapContainer->setVisible(true);
-
-    if (m_mapExpanded) {
-        // 大地图：地图填满显示区
-        m_mapContainer->setGeometry(0, 0, ps.width(), ps.height());
-        m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, false);
-        m_mapContainer->clearMask();
-        m_mapWidget->setGeometry(0, 0, ps.width(), ps.height());
-        m_mapWidget->setCircularClip(false);
-        m_mapOverlay->setVisible(false);
-
-        // 视频移至独立 PiP 对话框
-        m_videoGrid->setParent(m_pipDialog);
-        m_pipDialog->layout()->addWidget(m_videoGrid);
-        m_pipPos = QPoint(8, ps.height() - 240 - 8);
-        m_pipDialog->move(m_pipPos);
-        m_pipDialog->show();
-        m_videoGrid->setVisible(true);
-    } else {
-        // 迷你模式
-        if (m_videoGrid->parent() != ui->widgetDisplay) {
-            m_videoGrid->setParent(ui->widgetDisplay);
-            ui->verticalLayout_display->addWidget(m_videoGrid);
-            m_videoGrid->setVisible(true);
-        }
-        m_pipDialog->hide();
-
-        m_mapContainer->setGeometry(m_miniMapPos.x(), m_miniMapPos.y(), 280, 280);
-        m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
-        m_mapContainer->setMask(QRegion(0, 0, 280, 280, QRegion::Ellipse));
-        m_mapWidget->setGeometry(0, 0, 280, 280);
-        double lat = GeoCalculator::parseCoord(ui->statLatitude->text());
-        double lon = GeoCalculator::parseCoord(ui->statLongitude->text());
-        if (lat != 0 || lon != 0)
-            m_mapWidget->setCircularClip(true, lat, lon, 12);
-        else
-            m_mapWidget->setCircularClip(true);
-        m_mapOverlay->setGeometry(0, 0, 280, 280);
-        m_mapOverlay->setVisible(true);
-    }
-    m_mapContainer->raise();
-}
-
-//============================================================================
-// eventFilter - 全局事件过滤
-//   QComboBox：拦截滚轮，仅下拉列表展开时才允许滚轮切换
-//   m_mapOverlay：单击＝展开，拖拽＝移动位置
-//   m_pipTitle：拖拽移动 PiP 对话框位置
-//============================================================================
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
     // QComboBox 滚轮拦截：未展开时忽略滚轮事件
@@ -1118,74 +992,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
-    if (obj == m_mapOverlay) {
-        switch (event->type()) {
-        case QEvent::MouseButtonPress: {
-            auto *me = static_cast<QMouseEvent*>(event);
-            if (me->button() == Qt::LeftButton) {
-                m_dragStart = me->pos();
-                m_dragging = false;
-            }
-            return true;
-        }
-        case QEvent::MouseMove: {
-            auto *me = static_cast<QMouseEvent*>(event);
-            if (me->buttons() & Qt::LeftButton) {
-                QPoint delta = me->pos() - m_dragStart;
-                if (delta.manhattanLength() > 5) {
-                    m_dragging = true;
-                    m_miniMapPos = m_mapContainer->pos() + delta;
-                    m_mapContainer->move(m_miniMapPos);
-                }
-            }
-            return true;
-        }
-        case QEvent::MouseButtonRelease: {
-            m_dragging = false;
-            return true;
-        }
-        case QEvent::MouseButtonDblClick: {
-            toggleMapMode();
-            return true;
-        }
-        default:
-            break;
-        }
-    }
-
-    if (obj == m_pipTitle) {
-        switch (event->type()) {
-        case QEvent::MouseButtonPress: {
-            auto *me = static_cast<QMouseEvent*>(event);
-            if (me->button() == Qt::LeftButton) {
-                m_pipDragStart = me->globalPosition().toPoint();
-                m_pipTitle->setCursor(Qt::ClosedHandCursor);
-            }
-            return true;
-        }
-        case QEvent::MouseMove: {
-            auto *me = static_cast<QMouseEvent*>(event);
-            if (me->buttons() & Qt::LeftButton) {
-                m_pipPos = m_pipDialog->pos() + (me->globalPosition().toPoint() - m_pipDragStart);
-                m_pipDialog->move(m_pipPos);
-                m_pipDragStart = me->globalPosition().toPoint();
-            }
-            return true;
-        }
-        case QEvent::MouseButtonRelease: {
-            m_pipTitle->setCursor(Qt::OpenHandCursor);
-            return true;
-        }
-        case QEvent::MouseButtonDblClick: {
-            // 双击标题栏：恢复视频到主显示区 + 显示迷你地图
-            toggleMapMode();
-            return true;
-        }
-        default:
-            break;
-        }
-    }
-
+    if (m_layoutService->handleEventFilter(obj, event)) return true;
     return QMainWindow::eventFilter(obj, event);
 }
 

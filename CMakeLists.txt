@@ -59,6 +59,10 @@ qt_add_executable(T-JSON
     src/ui/views/MainWindowNavigation.h
     src/ui/views/MainWindowDialogService.cpp
     src/ui/views/MainWindowDialogService.h
+    src/ui/views/MainWindowLayoutService.cpp
+    src/ui/views/MainWindowLayoutService.h
+    src/ui/views/MainWindowSystemService.cpp
+    src/ui/views/MainWindowSystemService.h
     src/ui/components/VideoGridWidget.cpp
     src/ui/components/VideoGridWidget.h
     src/ui/components/DeviceTreeWidget.cpp

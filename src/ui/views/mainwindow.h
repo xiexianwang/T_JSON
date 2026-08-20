@@ -29,6 +29,8 @@ class VideoGridWidget;
 class DeviceTreeWidget;
 class MainWindowNavigation;
 class MainWindowDialogService;
+class MainWindowLayoutService;
+class MainWindowSystemService;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -197,33 +199,19 @@ public:          // 地图控件（单实例，迷你/全屏切换，含内建�
     QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
     QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
 
-    bool m_mapVisible = false;       // 地图显示/隐藏
-    bool m_mapExpanded = false;      // 迷你/全屏模式
-    QPoint m_miniMapPos{10, 10};    // 迷你地图位置
-    bool m_dragging = false;         // 拖拽中标记
-    QPoint m_dragStart;              // 拖拽起点
-
     // ── PiP 视频窗口（大地图时独立无边框对话框） ──
     QDialog *m_pipDialog;
     QWidget *m_pipTitle;
-    QPoint m_pipPos{10, 10};
-    QPoint m_pipDragStart;
 
     // ── 系统托盘 ──
-    QSystemTrayIcon *m_trayIcon;
-    QMenu *m_trayMenu;
-
     // ── 日志窗口 ──
     CmdLogDialog *m_logDialog = nullptr;
 
     // ── 服务对象 ──
     MainWindowNavigation *m_navigation = nullptr;
     MainWindowDialogService *m_dialogService = nullptr;
-
-    // ── 迷你地图控制 ──
-    void toggleMap();                               // 切换地图显示/隐藏
-    void toggleMapMode();                           // 切换迷你/全屏模式
-    void updateMapLayout();                         // 更新地图尺寸和位置
+    MainWindowLayoutService *m_layoutService = nullptr;
+    MainWindowSystemService *m_systemService = nullptr;
 
     // ── 私有工具方法 ──
     void updateMotorButtons();                      // 根据电机协议更新按钮状态

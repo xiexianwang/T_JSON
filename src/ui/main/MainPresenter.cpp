@@ -364,145 +364,6 @@ void MainPresenter::onDeviceRemoved(const QString& ip)
     m_deviceService->removeDevice(ip);
 }
 
-void MainPresenter::updateAiInfoFromJson(const QJsonObject& doc)
-{
-    CameraConfig& cam = m_cfg->cam();
-
-    //==========================================================================
-    // AIInfo - AI 识别与跟踪结果帧
-    //==========================================================================
-    {
-        int workMode = doc.value("WorkMode").toInt();
-        int count = doc.value("ObjectCount").toInt();
-
-        if (workMode == 1) {
-            //==================================================================
-            // 识别模式 (WorkMode=1)：
-            // 遍历 Object 字典，将每个目标的 ID/类别/距离/像素位置/脱靶量
-            // 填入识别结果表格 tableIdentify
-            //==================================================================
-            m_view->setIdentifyCount(QString::fromUtf8("目标总数: %1").arg(count));
-            m_view->clearIdentifyTable();
-
-            // 根据当前显示模式判断使用可见光还是红外参数
-            // combo 索引: 0=大图可见光, 1=红外, 2=可见光, 3=融合, 4=大图红外
-            bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
-            double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-            double fl = isVis ? cam.visMinFocal * m_currentVisZoom
-                              : cam.irMinFocal * m_currentIrZoom;
-            int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
-            int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
-
-            // Object 字段是一个字典，key 为目标 ID，value 为目标属性
-            if (doc.contains("Object") && doc.value("Object").isObject()) {
-                QJsonObject objMap = doc.value("Object").toObject();
-                for (auto it = objMap.begin(); it != objMap.end(); ++it) {
-                    QString id = it.key();
-                    QJsonObject obj = it.value().toObject();
-
-                    int cls = obj.value("Class").toInt();
-                    double dist = calcVisualDistance(obj, cls, false);
-                    if (dist > 0) {
-                        m_lastAiDist = dist;
-                        m_lastAiDistEstimated = (obj.value("Distance").toDouble(0) <= 0);
-                    }
-
-                    QString pos, miss;
-                    if (obj.contains("Points")) {
-                        QJsonObject pts = obj.value("Points").toObject();
-                        int l = pts.value("Left").toInt(), t = pts.value("Top").toInt();
-                        int r2 = pts.value("Right").toInt(), b = pts.value("Bottom").toInt();
-                        pos = QString("(%1,%2)").arg(l).arg(t);
-
-                        // 计算目标中心相对于画面中心的脱靶量（毫弧度）
-                        double cx = (l + r2) / 2.0, cy = (t + b) / 2.0;
-                        miss = GeoCalculator::missMradStr(cx - halfW, cy - halfH, px, fl);
-                    }
-                    m_view->addIdentifyRow(id, cls, dist, pos, miss);
-                }
-            }
-        }
-
-        // 识别模式与跟踪模式都需要更新地图上的目标标记
-        if ((workMode == 1) || (workMode >= 2 && workMode <= 4)) {
-            DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
-            DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
-            state.aiWorkMode = workMode;
-            m_mapService->updateAiInfo(m_deviceService->currentDeviceId(), doc, state);
-        }
-
-        //==================================================================
-        // 跟踪模式 (WorkMode=2~4)：
-        //   2 = 自动跟踪, 3 = 点选跟踪, 4 = 波门/框选跟踪
-        // 显示锁定状态、目标 ID、类别、距离、角度、像素框、脱靶量
-        // Class=0xB1 表示锁定，否则为丢失
-        //==================================================================
-        if (workMode >= 2 && workMode <= 4) {
-            bool hasObj = doc.contains("Object") && doc.value("Object").isObject()
-                          && !doc.value("Object").toObject().isEmpty();
-
-            if (hasObj) {
-                QJsonObject objMap = doc.value("Object").toObject();
-                QJsonObject obj = objMap.begin().value().toObject();
-                int cls = obj.value("Class").toInt();
-
-                bool locked = (cls == 0xB1);
-                QString statusText = locked ? QString::fromUtf8("锁定中") : QString::fromUtf8("丢失");
-                QString statusFull = QString::fromUtf8("状态: %1").arg(statusText);
-                m_view->showTrackStatus(statusFull, locked ? "locked" : "missed");
-
-                if (obj.contains("Distance")) {
-                    double rawDist = obj.value("Distance").toDouble(0);
-                    if (rawDist > 0)
-                        m_view->setTrackDistance(QString::number(rawDist, 'f', 1) + QStringLiteral(" m"));
-                    // rawDist==0: 保留 calcVisualDistance 设置的估算值
-                } else
-                    m_view->setTrackDistance(QString());
-
-                if (obj.contains("Points")) {
-                    QJsonObject pts = obj.value("Points").toObject();
-                    int l = pts.value("Left").toInt(), t = pts.value("Top").toInt();
-                    int r2 = pts.value("Right").toInt(), b = pts.value("Bottom").toInt();
-                    int cx = (l + r2) / 2, cy = (t + b) / 2;
-                    int pw = r2 - l, ph = b - t;
-                    m_view->setTrackPos(QString("(%1,%2) %3×%4").arg(cx).arg(cy).arg(pw).arg(ph));
-
-                    // 计算脱靶量：像素偏移 × 像元尺寸 / 焦距 → 毫弧度
-                    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
-                    double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-                    double fl = isVis ? cam.visMinFocal * m_currentVisZoom
-                                      : cam.irMinFocal * m_currentIrZoom;
-                    int halfW = (isVis ? m_currentResX : cam.irResX) / 2;
-                    int halfH = (isVis ? m_currentResY : cam.irResY) / 2;
-                    double objCx = (l + r2) / 2.0, objCy = (t + b) / 2.0;
-                    double dx = objCx - halfW, dy = objCy - halfH;
-                    double dxMrad = dx * px / fl;
-                    double dyMrad = dy * px / fl;
-                    m_view->setTrackMissDistance(QString("H: %1  V: %2 mrad")
-                        .arg(dxMrad, 0, 'f', 2).arg(dyMrad, 0, 'f', 2));
-                } else {
-                    m_view->setTrackPos(QString());
-                    m_view->setTrackMissDistance(QString());
-                }
-            } else {
-                // 无目标：显示"未锁定"并清空所有跟踪字段
-                m_view->showTrackStatus(QString::fromUtf8("状态: 未锁定"), "nolock");
-                m_view->setTrackPos(QString());
-                m_view->setTrackMissDistance(QString());
-                m_view->setTrackDistance(QString());
-            }
-        }
-    }
-}
-
-double MainPresenter::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
-{
-    DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
-    DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
-    return m_mapService->calculateVisualDistance(m_deviceService->currentDeviceId(), obj, cls,
-                                                 state, updateTrackLabel);
-}
-
 //============================================================================
 
 
@@ -518,7 +379,7 @@ void MainPresenter::onDeviceStateUpdated(const QString& deviceId, std::shared_pt
 
 void MainPresenter::onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc) {
     m_stateService->updateAi(deviceId, aiDoc);
-    updateAiInfoFromJson(aiDoc);
+    updateAiInfoFromJson(deviceId, aiDoc);
 }
 
 void MainPresenter::startVideoStream(const QString& url) {
@@ -546,7 +407,14 @@ void MainPresenter::onDeviceSwitched()
                                                                         currentStateViewCache()));
     }
     m_updatingFromDevice = false;
-    if (snapshot.hasAi) updateAiInfoFromJson(snapshot.aiInfo);
+    if (snapshot.hasAi) updateAiInfoFromJson(deviceId, snapshot.aiInfo);
+}
+
+void MainPresenter::updateAiInfoFromJson(const QString& deviceId, const QJsonObject& aiDoc)
+{
+    const DeviceSnapshot snapshot = m_stateService->snapshot(deviceId);
+    const DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
+    m_aiViewService->updateAiInfo(deviceId, aiDoc, state, currentStateViewCache());
 }
 
 void MainPresenter::onDeviceConnected()
@@ -574,8 +442,6 @@ void MainPresenter::resetDeviceStateCache()
     m_previousDisplayMode = 0;
     m_currentResX = 2688;
     m_currentResY = 1520;
-    m_lastAiDist = 0;
-    m_lastAiDistEstimated = false;
     m_deviceHeight = 0;
     m_rtspEverOpened = false;
 }

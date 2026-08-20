@@ -18,6 +18,7 @@ class PresenterDeviceService;
 class PresenterMotorService;
 class PresenterMapService;
 class DeviceStateService;
+class PresenterAiViewService;
 
 // ============================================================================
 // MainPresenter - MainWindow 的控制器 (MVP 模式中的 Presenter)
@@ -133,15 +134,12 @@ private:
     int m_currentResY = 1520;
     bool m_updatingFromDevice = false;
 
-    double m_lastAiDist = 0;
-    bool m_lastAiDistEstimated = false;
     QDateTime m_lastAiInfoTime;
 
     double m_deviceHeight = 0;
     bool m_rtspEverOpened = false;
 
     void showAck(quint8 statusCode);
-    double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
     int currentAlgoModel() const { return m_currentAlgoModel; }
     void resetDeviceStateCache();
     StateViewCache currentStateViewCache() const;
@@ -152,6 +150,7 @@ private:
     PresenterMapService* m_mapService;
     DeviceStateService* m_stateService;
     PresenterStateViewService* m_stateViewService;
+    PresenterAiViewService* m_aiViewService;
 
     DeviceContext* currentDevice() const;
 
@@ -162,7 +161,7 @@ private slots:
     void onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
     void onDeviceAiTimeout(const QString& deviceId);
     void onDeviceSwitched();
-    void updateAiInfoFromJson(const QJsonObject& aiDoc);
+    void updateAiInfoFromJson(const QString& deviceId, const QJsonObject& aiDoc);
 };
 
 #endif // MAINPRESENTER_H

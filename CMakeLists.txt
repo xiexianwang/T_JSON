@@ -43,6 +43,10 @@ qt_add_executable(T-JSON
     src/service/DeviceManager.h
     src/ui/main/MainPresenter.cpp
     src/ui/main/MainPresenter.h
+    src/ui/main/DeviceSessionState.cpp
+    src/ui/main/DeviceSessionState.h
+    src/ui/main/DeviceSessionService.cpp
+    src/ui/main/DeviceSessionService.h
     src/ui/main/PresenterDeviceService.cpp
     src/ui/main/PresenterDeviceService.h
     src/ui/main/PresenterMotorService.cpp

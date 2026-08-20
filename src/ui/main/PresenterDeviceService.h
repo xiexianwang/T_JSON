@@ -13,6 +13,7 @@ class MainPresenter;
 class IMainView;
 class ConfigManager;
 class DeviceContext;
+class DeviceSessionService;
 
 // ============================================================================
 // PresenterDeviceService - 设备生命周期与状态服务
@@ -79,6 +80,7 @@ private:
     MainPresenter* m_presenter;
     IMainView* m_view;
     ConfigManager* m_cfg;
+    DeviceSessionService* m_session;
     QString m_currentDeviceId;
 
     // 电机信号连接

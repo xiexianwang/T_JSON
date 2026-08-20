@@ -5,11 +5,14 @@
 #include "ui/main/IMainView.h"
 #include "core/EventBus.h"
 #include "infrastructure/configmanager.h"
+#include "ui/main/DeviceSessionService.h"
 
 PresenterDeviceService::PresenterDeviceService(MainPresenter* parentPresenter, IMainView* view, ConfigManager* cfg, QObject *parent)
     : QObject(parent), m_presenter(parentPresenter), m_view(view), m_cfg(cfg)
+    , m_session(new DeviceSessionService(cfg, this))
     , m_currentDeviceId("default_device")
 {
+    m_session->ensureDevice(m_currentDeviceId);
 }
 
 PresenterDeviceService::~PresenterDeviceService()
@@ -78,8 +81,7 @@ bool PresenterDeviceService::isVideoRunning(const QString& deviceId) const
 // ============================================================================
 DeviceContext* PresenterDeviceService::currentDevice() const
 {
-    if (m_currentDeviceId.isEmpty()) return nullptr;
-    return DeviceManager::instance()->getDevice(m_currentDeviceId);
+    return m_session->currentDevice();
 }
 
 bool PresenterDeviceService::isMotorSerialOpen(const QString& deviceId) const
@@ -99,7 +101,7 @@ bool PresenterDeviceService::isMotorTcpOpen(const QString& deviceId) const
 // ============================================================================
 void PresenterDeviceService::switchToDevice(const QString& newDeviceId, const QString& ip, const QString& rtspUrl)
 {
-    if (newDeviceId == m_currentDeviceId) return;
+    if (newDeviceId == m_session->currentDeviceId()) return;
 
     // 1. 解绑旧设备电机信号
     disconnectDeviceSignals();
@@ -116,7 +118,9 @@ void PresenterDeviceService::switchToDevice(const QString& newDeviceId, const QS
     m_view->setTrackMissDistance(QString());
 
     // 3. 切换当前设备 ID
-    m_currentDeviceId = newDeviceId;
+    m_session->ensureDevice(newDeviceId);
+    m_session->selectDevice(newDeviceId);
+    m_currentDeviceId = m_session->currentDeviceId();
 
     // 4. 获取或创建设备上下文
     DeviceContext* ctx = DeviceManager::instance()->getDevice(newDeviceId);
@@ -145,7 +149,7 @@ void PresenterDeviceService::switchToDevice(const QString& newDeviceId, const QS
 void PresenterDeviceService::removeDevice(const QString& ip)
 {
     QString deviceId = QString("dev_%1").arg(ip);
-    bool wasCurrent = (m_currentDeviceId == deviceId);
+    bool wasCurrent = (m_session->currentDeviceId() == deviceId);
 
     if (wasCurrent) {
         disconnectDeviceSignals();
@@ -156,13 +160,14 @@ void PresenterDeviceService::removeDevice(const QString& ip)
         m_view->clearIdentifyTable();
     }
 
-    DeviceManager::instance()->removeDevice(deviceId);
+    if (!m_session->removeDevice(deviceId)) return;
 
     if (wasCurrent) {
         QList<QString> remaining = DeviceManager::instance()->getAllDeviceIds();
         if (!remaining.isEmpty()) {
             QString nextId = remaining.first();
-            m_currentDeviceId = nextId;
+            m_session->selectDevice(nextId);
+            m_currentDeviceId = m_session->currentDeviceId();
             connectDeviceSignals(DeviceManager::instance()->getDevice(nextId));
             m_view->setVideoFrame(nextId, QImage());
             emit deviceSwitched();

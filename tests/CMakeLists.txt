@@ -69,3 +69,10 @@ tjson_add_test(test_stm32tcptransport
         ../src/infrastructure/stm32tcptransport.cpp
 )
 target_link_libraries(test_stm32tcptransport PRIVATE Qt::Network)
+
+# ---- 8. 设备会话选择与 generation：纯逻辑 ----
+tjson_add_test(test_devicesessionstate
+    SOURCES
+        test_devicesessionstate.cpp
+        ../src/ui/main/DeviceSessionState.cpp
+)

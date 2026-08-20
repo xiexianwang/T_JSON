@@ -64,6 +64,16 @@ struct DeviceState {
     int aiWorkMode = 0;
     int aiObjectCount = 0;
     QVector<AiTargetItem> aiTargets;
+
+    // --- 工具方法 ---
+    static constexpr int kPipShowValues[] = {0, 1, 2, 3, 16};
+    static constexpr int kPipShowCount = 5;
+    static int pipShowToComboIndex(int pipShow) {
+        for (int i = 0; i < kPipShowCount; i++)
+            if (kPipShowValues[i] == pipShow) return i;
+        if (pipShow >= 0 && pipShow < kPipShowCount) return pipShow;
+        return 0;
+    }
 };
 
 #endif // DEVICESTATE_H

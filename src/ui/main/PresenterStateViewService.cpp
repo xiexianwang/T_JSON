@@ -2,7 +2,7 @@
 #include "IMainView.h"
 #include "PresenterMapService.h"
 #include "infrastructure/configmanager.h"
-#include "infrastructure/devicecontroller.h"
+#include "core/DeviceState.h"
 
 #include <QtMath>
 
@@ -59,7 +59,7 @@ StateViewCache PresenterStateViewService::updateStatusFromState(const QString& d
 
     static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
     const int pipRaw = state.currentPipShow;
-    const int comboIdx = DeviceController::pipShowToComboIndex(pipRaw);
+    const int comboIdx = DeviceState::pipShowToComboIndex(pipRaw);
     const QString pipStr = (comboIdx >= 0 && comboIdx < 5)
         ? QString::fromUtf8(pipMap[comboIdx]) : QString::number(pipRaw);
     const int model = state.model;

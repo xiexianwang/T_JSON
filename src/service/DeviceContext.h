@@ -31,8 +31,8 @@ public:
     void setSessionGeneration(quint64 generation) { m_sessionGeneration = generation; }
     quint64 sessionGeneration() const { return m_sessionGeneration; }
 
-    // PipShow 映射表：combo 索引 → 设备实际值（复用 DeviceController 静态映射）
-    static int pipShowToComboIndex(int pipShow) { return DeviceController::pipShowToComboIndex(pipShow); }
+    // PipShow 映射表：combo 索引 → 设备实际值
+    static int pipShowToComboIndex(int pipShow) { return DeviceState::pipShowToComboIndex(pipShow); }
 
     // ================= 生命周期与状态 =================
     enum class State {

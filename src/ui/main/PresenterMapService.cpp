@@ -1,7 +1,7 @@
 #include "PresenterMapService.h"
 #include "ui/main/IMainView.h"
 #include "infrastructure/configmanager.h"
-#include "infrastructure/devicecontroller.h"
+#include "core/DeviceState.h"
 #include "core/GeoCalculator.h"
 
 #include <QJsonArray>
@@ -50,8 +50,8 @@ double PresenterMapService::calculateVisualDistance(const QString& deviceId,
     if (boxPx <= 0)
         return dist;
 
-    const bool isVis = (DeviceController::pipShowToComboIndex(state.currentPipShow) != 1 &&
-                        DeviceController::pipShowToComboIndex(state.currentPipShow) != 4);
+    const bool isVis = (DeviceState::pipShowToComboIndex(state.currentPipShow) != 1 &&
+                        DeviceState::pipShowToComboIndex(state.currentPipShow) != 4);
     const double pxSize = isVis ? m_cfg->cam().visPixelSize : m_cfg->cam().irPixelSize;
     const double focal = isVis ? m_cfg->cam().visMinFocal * state.currentVisZoom
                                : m_cfg->cam().irMinFocal * state.currentIrZoom;
@@ -66,7 +66,7 @@ void PresenterMapService::updateAiInfo(const QString& deviceId, const QJsonObjec
                                        const DeviceState& state)
 {
     CameraConfig& camCfg = m_cfg->cam();
-    const int pip = DeviceController::pipShowToComboIndex(state.currentPipShow);
+    const int pip = DeviceState::pipShowToComboIndex(state.currentPipShow);
     const bool isVis = pip != 1 && pip != 4;
     CameraIntrinsics camInfo;
     camInfo.pixelSizeUm = isVis ? camCfg.visPixelSize : camCfg.irPixelSize;

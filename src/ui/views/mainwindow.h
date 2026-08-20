@@ -185,28 +185,19 @@ public slots:
 
 private:
     Ui::MainWindow *ui;
-public:
-    Ui::MainWindow* getUi() const { return ui; }
-    VideoGridWidget *m_videoGrid;
-    DeviceTreeWidget *m_deviceTree;
+    VideoGridWidget *m_videoGrid = nullptr;
+    DeviceTreeWidget *m_deviceTree = nullptr;
+    MapWidget *m_mapWidget = nullptr;
+    QWidget *m_mapContainer = nullptr;
+    QWidget *m_mapOverlay = nullptr;
+    QDialog *m_pipDialog = nullptr;
+    QWidget *m_pipTitle = nullptr;
+    CmdLogDialog *m_logDialog = nullptr;
 
                 static void refreshStyle(QWidget *w);
 private:             // UI 设计器生成的界面对象
         ConfigManager *m_cfg;           // 配置管理器（持久化设置）
             MainPresenter *m_presenter;
-        public:
-    MapWidget *m_mapWidget;
-public:          // 地图控件（单实例，迷你/全屏切换，含内建工具栏）
-    QWidget *m_mapContainer;         // 地图容器（用于拖拽定位）
-    QWidget *m_mapOverlay;           // 透明覆盖层（迷你模式拦截鼠标事件）
-
-    // ── PiP 视频窗口（大地图时独立无边框对话框） ──
-    QDialog *m_pipDialog;
-    QWidget *m_pipTitle;
-
-    // ── 系统托盘 ──
-    // ── 日志窗口 ──
-    CmdLogDialog *m_logDialog = nullptr;
 
     // ── 服务对象 ──
     MainWindowNavigation *m_navigation = nullptr;

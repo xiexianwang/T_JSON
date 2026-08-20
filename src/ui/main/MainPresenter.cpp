@@ -4,6 +4,7 @@
 #include "PresenterMotorService.h"
 #include "PresenterMapService.h"
 #include "DeviceStateService.h"
+#include "PresenterStateViewService.h"
 #include "IMainView.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"
@@ -24,6 +25,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_motorService = new PresenterMotorService(view, cfg, this);
     m_mapService = new PresenterMapService(view, cfg, this);
     m_stateService = new DeviceStateService(this);
+    m_stateViewService = new PresenterStateViewService(view, cfg, m_mapService, this);
 
     // DeviceService 初始化默认设备
     DeviceManager::instance()->addDevice(m_deviceService->currentDeviceId());
@@ -493,199 +495,12 @@ void MainPresenter::updateAiInfoFromJson(const QJsonObject& doc)
     }
 }
 
-void MainPresenter::updateStatusFromState(const DeviceState& state)
-{
-    CameraConfig& cam = m_cfg->cam();
-
-    //==========================================================================
-    // 1) ZoomInfo - 镜头倍率与设备状态帧
-    // 更新变倍倍率、GPS 坐标、高度、激光测距、云台水平/垂直角
-    // 同时触发镜头统计信息更新与地图设备位置更新
-    //==========================================================================
-    {
-        m_currentVisZoom = state.currentVisZoom;
-        m_currentIrZoom = state.currentIrZoom;
-
-        double h = state.altitude;
-        QString heightStr;
-        if (h != 0.0)
-            heightStr = QString::number(h, 'f', 1) + QStringLiteral(" m");
-
-        double rawPan = state.currentPan;
-        double rawTilt = state.currentTilt;
-
-        if (m_cfg->softwarePtzCalibrationEnabled()) {
-            rawPan -= m_cfg->ptzPanOffset();
-            while (rawPan < 0) rawPan += 360.0;
-            while (rawPan >= 360.0) rawPan -= 360.0;
-
-            rawTilt -= m_cfg->ptzTiltOffset();
-            while (rawTilt < -180.0) rawTilt += 360.0;
-            while (rawTilt > 180.0) rawTilt -= 360.0;
-        }
-
-        m_currentTilt = rawTilt;
-        m_view->showDeviceState(state.camShowMode, state.latitudeRaw, state.longitudeRaw,
-                                heightStr,
-                                QString::number(rawPan, 'f', 1) + QStringLiteral("°"),
-                                QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
-
-        this->updateLensStats();
-        m_mapService->updateDevicePosition(m_deviceService->currentDeviceId(), state);
-    }
-
-    //==========================================================================
-    // 2) ImageSetting - 图像参数配置帧
-    // 设备主动推送或响应查询，更新分辨率/码率/编码/工作模式/显示模式/算法
-    // 并根据设备当前值同步 UI 下拉框，同时设置 m_updatingFromDevice 标志
-    // 防止 UI 变化再次触发设备指令造成死循环
-    //==========================================================================
-    {
-        // 图像分辨率映射表
-        static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
-        int imgSize = state.imgSize;
-        QString resStr = (imgSize >= 0 && imgSize < 4) ? QString::fromLatin1(resMap[imgSize]) : QString::number(imgSize);
-        m_currentResX = state.resX;
-        m_currentResY = state.resY;
-
-        // 图像码率
-        QString bitrateStr = QString("%1 Kb/s").arg(state.bitrate);
-
-        // 编码格式映射表
-        static const char* codecMap[] = {"H264", "H265"};
-        int codec = state.codec;
-        QString codecStr = (codec >= 0 && codec < 2) ? QString::fromLatin1(codecMap[codec]) : QString::number(codec);
-
-        // 工作模式映射表
-        static const char* wmMap[] = {"关闭AI", "识别", "自动跟踪", "点选跟踪", "波门/框选跟踪"};
-        int wm = state.workMode;
-        QString wmStr = (wm >= 0 && wm < 5) ? QString::fromUtf8(wmMap[wm]) : QString::number(wm);
-        m_previousWorkMode = wm;
-
-        // 显示类型映射表 (PIP = Picture-in-Picture)
-        static const char* pipMap[] = {"大图可见光", "红外", "可见光", "融合", "大图红外"};
-        int pipRaw = state.currentPipShow;
-        int comboIdx = DeviceController::pipShowToComboIndex(pipRaw);
-        QString pipStr = (comboIdx >= 0 && comboIdx < 5) ? QString::fromUtf8(pipMap[comboIdx]) : QString::number(pipRaw);
-
-        // 算法模型编码: 高段(传感器)×10 + 低段(识别类型)
-        int model = state.model;
-        int high = model / 10;
-        int low  = model % 10;
-        static const char* highMap[] = {"可见光", "红外"};
-        static const char* lowMap[]  = {"", "", "人车识别", "船识别", "无人机识别", "飞机直升机识别", "鸟识别"};
-        QString modelStr;
-        if (high >= 0 && high < 2)
-            modelStr = QString::fromUtf8(highMap[high]);
-        if (low >= 2 && low <= 6)
-            modelStr += QString(" / %1").arg(QString::fromUtf8(lowMap[low]));
-        if (modelStr.isEmpty())
-            modelStr = QString::number(model);
-        m_previousAlgoModel = model;
-
-        m_view->showImageParams(resStr, bitrateStr, codecStr, wmStr, pipStr, modelStr,
-                                state.maxVisFL, state.maxIRFL);
-
-        m_currentPipShow = DeviceController::pipShowToComboIndex(state.currentPipShow);
-        m_previousDisplayMode = m_currentPipShow;
-
-        // 同步 UI 下拉框到设备当前值，同时抑制信号递归
-        m_updatingFromDevice = true;
-        // 首次连接时同步算法模型下拉框，后续不再覆盖用户选择
-        if (!m_algoModelInitialized) {
-            m_currentAlgoModel = model;
-            // 高段 = 传感器类型 (0=可见光, 1=红外) → comboAlgoModel1
-            m_view->setAlgoModel1Index(high);
-            // 低段 = 识别类型 (2-6 → comboAlgoModel2 索引 0-4)
-            if (low >= 2 && low <= 6)
-                m_view->setAlgoModel2Index(low - 2);
-            m_algoModelInitialized = true;
-        }
-        if (!m_displayModeInitialized) {
-            int dIdx = DeviceController::pipShowToComboIndex(state.currentPipShow);
-            m_view->setDisplayModeIndex(dIdx);
-            m_displayModeInitialized = true;
-        }
-        // 首次连接时同步工作模式下拉框，后续不再覆盖用户选择
-        if (!m_workModeInitialized && wm >= 0) {
-            m_view->setWorkModeIndex(wm);
-            m_workModeInitialized = true;
-        }
-        m_updatingFromDevice = false;
-    }
-}
-
-//============================================================================
-// updateLensStats - 更新镜头统计数据
-// 根据当前变倍倍率计算可见光与红外的：
-//   - 当前焦距 (最小焦距 × 倍率)
-//   - 水平视场角 (HFOV): 2 × arctan(传感器宽度 / (2 × 焦距))
-// 传感器宽度 = 像元尺寸 × 水平分辨率 (单位换算为 mm)
-//============================================================================
-
-// ============================================================================
-// 此文件包含 MainWindow 中庞大的 JSON 解析与 UI 更新逻辑。
-// 作为向 MVP 架构过渡的中间步骤，这部分代码从 mainwindow.cpp 中剥离，
-// 未来将进一步下沉至 DeviceContext 与 JsonFrameParser 中。
-// ============================================================================
-
-void MainPresenter::updateLensStats()
-{
-    CameraConfig& cam = m_cfg->cam();
-    const double kRad2Deg = 180.0 / 3.14159265358979323846;
-
-    double visFocal = cam.visMinFocal * m_currentVisZoom;
-    double irFocal  = cam.irMinFocal * m_currentIrZoom;
-
-    double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
-    double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
-
-    m_view->showLensStats(m_currentVisZoom, visFocal, visHfov * kRad2Deg,
-                          m_currentIrZoom, irFocal, irHfov * kRad2Deg);
-}
-
 double MainPresenter::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
 {
     DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
     DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
     return m_mapService->calculateVisualDistance(m_deviceService->currentDeviceId(), obj, cls,
                                                  state, updateTrackLabel);
-
-    double dist = obj.value("Distance").toDouble(0);
-    if (dist > 0 || !obj.contains("Points"))
-        return dist;
-
-    int low = currentAlgoModel() % 10;
-    double ref = m_cfg->cam().targetRefSize(low, cls);
-
-    // 跟踪状态 (0xB1/0xB2) 无法通过 Class 查到参考尺寸
-    // → 用算法模型遍历已知 Class 做视觉估算
-    if (ref <= 0 && (cls == 0xB1 || cls == 0xB2)) {
-        static const int fallback[] = {0xA1, 0xA2, 0xA3, 0xA4};
-        for (int fc : fallback) {
-            ref = m_cfg->cam().targetRefSize(low, fc);
-            if (ref > 0) break;
-        }
-    }
-
-    if (ref <= 0)
-        return dist;
-
-    QJsonObject pts = obj.value("Points").toObject();
-    int boxPx = qMax(pts.value("Right").toInt() - pts.value("Left").toInt(),
-                     pts.value("Bottom").toInt() - pts.value("Top").toInt());
-    if (boxPx <= 0)
-        return dist;
-
-    bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
-    double pxSize = isVis ? m_cfg->cam().visPixelSize : m_cfg->cam().irPixelSize;
-    double focal = isVis ? m_cfg->cam().visMinFocal * m_currentVisZoom
-                          : m_cfg->cam().irMinFocal * m_currentIrZoom;
-
-    dist = GeoCalculator::estimateTargetDistance(boxPx, focal, pxSize, ref);
-    if (updateTrackLabel)
-        m_view->setTrackDistance(QString::number(dist, 'f', 1) + QStringLiteral(" m (估算)"));
-    return dist;
 }
 
 //============================================================================
@@ -693,7 +508,12 @@ double MainPresenter::calcVisualDistance(const QJsonObject& obj, int cls, bool u
 
 void MainPresenter::onDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state) {
     m_stateService->updateState(deviceId, state);
-    if (state) updateStatusFromState(*state);
+    if (state) {
+        m_updatingFromDevice = true;
+        applyStateViewCache(m_stateViewService->updateStatusFromState(deviceId, *state,
+                                                                       currentStateViewCache()));
+        m_updatingFromDevice = false;
+    }
 }
 
 void MainPresenter::onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc) {
@@ -716,12 +536,16 @@ void MainPresenter::onDeviceSwitched()
     const DeviceSnapshot snapshot = m_stateService->snapshot(deviceId);
     resetDeviceStateCache();
     m_mapService->resetDevice(deviceId);
+    m_updatingFromDevice = true;
     if (snapshot.hasState && snapshot.statePtr) {
-        updateStatusFromState(*snapshot.statePtr);
+        applyStateViewCache(m_stateViewService->updateStatusFromState(deviceId, *snapshot.statePtr,
+                                                                        currentStateViewCache()));
     } else {
         DeviceState emptyState;
-        updateStatusFromState(emptyState);
+        applyStateViewCache(m_stateViewService->updateStatusFromState(deviceId, emptyState,
+                                                                        currentStateViewCache()));
     }
+    m_updatingFromDevice = false;
     if (snapshot.hasAi) updateAiInfoFromJson(snapshot.aiInfo);
 }
 
@@ -754,6 +578,31 @@ void MainPresenter::resetDeviceStateCache()
     m_lastAiDistEstimated = false;
     m_deviceHeight = 0;
     m_rtspEverOpened = false;
+}
+
+StateViewCache MainPresenter::currentStateViewCache() const
+{
+    return {m_currentVisZoom, m_currentIrZoom, m_currentTilt, m_currentPipShow,
+            m_previousWorkMode, m_workModeInitialized, m_displayModeInitialized,
+            m_algoModelInitialized, m_previousAlgoModel, m_currentAlgoModel,
+            m_previousDisplayMode, m_currentResX, m_currentResY};
+}
+
+void MainPresenter::applyStateViewCache(const StateViewCache& cache)
+{
+    m_currentVisZoom = cache.currentVisZoom;
+    m_currentIrZoom = cache.currentIrZoom;
+    m_currentTilt = cache.currentTilt;
+    m_currentPipShow = cache.currentPipShow;
+    m_previousWorkMode = cache.previousWorkMode;
+    m_workModeInitialized = cache.workModeInitialized;
+    m_displayModeInitialized = cache.displayModeInitialized;
+    m_algoModelInitialized = cache.algoModelInitialized;
+    m_previousAlgoModel = cache.previousAlgoModel;
+    m_currentAlgoModel = cache.currentAlgoModel;
+    m_previousDisplayMode = cache.previousDisplayMode;
+    m_currentResX = cache.currentResX;
+    m_currentResY = cache.currentResY;
 }
 
 // ============================================================================

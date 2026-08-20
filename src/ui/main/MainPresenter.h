@@ -9,6 +9,7 @@
 #include <memory>
 #include "core/DeviceState.h"
 #include "infrastructure/tjsonframe.h"
+#include "PresenterStateViewService.h"
 
 class IMainView;
 class DeviceContext;
@@ -140,15 +141,17 @@ private:
     bool m_rtspEverOpened = false;
 
     void showAck(quint8 statusCode);
-    void updateLensStats();
     double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
     int currentAlgoModel() const { return m_currentAlgoModel; }
     void resetDeviceStateCache();
+    StateViewCache currentStateViewCache() const;
+    void applyStateViewCache(const StateViewCache& cache);
 
     PresenterDeviceService* m_deviceService;
     PresenterMotorService* m_motorService;
     PresenterMapService* m_mapService;
     DeviceStateService* m_stateService;
+    PresenterStateViewService* m_stateViewService;
 
     DeviceContext* currentDevice() const;
 
@@ -159,7 +162,6 @@ private slots:
     void onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
     void onDeviceAiTimeout(const QString& deviceId);
     void onDeviceSwitched();
-    void updateStatusFromState(const DeviceState& state);
     void updateAiInfoFromJson(const QJsonObject& aiDoc);
 };
 

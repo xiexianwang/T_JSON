@@ -331,11 +331,21 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
-    // 1. 先断开 EventBus 对 MainPresenter 的信号连接，防止析构过程中信号回调访问已析构对象
+    // 1. 移除事件过滤器，防止 delete ui 期间子控件销毁触发 eventFilter 访问已释放指针
+    removeEventFilter(this);
+
+    // 2. 断开 EventBus 对 MainPresenter 的信号连接
     disconnect(m_presenter, nullptr, this, nullptr);
 
-    // 2. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
+    // 3. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
     DeviceManager::instance()->removeAllDevices();
+
+    // 4. 显式销毁服务（它们持有 ui 子控件的裸指针，必须在 delete ui 之前销毁）
+    delete m_controlService;  m_controlService = nullptr;
+    delete m_layoutService;   m_layoutService = nullptr;
+    delete m_systemService;   m_systemService = nullptr;
+    delete m_dialogService;   m_dialogService = nullptr;
+    delete m_navigation;      m_navigation = nullptr;
 
     delete m_pipDialog;
     delete ui;

@@ -21,8 +21,8 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     DeviceManager::instance()->init(m_cfg);
 
     m_deviceService = new PresenterDeviceService(this, view, cfg, this);
-    m_motorService = new PresenterMotorService(this, view, cfg, this);
-    m_mapService = new PresenterMapService(this, view, cfg, this);
+    m_motorService = new PresenterMotorService(view, cfg, this);
+    m_mapService = new PresenterMapService(view, cfg, this);
     m_stateService = new DeviceStateService(this);
 
     // DeviceService 初始化默认设备

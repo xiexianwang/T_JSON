@@ -1,5 +1,4 @@
 #include "PresenterMapService.h"
-#include "MainPresenter.h"
 #include "ui/main/IMainView.h"
 #include "infrastructure/configmanager.h"
 #include "core/GeoCalculator.h"
@@ -8,8 +7,8 @@
 #include <QJsonArray>
 #include <QtMath>
 
-PresenterMapService::PresenterMapService(MainPresenter* parentPresenter, IMainView* view, ConfigManager* cfg, QObject *parent)
-    : QObject(parent), m_presenter(parentPresenter), m_view(view), m_cfg(cfg)
+PresenterMapService::PresenterMapService(IMainView* view, ConfigManager* cfg, QObject *parent)
+    : QObject(parent), m_view(view), m_cfg(cfg)
 {
 }
 

@@ -1,13 +1,12 @@
 #include "PresenterMotorService.h"
-#include "MainPresenter.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"
 #include "ui/main/IMainView.h"
 #include "infrastructure/configmanager.h"
 #include <QTimer>
 
-PresenterMotorService::PresenterMotorService(MainPresenter* parentPresenter, IMainView* view, ConfigManager* cfg, QObject *parent)
-    : QObject(parent), m_presenter(parentPresenter), m_view(view), m_cfg(cfg)
+PresenterMotorService::PresenterMotorService(IMainView* view, ConfigManager* cfg, QObject *parent)
+    : QObject(parent), m_view(view), m_cfg(cfg)
 {
 }
 

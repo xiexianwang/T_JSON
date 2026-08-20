@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QString>
 
-class MainPresenter;
 class IMainView;
 class ConfigManager;
 class DeviceContext;
@@ -13,7 +12,7 @@ class PresenterMotorService : public QObject
 {
     Q_OBJECT
 public:
-    explicit PresenterMotorService(MainPresenter* parentPresenter, IMainView* view, ConfigManager* cfg, QObject *parent = nullptr);
+    explicit PresenterMotorService(IMainView* view, ConfigManager* cfg, QObject *parent = nullptr);
 
     void ptzMove(const QString& deviceId, int direction);
     void ptzStop(const QString& deviceId);
@@ -44,7 +43,6 @@ public:
 private:
     DeviceContext* getCtx(const QString& deviceId) const;
 
-    MainPresenter* m_presenter;
     IMainView* m_view;
     ConfigManager* m_cfg;
 };

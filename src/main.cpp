@@ -9,6 +9,23 @@
 #include <QApplication>
 #include <QStyleFactory>
 #include <QtGlobal>
+#include <QMessageBox>
+#include <QTextStream>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <eh.h>
+
+static void structuredExceptionHandler(unsigned int code, _EXCEPTION_POINTERS* ep)
+{
+    QString msg = QString("程序崩溃\n异常代码: 0x%1\n异常地址: 0x%2")
+        .arg(code, 8, 16, QChar('0'))
+        .arg(reinterpret_cast<quintptr>(ep->ExceptionRecord->ExceptionAddress), 16, 16, QChar('0'));
+
+    QMessageBox::critical(nullptr, "T-JSON Crash", msg);
+   TerminateProcess(GetCurrentProcess(), 1);
+}
+#endif
 
 // 应用程序主入口点
 int main(int argc, char *argv[])
@@ -25,7 +42,13 @@ int main(int argc, char *argv[])
     a.setOrganizationName("LSS");                  // 设置组织名（用于 QSettings 路径）
     a.setApplicationName("LSS Video Manager");     // 设置应用名
     // a.setStyle(QStyleFactory::create("Fusion"));   // 注释掉 Fusion，让 QSS 完全接管控件绘制
+#ifdef Q_OS_WIN
+    _set_se_translator(structuredExceptionHandler);
+#endif
+    qDebug() << "=== T-JSON: before MainWindow ===";
     MainWindow w;                                  // 创建主窗口
+    qDebug() << "=== T-JSON: MainWindow created ===";
     w.show();                                      // 显示主窗口
+    qDebug() << "=== T-JSON: entering event loop ===";
     return QApplication::exec();                   // 进入 Qt 事件循环
 }

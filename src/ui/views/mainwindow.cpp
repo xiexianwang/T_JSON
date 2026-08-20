@@ -47,11 +47,13 @@ MainWindow::MainWindow(QWidget *parent)
     , m_cfg(new ConfigManager(this))
     , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP 视频拉流线程
 {
+    qDebug() << "=== MainWindow: setupUi ===";
     ui->setupUi(this);
 
     setWindowIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
 
     setupUiStyles();
+    qDebug() << "=== MainWindow: uiStyles done ===";
 
     // Replace old single videoWidget with VideoGridWidget
     ui->videoWidget->hide();
@@ -203,6 +205,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnMapToggle, &QPushButton::clicked,
             m_layoutService, &MainWindowLayoutService::toggleMap);
     m_layoutService->updateMapLayout();
+    qDebug() << "=== MainWindow: layoutService done ===";
 
     // 系统参数轮询：500ms 周期查询设备 ImageSetting
     
@@ -419,12 +422,14 @@ MainWindow::MainWindow(QWidget *parent)
         [this]() { hide(); },
         [this]() { show(); }
     });
+    qDebug() << "=== MainWindow: systemService done ===";
 
     for (auto *cb : findChildren<QComboBox *>()) {
         cb->setFocusPolicy(Qt::StrongFocus);
         cb->installEventFilter(this);
     }
     updateMotorButtons();
+    qDebug() << "=== MainWindow: constructor done ===";
 }
 
 //============================================================================

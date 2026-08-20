@@ -55,7 +55,7 @@ public:
         QPushButton* btnWiperMode = nullptr;
         QPushButton* btnWiperSilent = nullptr;
         QLineEdit* editWiperCurrent = nullptr;
-        QLabel* statWiperStatus = nullptr;
+        QLineEdit* statWiperStatus = nullptr;
         QStatusBar* statusbar = nullptr;
     };
 

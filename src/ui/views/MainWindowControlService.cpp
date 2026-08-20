@@ -1,13 +1,14 @@
 #include "MainWindowControlService.h"
 #include "../main/MainPresenter.h"
 #include "../../infrastructure/pelcodprotocol.h"
+#include "../../infrastructure/configmanager.h"
 #include <QSlider>
 #include <QSpinBox>
 #include <QPushButton>
 #include <QCheckBox>
 #include <QLineEdit>
-#include <QLabel>
 #include <QStatusBar>
+#include <QStyle>
 
 MainWindowControlService::MainWindowControlService(QObject* parent)
     : QObject(parent)

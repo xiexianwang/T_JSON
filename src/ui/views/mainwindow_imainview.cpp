@@ -8,6 +8,7 @@
 #include "ui/components/VideoGridWidget.h"
 #include "ui/views/videowidget.h"
 #include "ui/views/mapwidget.h"
+#include "ui/views/MainWindowDialogService.h"
 #include <QFile>
 #include <QDir>
 #include <QDateTime>

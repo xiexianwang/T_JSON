@@ -356,7 +356,9 @@ void MainPresenter::onDeviceToggleConnect(const QString& ip)
 
 void MainPresenter::onDeviceRemoved(const QString& ip)
 {
-    m_stateService->deviceRemoved(QString("dev_%1").arg(ip));
+    const QString deviceId = QString("dev_%1").arg(ip);
+    m_stateService->deviceRemoved(deviceId);
+    m_mapService->resetDevice(deviceId);
     m_deviceService->removeDevice(ip);
 }
 
@@ -368,7 +370,6 @@ void MainPresenter::updateAiInfoFromJson(const QJsonObject& doc)
     // AIInfo - AI 识别与跟踪结果帧
     //==========================================================================
     {
-        m_lastAiInfoTime = QDateTime::currentDateTime();
         int workMode = doc.value("WorkMode").toInt();
         int count = doc.value("ObjectCount").toInt();
 
@@ -421,8 +422,12 @@ void MainPresenter::updateAiInfoFromJson(const QJsonObject& doc)
         }
 
         // 识别模式与跟踪模式都需要更新地图上的目标标记
-        if ((workMode == 1) || (workMode >= 2 && workMode <= 4))
-            this->updateMapTargets(doc, workMode);
+        if ((workMode == 1) || (workMode >= 2 && workMode <= 4)) {
+            DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
+            DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
+            state.aiWorkMode = workMode;
+            m_mapService->updateAiInfo(m_deviceService->currentDeviceId(), doc, state);
+        }
 
         //==================================================================
         // 跟踪模式 (WorkMode=2~4)：
@@ -526,7 +531,7 @@ void MainPresenter::updateStatusFromState(const DeviceState& state)
                                 QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
 
         this->updateLensStats();
-        this->updateMapDevicePosition(state);
+        m_mapService->updateDevicePosition(m_deviceService->currentDeviceId(), state);
     }
 
     //==========================================================================
@@ -630,6 +635,12 @@ void MainPresenter::updateStatusFromState(const DeviceState& state)
 //============================================================================
 void MainPresenter::updateMapTargets(const QJsonObject& doc, int workMode)
 {
+    DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
+    DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
+    state.aiWorkMode = workMode;
+    m_mapService->updateAiInfo(m_deviceService->currentDeviceId(), doc, state);
+    return;
+
     CameraIntrinsics camInfo;
     CameraConfig& camCfg = m_cfg->cam();
     bool isVis = (m_currentPipShow != 1 && m_currentPipShow != 4);
@@ -882,6 +893,11 @@ void MainPresenter::updateLensStats()
 
 double MainPresenter::calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel)
 {
+    DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
+    DeviceState state = snapshot.statePtr ? *snapshot.statePtr : DeviceState();
+    return m_mapService->calculateVisualDistance(m_deviceService->currentDeviceId(), obj, cls,
+                                                 state, updateTrackLabel);
+
     double dist = obj.value("Distance").toDouble(0);
     if (dist > 0 || !obj.contains("Points"))
         return dist;
@@ -921,6 +937,9 @@ double MainPresenter::calcVisualDistance(const QJsonObject& obj, int cls, bool u
 
 void MainPresenter::updateMapDevicePosition(const DeviceState& state)
 {
+    m_mapService->updateDevicePosition(m_deviceService->currentDeviceId(), state);
+    return;
+
     QString latStr = state.latitudeRaw;
     QString lonStr = state.longitudeRaw;
     double lat = GeoCalculator::parseCoord(latStr);
@@ -993,8 +1012,10 @@ bool MainPresenter::isDeviceConnected() const {
 
 void MainPresenter::onDeviceSwitched()
 {
-    const DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
+    const QString deviceId = m_deviceService->currentDeviceId();
+    const DeviceSnapshot snapshot = m_stateService->snapshot(deviceId);
     resetDeviceStateCache();
+    m_mapService->resetDevice(deviceId);
     if (snapshot.hasState && snapshot.statePtr) {
         updateStatusFromState(*snapshot.statePtr);
     } else {

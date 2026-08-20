@@ -132,6 +132,7 @@ private:
     int m_currentResY = 1520;
     bool m_updatingFromDevice = false;
 
+    // 旧地图实现的过渡状态，待下一步删除遗留实现。
     struct TrackState {
         QString id;
         double lat = 0, lon = 0;
@@ -144,16 +145,18 @@ private:
         QDateTime plotTime;
     };
     TrackState m_track;
-
     double m_lastAiDist = 0;
     bool m_lastAiDistEstimated = false;
     QDateTime m_lastAiInfoTime;
+
     double m_deviceHeight = 0;
     bool m_rtspEverOpened = false;
 
     void showAck(quint8 statusCode);
     void updateLensStats();
     double calcVisualDistance(const QJsonObject& obj, int cls, bool updateTrackLabel);
+    void updateMapTargets(const QJsonObject& doc, int workMode);
+    void updateMapDevicePosition(const DeviceState& state);
     int currentAlgoModel() const { return m_currentAlgoModel; }
     void resetDeviceStateCache();
 
@@ -173,8 +176,6 @@ private slots:
     void onDeviceSwitched();
     void updateStatusFromState(const DeviceState& state);
     void updateAiInfoFromJson(const QJsonObject& aiDoc);
-    void updateMapTargets(const QJsonObject& doc, int workMode);
-    void updateMapDevicePosition(const DeviceState& state);
 };
 
 #endif // MAINPRESENTER_H

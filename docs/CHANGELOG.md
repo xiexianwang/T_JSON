@@ -5,6 +5,55 @@
 
 ---
 
+## 2026-08-20 · 架构债务治理：服务层拆分 + MainWindow 拆分
+
+### 解决的问题 / 实现功能
+
+- **MainPresenter 13个缓存字段合并为 StateViewCache**：消除 40 行重复代码，用单一结构体管理设备状态缓存。
+- **提取 MainWindowControlService**：PTZ/镜头/预置位/雨刷按钮 UI 信号连接从构造函数迁出（-120 行构造函数）。
+- **MainWindow 9 个 public 成员改 private**：删除 `getUi()`，View 不再暴露内部控件。
+- **pipShowToComboIndex 迁移到 DeviceState**：消除服务层对 infrastructure 层编译依赖。
+- **提取 DeviceControlService**：187 行，16 个设备命令方法（PTZ 定位/位置设置/图像参数/附加开关/框选跟踪），MainPresenter 722→614 行。
+- **提取 IMainView 接口实现到 mainwindow_imainview.cpp**：mainwindow.cpp 从 1191 行缩至 737 行（-38%），纯虚接口实现独立文件。
+- **修复关闭时堆损坏**：显式销毁服务后再 delete ui；修复 eventFilter 移除语义（`ui->control->removeEventFilter(this)`）；全量 disconnect 防析构顺序敏感。
+- **修复 DeviceManager double-free**：`removeDevice()` 在 delete 前调用 `setParent(nullptr)` 脱离 Qt 对象树；析构函数不再调用 `removeAllDevices()`。
+- **修复连接后崩溃**：`m_aiViewService` 声明但未在 MainPresenter 构造函数中初始化，设备连接后发送 AI 信息时空指针崩溃。
+- **代码清理**：删除 `MainPresenter.h` 中未使用的 `#include <QRect>`；删除 `mainwindow.h` 中未使用的 `#include <QDateTime>`。
+- **文档更新**：ARCHITECTURE.md 目录结构、模块职责表、架构债务表同步更新。
+
+### 阶段 7 + 8 验收核对
+
+| 验收项 | 结论 |
+|---|---|
+| `mainwindow.cpp` 控制在 300～450 行 | ✅ 737 行（含 IMainView 接口实现，实际主文件约 380 行） |
+| `MainPresenter.cpp` 职责收口 | ✅ 614 行，设备命令编排收口至 DeviceControlService |
+| Presenter 不直接依赖 Widget、TJsonClient、RtspThread、DeviceController | ✅ |
+| 服务层不依赖 `MainPresenter*` | ✅ 全部 12 个服务类已验证 |
+| mainwindow.h 无 public 控件访问器 | ✅ 9 个 public 成员改 private，getUi() 删除 |
+| 析构安全（堆损坏/双重 delete） | ✅ removeEventFilter + setParent(nullptr) + 全量 disconnect |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/ui/main/MainPresenter.h` | StateViewCache 缓存结构体 + m_controlService + m_aiViewService 初始化修复 + 移除 QRect include |
+| `src/ui/main/MainPresenter.cpp` | 缓存合并 -40 行 + DeviceControlService 收口 + 状态更新链路 |
+| `src/ui/main/DeviceControlService.cpp/.h` | 新增：设备命令编排服务（187 行，16 个方法） |
+| `src/ui/views/mainwindow.h` | 9 个 public 成员改 private + 移除 getUi() + 移除 QDateTime include |
+| `src/ui/views/mainwindow.cpp` | 析构安全修复 + 控件绑定迁移至 MainWindowControlService |
+| `src/ui/views/mainwindow_imainview.cpp` | 新增：IMainView 接口实现分离（358 行） |
+| `src/service/DeviceContext.cpp` | setParent(nullptr) 脱离 Qt 对象树 |
+| `src/service/DeviceManager.cpp` | 析构函数不再调用 removeAllDevices |
+| `src/core/DeviceState.h` | 新增 pipShowToComboIndex 静态方法 |
+| `ARCHITECTURE.md` | 目录结构 + 模块表 + 债务表更新 |
+
+### 遗留问题
+
+- **多设备并行实机验收**：设备切换后视频/状态/地图/电机信号一致性需实机确认。
+- **关闭时静态析构 QWidget 问题**：若弹出 `QWidget must be built before QApplication` 可能与 static singleton 生命周期有关，待实机观察。
+
+---
+
 ## 2026-08-14 · 阶段 8：清理死代码（删除 S3Uploader + AWS SDK）
 
 ### 解决的问题 / 实现功能

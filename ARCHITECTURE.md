@@ -19,16 +19,33 @@ T-JSON-V1.0/
 ├── src/
 │   ├── main.cpp              # 入口：WebEngine 参数 + MainWindow
 │   ├── ui/                   # 表现层
-│   │   ├── main/MainPresenter.*        # MVP Presenter：UI 逻辑与设备调度
+│   │   ├── main/            # MVP Presenter + 服务层
+│   │   │   ├── MainPresenter.*              # Presenter 入口（~40 个转发方法）
+│   │   │   ├── IMainView.h                  # View 窄接口（~60 个纯虚方法）
+│   │   │   ├── DeviceSessionService.*       # 设备选择与会话管理
+│   │   │   ├── DeviceStateService.*         # 多设备状态/AI 快照
+│   │   │   ├── PresenterStateViewService.*  # 仪表盘 + 状态展示
+│   │   │   ├── PresenterAiViewService.*     # AI 识别/跟踪展示
+│   │   │   ├── PresenterMediaService.*      # RTSP 视频帧路由
+│   │   │   ├── PresenterMapService.*        # 地图轨迹/距离/视场角
+│   │   │   ├── PresenterDeviceService.*     # 设备生命周期 + 状态回调
+│   │   │   ├── PresenterMotorService.*      # PTZ/镜头/预置位命令
+│   │   │   └── DeviceControlService.*       # 设备命令编排（框选/工作模式/附加开关）
 │   │   ├── views/
-│   │   │   ├── mainwindow.*            # 主窗口 View（"哑巴视图"，业务经 Presenter）
-│   │   │   ├── videowidget.*           # 视频渲染 + 框选坐标映射
+│   │   │   ├── mainwindow.*                 # 主窗口 View + IMainView 实现
+│   │   │   ├── mainwindow_imainview.cpp     # IMainView 接口实现分离
+│   │   │   ├── MainWindowControlService.*   # PTZ/镜头/预置位 UI 信号连接
+│   │   │   ├── MainWindowLayoutService.*    # 地图/PiP 布局
+│   │   │   ├── MainWindowSystemService.*    # 托盘/标题栏/窗口系统
+│   │   │   ├── MainWindowDialogService.*    # 对话框服务
+│   │   │   ├── MainWindowNavigation.*       # 导航服务
+│   │   │   ├── videowidget.*               # 视频渲染 + 框选坐标映射
 │   │   │   ├── mapwidget.* / mapbridge.*   # 地图 View + JS 桥
-│   │   │   ├── settingsdialog.*        # 参数设置对话框
-│   │   │   └── cmdlogdialog.*          # 十六进制指令日志
+│   │   │   ├── settingsdialog.*            # 参数设置对话框
+│   │   │   └── cmdlogdialog.*              # 十六进制指令日志
 │   │   └── components/
-│   │       ├── DeviceTreeWidget.*      # 多设备树
-│   │       └── VideoGridWidget.*       # 多设备视频宫格
+│   │       ├── DeviceTreeWidget.*          # 多设备树
+│   │       └── VideoGridWidget.*           # 多设备视频宫格
 │   ├── core/                 # 领域层（无 UI / 无平台依赖）
 │   │   ├── DeviceState.h     # 纯数据模型
 │   │   ├── EventBus.*        # 全局事件总线（14 类跨模块事件）
@@ -96,7 +113,17 @@ T-JSON-V1.0/
 |---|---|---|---|---|
 | 入口 | `main.cpp` | WebEngine 调试端口 9999、Chromium flags、启动 MainWindow | — | ✅ |
 | 主窗口 View | `ui/views/mainwindow.*` | 布局、按钮、视频/地图/仪表盘展示；事件回调更新 UI | Presenter, VideoGrid, MapWidget | ✅ |
+| IMainView 实现 | `ui/views/mainwindow_imainview.cpp` | IMainView 接口实现分离（状态/AI/跟踪/视频/地图/抓拍/校验） | MainWindow, DialogService | ✅ |
 | Presenter | `ui/main/MainPresenter.*` | 所有按钮业务逻辑、设备指令下发、EventBus 订阅、多设备切换 | MainWindow, DeviceManager, DeviceController | ✅ |
+| 设备会话服务 | `ui/main/DeviceSessionService.*` | 设备选择与会话管理，维护 selectedDeviceId 与 sessionGeneration | ConfigManager, DeviceContext | ✅ |
+| 设备状态服务 | `ui/main/DeviceStateService.*` | 多设备状态/AI 快照缓存（QHash<DeviceId, DeviceSnapshot>） | — | ✅ |
+| 状态展示服务 | `ui/main/PresenterStateViewService.*` | 仪表盘 + 状态展示（StateViewCache 状态同步） | IMainView, ConfigManager, PresenterMapService | ✅ |
+| AI 展示服务 | `ui/main/PresenterAiViewService.*` | AI 识别/跟踪展示（目标列表、距离计算、轨迹） | IMainView, ConfigManager, PresenterMapService | ✅ |
+| 视频媒体服务 | `ui/main/PresenterMediaService.*` | RTSP 视频帧路由（按 deviceId 分发到 VideoGrid） | IMainView, DeviceContext | ✅ |
+| 地图服务 | `ui/main/PresenterMapService.*` | 地图轨迹/距离/视场角 | IMainView, ConfigManager | ✅ |
+| 设备生命周期服务 | `ui/main/PresenterDeviceService.*` | 设备生命周期 + 状态回调（连接/断开/RTSP/状态更新） | IMainView, ConfigManager, DeviceSessionService | ✅ |
+| 电机命令服务 | `ui/main/PresenterMotorService.*` | PTZ/镜头/预置位命令转发 | IMainView, ConfigManager, DeviceContext | ✅ |
+| 设备控制编排 | `ui/main/DeviceControlService.*` | 设备命令编排（框选跟踪/工作模式/附加开关/图像参数/位置设置） | ConfigManager | ✅ |
 | 事件总线 | `core/EventBus.*` | 14 类跨模块事件（连接/状态/PTZ/图像/RTSP/ACK/AI） | DeviceState | ✅ |
 | 数据模型 | `core/DeviceState.h` | 设备运行时纯数据（PTZ/镜头/位置/AI/图像参数） | — | ✅ |
 | 地理算法 | `core/GeoCalculator.*` | haversine、bearing、pixelToGps、目标测距、轨迹抽稀判定 | — | ✅ |
@@ -177,18 +204,20 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 
 | 债务 | 位置 | 说明 |
 |---|---|---|
-| 超大文件 | `ui/views/mainwindow.cpp`(约 1400 行)、`ui/main/MainPresenter.cpp`(约 1290 行) | 违反"方法超 80 行拆分"规则 |
 | 生命周期风险 | `service/DeviceContext.*`、`infrastructure/rtspthread.*` | 设备销毁、RTSP 停止与后台线程退出需要持续验证 |
 | 多设备收口 | `ui/main/MainPresenter.cpp`、`ui/views/mainwindow.cpp` | 当前设备切换与视频控件绑定仍需继续收敛，避免业务依赖默认设备 |
 | 多设备电机信号 | `ui/main/MainPresenter.cpp` | 电机结果信号仅对默认设备转发（构造时连接），多设备切换后沿用默认设备信号 |
 
+> ✅ 已解决：**超大文件拆分** —— `mainwindow.cpp` 从 1514 行缩至 ~737 行（IMainView 实现分离至 `mainwindow_imainview.cpp`），`MainPresenter.cpp` 从 ~1290 行缩至 ~716 行（设备命令编排收口至 `DeviceControlService`；13 个缓存字段合并为 `StateViewCache`）。
 > ✅ 已解决：`DeviceContext` 不再公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()`（阶段 5.3），全部业务经 `connectDevice/disconnectDevice/startVideo/stopVideo/ptzMove/lensMove/setWorkMode/setAlgoModel` 等业务 API 交互；`MainPresenter` 仅通过 `currentDevice()` 访问设备上下文。
 > ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
 > ✅ 已解决：`TJsonClient` 职责过重 —— 帧编解码已拆为 `TJsonFrameCodec`，载荷解析已拆为 `TJsonProtocolParser`（阶段 5.1）。
-> ✅ 已解决：`DeviceController` 职责过重 —— 协议组包拆为 `PelcoDProtocol`/`ViscaProtocol`，传输拆为 `ModbusTransport`/`Stm32TcpTransport`，电机编排拆为 `DeviceCommandService`（阶段 5.2）。残留：`Stm32TcpTransport::send` 的 `waitForConnected(500)` 仍同步等待（行为等价保留，联调时评估异步化）。
-> ✅ 已解决：测试与构建体系 —— `include(CTest)` + `enable_testing()` + `tests/` 子目录已建立，7 个单元测试目标（帧编解码/载荷解析/协议组包/DeviceState/地理算法/MODBUS-CRC16/STM32-TCP 初始状态）独立于主程序，不依赖 WebEngine/FFmpeg，`ctest` 全部通过（阶段 6 两轮）。残留：`test_devicecontext`（需 FFmpeg）待后续补充。
+> ✅ 已解决：`DeviceController` 职责过重 —— 协议组包拆为 `PelcoDProtocol`/`ViscaProtocol`，传输拆为 `ModbusTransport`/`Stm32TcpTransport`，电机编排拆为 `DeviceCommandService`（阶段 5.2）。
+> ✅ 已解决：测试与构建体系 —— `include(CTest)` + `enable_testing()` + `tests/` 子目录已建立，7 个单元测试目标独立于主程序，不依赖 WebEngine/FFmpeg，`ctest` 全部通过（阶段 6 两轮）。
 > ✅ 已解决：多设备电机信号 —— `MainPresenter` 构造函数中 `motorModeResult/motorSerialError/motorSilentResult/commandSent` 从固定绑定默认设备改为 `connectDeviceSignals()/disconnectDeviceSignals()` 动态管理，`onDeviceDoubleClicked` 切换设备时自动重连。
 > ✅ 已解决：RtspThread 线程等待 —— `closeStream()` 已正确调用 `wait(3000)`，析构兜底，FFmpeg 中断回调保证快速返回（债务已清除）。
+> ✅ 已解决：mainwindow.h 9 个 public 成员改为 private，删除 `getUi()`；`pipShowToComboIndex` 从 `DeviceController` 迁移到 `DeviceState`。
+> ✅ 已解决：MainWindow 析构 —— `removeEventFilter` + 全量 `disconnect` + `DeviceManager` 不再重复 delete 子对象（double-free 修复）。
 
 | 文档 | 适用场景 |
 |---|---|

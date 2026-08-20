@@ -36,6 +36,7 @@ private:
         QDateTime prevTime;
         double plotLat = 0, plotLon = 0;
         double plotHeading = -1;
+        QDateTime plotTime;
     };
 
     struct DeviceMapState {

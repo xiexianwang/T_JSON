@@ -5,6 +5,7 @@
 #include <QEvent>
 #include <QIcon>
 #include <QMenu>
+#include <QPushButton>
 #include <QSystemTrayIcon>
 
 MainWindowSystemService::MainWindowSystemService(QObject* parent)

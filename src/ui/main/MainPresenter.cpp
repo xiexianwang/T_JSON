@@ -6,6 +6,7 @@
 #include "DeviceStateService.h"
 #include "PresenterStateViewService.h"
 #include "PresenterMediaService.h"
+#include "PresenterAiViewService.h"
 #include "IMainView.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"

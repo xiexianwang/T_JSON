@@ -76,3 +76,10 @@ tjson_add_test(test_devicesessionstate
         test_devicesessionstate.cpp
         ../src/ui/main/DeviceSessionState.cpp
 )
+
+# ---- 9. 设备状态服务：多设备隔离 / 删除清理 / 快照恢复 ----
+tjson_add_test(test_devicestateservice
+    SOURCES
+        test_devicestateservice.cpp
+        ../src/ui/main/DeviceStateService.cpp
+)

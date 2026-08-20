@@ -16,6 +16,7 @@ class ConfigManager;
 class PresenterDeviceService;
 class PresenterMotorService;
 class PresenterMapService;
+class DeviceStateService;
 
 // ============================================================================
 // MainPresenter - MainWindow 的控制器 (MVP 模式中的 Presenter)
@@ -159,6 +160,7 @@ private:
     PresenterDeviceService* m_deviceService;
     PresenterMotorService* m_motorService;
     PresenterMapService* m_mapService;
+    DeviceStateService* m_stateService;
 
     DeviceContext* currentDevice() const;
 

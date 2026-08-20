@@ -3,6 +3,7 @@
 
 #include <QJsonObject>
 #include <QString>
+#include <memory>
 #include "DeviceState.h"
 
 using DeviceId = QString;
@@ -17,8 +18,11 @@ struct DeviceSnapshot
 {
     DeviceId deviceId;
     quint64 sessionGeneration = 0;
-    DeviceState state;
-    bool valid = false;
+    bool exists = false;
+    bool hasState = false;
+    bool hasAi = false;
+    std::shared_ptr<DeviceState> statePtr;
+    QJsonObject aiInfo;
 };
 
 struct DeviceJsonEvent : DeviceEvent

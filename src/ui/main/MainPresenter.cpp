@@ -3,6 +3,7 @@
 #include "PresenterDeviceService.h"
 #include "PresenterMotorService.h"
 #include "PresenterMapService.h"
+#include "DeviceStateService.h"
 #include "IMainView.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"
@@ -22,6 +23,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_deviceService = new PresenterDeviceService(this, view, cfg, this);
     m_motorService = new PresenterMotorService(this, view, cfg, this);
     m_mapService = new PresenterMapService(this, view, cfg, this);
+    m_stateService = new DeviceStateService(this);
 
     // DeviceService 初始化默认设备
     DeviceManager::instance()->addDevice(m_deviceService->currentDeviceId());
@@ -354,6 +356,7 @@ void MainPresenter::onDeviceToggleConnect(const QString& ip)
 
 void MainPresenter::onDeviceRemoved(const QString& ip)
 {
+    m_stateService->deviceRemoved(QString("dev_%1").arg(ip));
     m_deviceService->removeDevice(ip);
 }
 
@@ -970,12 +973,12 @@ void MainPresenter::updateMapDevicePosition(const DeviceState& state)
 
 
 void MainPresenter::onDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state) {
-    Q_UNUSED(deviceId);
+    m_stateService->updateState(deviceId, state);
     if (state) updateStatusFromState(*state);
 }
 
 void MainPresenter::onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc) {
-    Q_UNUSED(deviceId);
+    m_stateService->updateAi(deviceId, aiDoc);
     updateAiInfoFromJson(aiDoc);
 }
 
@@ -990,9 +993,15 @@ bool MainPresenter::isDeviceConnected() const {
 
 void MainPresenter::onDeviceSwitched()
 {
+    const DeviceSnapshot snapshot = m_stateService->snapshot(m_deviceService->currentDeviceId());
     resetDeviceStateCache();
-    DeviceState emptyState;
-    updateStatusFromState(emptyState);
+    if (snapshot.hasState && snapshot.statePtr) {
+        updateStatusFromState(*snapshot.statePtr);
+    } else {
+        DeviceState emptyState;
+        updateStatusFromState(emptyState);
+    }
+    if (snapshot.hasAi) updateAiInfoFromJson(snapshot.aiInfo);
 }
 
 void MainPresenter::onDeviceConnected()

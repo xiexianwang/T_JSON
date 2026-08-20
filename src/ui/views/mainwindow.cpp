@@ -98,12 +98,15 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");
+    qDebug() << "=== MainWindow: titleBar done ===";
     ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.png")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    qDebug() << "=== MainWindow: appIcon done ===";
     ui->btnMenu_Min->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/minimize.png")));
     ui->btnMenu_Max->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/maximize.png")));
     ui->btnMenu_Close->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/close.png")));
     for (auto *b : {ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close})
         b->setIconSize(QSize(18, 18));
+    qDebug() << "=== MainWindow: menuButtons done ===";
 
     // 为导航栏按钮设置 SVG 图标（图片在上，文字在下）
     auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
@@ -115,6 +118,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupNavBtn(ui->btnNavPlayback, QStringLiteral(":/playback.svg"));
     setupNavBtn(ui->btnNavLog, QStringLiteral(":/log.svg"));
     setupNavBtn(ui->btnNavSettings, QStringLiteral(":/gear.svg"));
+    qDebug() << "=== MainWindow: navBtns done ===";
 
     // 导航按钮互斥组
     auto *navGroup = new QButtonGroup(this);
@@ -124,6 +128,7 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavLog, 2);
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
+    qDebug() << "=== MainWindow: navGroup done ===";
 
     // 初始化导航服务
     m_navigation = new MainWindowNavigation(this);

@@ -6,6 +6,7 @@
 #include <QString>
 #include <QByteArray>
 #include "core/DeviceState.h"
+#include "core/DeviceTypes.h"
 #include "infrastructure/tjsonclient.h"
 #include "infrastructure/devicecontroller.h"
 #include "infrastructure/rtspthread.h"
@@ -37,8 +38,24 @@ public:
         ShuttingDown,
         Stopped
     };
-    void shutdown();
+    struct ShutdownResult {
+        bool alreadyStopped = false;
+        bool rtspStopped = false;
+        bool ptzStopped = false;
+        bool motorStopped = false;
+        bool networkStopped = false;
+        QString error;
+
+        bool succeeded() const
+        {
+            return error.isEmpty() && rtspStopped && ptzStopped
+                && motorStopped && networkStopped;
+        }
+    };
+
+    ShutdownResult shutdown();
     State lifecycleState() const { return m_lifecycleState; }
+    bool isActive() const { return m_lifecycleState == State::Active; }
 
     // ================= 连接与网络 =================
     void connectDevice(const QString& ip, quint16 port);   // 建立 TCP 连接

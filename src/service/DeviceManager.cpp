@@ -1,5 +1,6 @@
 ﻿#include "DeviceManager.h"
 #include <QMutex>
+#include <QDebug>
 
 
 
@@ -37,8 +38,14 @@ DeviceContext* DeviceManager::addDevice(const QString& deviceId)
 void DeviceManager::removeDevice(const QString& deviceId)
 {
     if (m_devices.contains(deviceId)) {
-        DeviceContext* ctx = m_devices.take(deviceId);
-        ctx->shutdown();
+        DeviceContext* ctx = m_devices.value(deviceId);
+        const DeviceContext::ShutdownResult result = ctx->shutdown();
+        if (!result.succeeded()) {
+            qWarning() << "DeviceManager: device shutdown incomplete, keeping context:" << deviceId
+                       << result.error;
+            return;
+        }
+        m_devices.remove(deviceId);
         delete ctx;
     }
 }
@@ -55,9 +62,8 @@ QList<QString> DeviceManager::getAllDeviceIds() const
 
 void DeviceManager::removeAllDevices()
 {
-    for (auto* ctx : m_devices) {
-        ctx->shutdown();
-        delete ctx;
+    const QList<QString> deviceIds = m_devices.keys();
+    for (const QString& deviceId : deviceIds) {
+        removeDevice(deviceId);
     }
-    m_devices.clear();
 }

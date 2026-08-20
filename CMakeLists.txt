@@ -34,6 +34,7 @@ qt_add_executable(T-JSON
     src/core/JsonFrameParser.cpp
     src/core/JsonFrameParser.h
     src/core/DeviceState.h
+    src/core/DeviceTypes.h
     src/core/EventBus.cpp
     src/core/EventBus.h
     src/service/DeviceContext.cpp

@@ -25,6 +25,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
 
     // --- 拦截设备 JSON 帧，解析后更新 DeviceState ---
     connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc) {
+        if (!isActive()) return;
         QString controlType = doc.value("ControlType").toString();
 
         if (controlType == "ZoomInfo") {
@@ -90,7 +91,7 @@ DeviceContext::~DeviceContext()
     // shutdown() 应已在 DeviceManager::removeAllDevices() 中被调用
     // 此处兜底：仅在异常路径（未被显式关闭）时执行
     if (m_lifecycleState == State::Active) {
-        shutdown();
+        (void)shutdown();
     }
 }
 
@@ -107,13 +108,19 @@ void DeviceContext::connectDevice(const QString& ip, quint16 port)
 
 void DeviceContext::disconnectDevice()
 {
-    shutdown();
+    (void)shutdown();
 }
 
-void DeviceContext::shutdown()
+DeviceContext::ShutdownResult DeviceContext::shutdown()
 {
+    ShutdownResult result;
     if (m_lifecycleState == State::ShuttingDown || m_lifecycleState == State::Stopped) {
-        return;
+        result.alreadyStopped = true;
+        result.rtspStopped = !m_video->isRunning();
+        result.ptzStopped = true;
+        result.motorStopped = !m_motor->isMotorSerialOpen() && !m_motor->isMotorTcpOpen();
+        result.networkStopped = !m_tcp->isConnected();
+        return result;
     }
     m_lifecycleState = State::ShuttingDown;
 
@@ -123,25 +130,32 @@ void DeviceContext::shutdown()
 
     // 停止 PTZ 转发
     m_ptz->stop();
+    result.ptzStopped = true;
 
     // 关闭电机 TCP 和串口
     m_motor->closeMotorTcp();
     m_motor->closeMotorSerial();
+    result.motorStopped = !m_motor->isMotorSerialOpen() && !m_motor->isMotorTcpOpen();
 
     // 停止 RTSP 并等待线程退出
     m_video->closeStream();
     if (m_video->isRunning()) {
         qWarning() << "DeviceContext::shutdown() - RTSP thread timeout for device:" << m_deviceId;
+        result.error = QStringLiteral("RTSP 线程未在关闭超时内退出");
     }
+    result.rtspStopped = !m_video->isRunning();
 
     // 断开 TJsonClient 并取消自动重连
     m_tcp->disconnectDevice();
+    result.networkStopped = !m_tcp->isConnected();
 
     m_lifecycleState = State::Stopped;
+    return result;
 }
 
 void DeviceContext::disconnectNetwork()
 {
+    if (!isActive()) return;
     m_tcp->disconnectDevice();
 }
 
@@ -161,6 +175,7 @@ void DeviceContext::startVideo(const QString& url)
 
 void DeviceContext::stopVideo()
 {
+    if (!isActive()) return;
     m_video->closeStream();
 }
 
@@ -174,21 +189,25 @@ bool DeviceContext::isVideoRunning() const
 // ============================================================================
 void DeviceContext::ptzMove(PtzDir dir)
 {
+    if (!isActive()) return;
     m_motor->ptzMove(dir);
 }
 
 void DeviceContext::ptzStop()
 {
+    if (!isActive()) return;
     m_motor->ptzStop();
 }
 
 void DeviceContext::ptzMoveTo(double pan, double tilt)
 {
+    if (!isActive()) return;
     m_motor->ptzMoveTo(pan, tilt);
 }
 
 void DeviceContext::ptzSetZero()
 {
+    if (!isActive()) return;
     m_motor->ptzSetZero();
 }
 
@@ -197,26 +216,31 @@ void DeviceContext::ptzSetZero()
 // ============================================================================
 void DeviceContext::lensZoomIn(int target)
 {
+    if (!isActive()) return;
     m_motor->lensZoomIn(target);
 }
 
 void DeviceContext::lensZoomOut(int target)
 {
+    if (!isActive()) return;
     m_motor->lensZoomOut(target);
 }
 
 void DeviceContext::lensFocusIn(int target)
 {
+    if (!isActive()) return;
     m_motor->lensFocusIn(target);
 }
 
 void DeviceContext::lensFocusOut(int target)
 {
+    if (!isActive()) return;
     m_motor->lensFocusOut(target);
 }
 
 void DeviceContext::lensStop()
 {
+    if (!isActive()) return;
     m_motor->lensStop();
 }
 
@@ -225,26 +249,31 @@ void DeviceContext::lensStop()
 // ============================================================================
 void DeviceContext::queryImageParams()
 {
+    if (!isActive()) return;
     m_motor->queryImageParams();
 }
 
 void DeviceContext::setWorkMode(int mode)
 {
+    if (!isActive()) return;
     m_motor->setWorkMode(mode);
 }
 
 void DeviceContext::setAlgoModel(int model)
 {
+    if (!isActive()) return;
     m_motor->setAlgoModel(model);
 }
 
 void DeviceContext::setDisplayMode(int mode)
 {
+    if (!isActive()) return;
     m_motor->setDisplayMode(mode);
 }
 
 void DeviceContext::setLocation(const QString& lat, const QString& lon)
 {
+    if (!isActive()) return;
     m_motor->setLocation(lat, lon);
 }
 
@@ -253,21 +282,25 @@ void DeviceContext::setLocation(const QString& lat, const QString& lon)
 // ============================================================================
 void DeviceContext::setDigitalZoom(bool enable)
 {
+    if (!isActive()) return;
     m_motor->setDigitalZoom(enable);
 }
 
 void DeviceContext::setAutoZoom(bool enable)
 {
+    if (!isActive()) return;
     m_motor->setAutoZoom(enable);
 }
 
 void DeviceContext::setCaptureUpload(bool enable)
 {
+    if (!isActive()) return;
     m_motor->setCaptureUpload(enable);
 }
 
 void DeviceContext::posReset(bool enable)
 {
+    if (!isActive()) return;
     m_motor->posReset(enable);
 }
 
@@ -276,11 +309,13 @@ void DeviceContext::posReset(bool enable)
 // ============================================================================
 void DeviceContext::setPointTrack(int centerX, int centerY)
 {
+    if (!isActive()) return;
     m_motor->setPointTrack(centerX, centerY);
 }
 
 void DeviceContext::setBoxTrack(int centerX, int centerY, int width, int height)
 {
+    if (!isActive()) return;
     m_motor->setBoxTrack(centerX, centerY, width, height);
 }
 
@@ -289,16 +324,19 @@ void DeviceContext::setBoxTrack(int centerX, int centerY, int width, int height)
 // ============================================================================
 void DeviceContext::setPreset(int preset)
 {
+    if (!isActive()) return;
     m_motor->setPreset(preset);
 }
 
 void DeviceContext::callPreset(int preset)
 {
+    if (!isActive()) return;
     m_motor->callPreset(preset);
 }
 
 void DeviceContext::delPreset(int preset)
 {
+    if (!isActive()) return;
     m_motor->delPreset(preset);
 }
 
@@ -307,11 +345,13 @@ void DeviceContext::delPreset(int preset)
 // ============================================================================
 bool DeviceContext::openMotorSerial(const QString& portName)
 {
+    if (!isActive()) return false;
     return m_motor->openMotorSerial(portName);
 }
 
 void DeviceContext::closeMotorSerial()
 {
+    if (!isActive()) return;
     m_motor->closeMotorSerial();
 }
 
@@ -322,11 +362,13 @@ bool DeviceContext::isMotorSerialOpen() const
 
 void DeviceContext::openMotorTcp()
 {
+    if (!isActive()) return;
     m_motor->openMotorTcp();
 }
 
 void DeviceContext::closeMotorTcp()
 {
+    if (!isActive()) return;
     m_motor->closeMotorTcp();
 }
 
@@ -340,56 +382,67 @@ bool DeviceContext::isMotorTcpOpen() const
 // ============================================================================
 void DeviceContext::motorStart()
 {
+    if (!isActive()) return;
     m_motor->motorStart();
 }
 
 void DeviceContext::motorStop()
 {
+    if (!isActive()) return;
     m_motor->motorStop();
 }
 
 void DeviceContext::motorWiperStop()
 {
+    if (!isActive()) return;
     m_motor->motorWiperStop();
 }
 
 void DeviceContext::motorReturnZero()
 {
+    if (!isActive()) return;
     m_motor->motorReturnZero();
 }
 
 void DeviceContext::motorJogLeft()
 {
+    if (!isActive()) return;
     m_motor->motorJogLeft();
 }
 
 void DeviceContext::motorJogRight()
 {
+    if (!isActive()) return;
     m_motor->motorJogRight();
 }
 
 void DeviceContext::motorZeroCalib()
 {
+    if (!isActive()) return;
     m_motor->motorZeroCalib();
 }
 
 void DeviceContext::motorCheckMode()
 {
+    if (!isActive()) return;
     m_motor->motorCheckMode();
 }
 
 void DeviceContext::motorToggleMode()
 {
+    if (!isActive()) return;
     m_motor->motorToggleMode();
 }
 
 void DeviceContext::motorToggleSilentMode()
 {
+    if (!isActive()) return;
     m_motor->motorToggleSilentMode();
 }
 
 void DeviceContext::motorSetCurrent(int ma)
 {
+    if (!isActive()) return;
     m_motor->motorSetCurrent(ma);
 }
 
@@ -398,16 +451,19 @@ void DeviceContext::motorSetCurrent(int ma)
 // ============================================================================
 void DeviceContext::startPtzForwarder(const QString& ptzIp, quint16 ptzPort, quint16 mockServerPort)
 {
+    if (!isActive()) return;
     m_ptz->start(ptzIp, ptzPort, mockServerPort);
 }
 
 void DeviceContext::setPtzOffsets(double panOffset, double tiltOffset)
 {
+    if (!isActive()) return;
     m_ptz->setOffsets(panOffset, tiltOffset);
 }
 
 void DeviceContext::flushZeroPosition()
 {
+    if (!isActive()) return;
     m_ptz->flushZeroPosition();
 }
 
@@ -436,38 +492,48 @@ void DeviceContext::setupTimers()
     });
 
     connect(m_tcp, &TJsonClient::deviceConnected, this, [this]() {
+        if (!isActive()) return;
         m_sysParamTimer->start();
         m_aiCleanupTimer->start();
         EventBus::instance()->postDeviceConnected(m_deviceId);
     });
     connect(m_video, &RtspThread::frameReady, this, [this](const QImage& frame) {
+        if (!isActive()) return;
         EventBus::instance()->postDeviceFrameReady(m_deviceId, frame);
     });
     connect(m_video, &RtspThread::streamOpened, this, [this]() {
+        if (!isActive()) return;
         EventBus::instance()->postRtspOpened(m_deviceId);
     });
     connect(m_video, &RtspThread::streamError, this, [this](const QString& msg) {
+        if (!isActive()) return;
         EventBus::instance()->postRtspError(m_deviceId, msg);
     });
 
     connect(m_tcp, &TJsonClient::deviceDisconnected, this, [this]() {
+        if (!isActive()) return;
         m_sysParamTimer->stop();
         m_aiCleanupTimer->stop();
         EventBus::instance()->postDeviceDisconnected(m_deviceId);
     });
     connect(m_tcp, &TJsonClient::errorOccurred, this, [this](const QString& errorMsg) {
+        if (!isActive()) return;
         EventBus::instance()->postDeviceError(m_deviceId, errorMsg);
     });
     connect(m_tcp, &TJsonClient::imageSnapped, this, [this](const QByteArray& jpegData, const QRect& location) {
+        if (!isActive()) return;
         EventBus::instance()->postImageSnapped(m_deviceId, jpegData, location);
     });
     connect(m_tcp, &TJsonClient::ackReceived, this, [this](quint8 statusCode) {
+        if (!isActive()) return;
         EventBus::instance()->postAckReceived(m_deviceId, statusCode);
     });
     connect(m_tcp, &TJsonClient::reconnecting, this, [this](int attempt, int maxRetries) {
+        if (!isActive()) return;
         EventBus::instance()->postDeviceReconnecting(m_deviceId, attempt, maxRetries);
     });
     connect(m_tcp, &TJsonClient::reconnectFailed, this, [this]() {
+        if (!isActive()) return;
         EventBus::instance()->postDeviceReconnectFailed(m_deviceId);
     });
 }

@@ -26,39 +26,39 @@ public:
     EventBus& operator=(const EventBus&) = delete;
 
     // --- 发布事件的方法 (向总线投递) ---
-    void postDeviceConnected(const QString& deviceId);
-    void postDeviceDisconnected(const QString& deviceId);
-    void postAckReceived(const QString& deviceId, quint8 statusCode);
-    void postDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries);
-    void postDeviceReconnectFailed(const QString& deviceId);
-    void postDeviceError(const QString& deviceId, const QString& errorMsg);
-    void postRtspOpened(const QString& deviceId);
-    void postRtspError(const QString& deviceId, const QString& errorMsg);
-    void postJsonReceived(const QString& deviceId, const QJsonObject& doc);
-    void postImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
-    void postPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
-    void postDeviceAiTimeout(const QString& deviceId);
-    void postDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
-    void postDeviceFrameReady(const QString& deviceId, const QImage& frame);
-    void postDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
+    void postDeviceConnected(const QString& deviceId, quint64 generation = 0);
+    void postDeviceDisconnected(const QString& deviceId, quint64 generation = 0);
+    void postAckReceived(const QString& deviceId, quint8 statusCode, quint64 generation = 0);
+    void postDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries, quint64 generation = 0);
+    void postDeviceReconnectFailed(const QString& deviceId, quint64 generation = 0);
+    void postDeviceError(const QString& deviceId, const QString& errorMsg, quint64 generation = 0);
+    void postRtspOpened(const QString& deviceId, quint64 generation = 0);
+    void postRtspError(const QString& deviceId, const QString& errorMsg, quint64 generation = 0);
+    void postJsonReceived(const QString& deviceId, const QJsonObject& doc, quint64 generation = 0);
+    void postImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location, quint64 generation = 0);
+    void postPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom, quint64 generation = 0);
+    void postDeviceAiTimeout(const QString& deviceId, quint64 generation = 0);
+    void postDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state, quint64 generation = 0);
+    void postDeviceFrameReady(const QString& deviceId, const QImage& frame, quint64 generation = 0);
+    void postDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc, quint64 generation = 0);
 
 signals:
     // --- 订阅事件的信号 (业务层或 UI 层去监听) ---
-    void sigDeviceConnected(const QString& deviceId);
-    void sigDeviceDisconnected(const QString& deviceId);
-    void sigAckReceived(const QString& deviceId, quint8 statusCode);
-    void sigDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries);
-    void sigDeviceReconnectFailed(const QString& deviceId);
-    void sigDeviceError(const QString& deviceId, const QString& errorMsg);
-    void sigRtspOpened(const QString& deviceId);
-    void sigRtspError(const QString& deviceId, const QString& errorMsg);
-    void sigJsonReceived(const QString& deviceId, const QJsonObject& doc);
-    void sigImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location);
-    void sigPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom);
-    void sigDeviceAiTimeout(const QString& deviceId);
-    void sigDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
-    void sigDeviceFrameReady(const QString& deviceId, const QImage& frame);
-    void sigDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
+    void sigDeviceConnected(const QString& deviceId, quint64 generation);
+    void sigDeviceDisconnected(const QString& deviceId, quint64 generation);
+    void sigAckReceived(const QString& deviceId, quint8 statusCode, quint64 generation);
+    void sigDeviceReconnecting(const QString& deviceId, int attempt, int maxRetries, quint64 generation);
+    void sigDeviceReconnectFailed(const QString& deviceId, quint64 generation);
+    void sigDeviceError(const QString& deviceId, const QString& errorMsg, quint64 generation);
+    void sigRtspOpened(const QString& deviceId, quint64 generation);
+    void sigRtspError(const QString& deviceId, const QString& errorMsg, quint64 generation);
+    void sigJsonReceived(const QString& deviceId, const QJsonObject& doc, quint64 generation);
+    void sigImageSnapped(const QString& deviceId, const QByteArray& jpegData, const QRect& location, quint64 generation);
+    void sigPtzUpdated(const QString& deviceId, double pan, double tilt, double zoom, quint64 generation);
+    void sigDeviceAiTimeout(const QString& deviceId, quint64 generation);
+    void sigDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state, quint64 generation);
+    void sigDeviceFrameReady(const QString& deviceId, const QImage& frame, quint64 generation);
+    void sigDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc, quint64 generation);
 
 private:
     explicit EventBus(QObject *parent = nullptr);

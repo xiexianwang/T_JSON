@@ -28,6 +28,8 @@ public:
     ~DeviceContext() override;
 
     QString deviceId() const { return m_deviceId; }
+    void setSessionGeneration(quint64 generation) { m_sessionGeneration = generation; }
+    quint64 sessionGeneration() const { return m_sessionGeneration; }
 
     // PipShow 映射表：combo 索引 → 设备实际值（复用 DeviceController 静态映射）
     static int pipShowToComboIndex(int pipShow) { return DeviceController::pipShowToComboIndex(pipShow); }
@@ -142,6 +144,7 @@ signals:
 
 private:
     QString m_deviceId;
+    quint64 m_sessionGeneration = 0;
     ConfigManager* m_cfg;
 
     // 底层驱动与组件（聚合根内部持有，不对外暴露）

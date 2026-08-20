@@ -209,11 +209,14 @@ void PresenterDeviceService::setupEventBus()
     EventBus* bus = EventBus::instance();
 
     // 帧就绪
-    connect(bus, &EventBus::sigDeviceFrameReady, this, &PresenterDeviceService::deviceFrameReady);
+    connect(bus, &EventBus::sigDeviceFrameReady, this,
+            [this](const QString& deviceId, const QImage& frame, quint64 generation) {
+        if (acceptsEvent(deviceId, generation)) emit deviceFrameReady(deviceId, frame);
+    });
 
     // 设备连接/断开
-    connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId) {
-        if (deviceId == m_currentDeviceId) {
+    connect(bus, &EventBus::sigDeviceConnected, this, [this](const QString& deviceId, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) {
             // 初始化参数下发
             DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
             if (ctx) {
@@ -227,43 +230,48 @@ void PresenterDeviceService::setupEventBus()
         }
     });
 
-    connect(bus, &EventBus::sigDeviceDisconnected, this, [this](const QString& deviceId) {
-        if (deviceId == m_currentDeviceId) emit deviceDisconnected();
+    connect(bus, &EventBus::sigDeviceDisconnected, this, [this](const QString& deviceId, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit deviceDisconnected();
     });
 
     // RTSP
-    connect(bus, &EventBus::sigRtspOpened, this, [this](const QString& deviceId) {
-        if (deviceId == m_currentDeviceId) emit rtspOpened(deviceId);
+    connect(bus, &EventBus::sigRtspOpened, this, [this](const QString& deviceId, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit rtspOpened(deviceId);
     });
-    connect(bus, &EventBus::sigRtspError, this, [this](const QString& deviceId, const QString& msg) {
-        if (deviceId == m_currentDeviceId) emit rtspError(deviceId, msg);
+    connect(bus, &EventBus::sigRtspError, this, [this](const QString& deviceId, const QString& msg, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit rtspError(deviceId, msg);
     });
 
     // 设备状态/AI
-    connect(bus, &EventBus::sigDeviceStateUpdated, this, [this](const QString& deviceId, std::shared_ptr<DeviceState> state) {
-        if (deviceId == m_currentDeviceId && state) emit deviceStateUpdated(deviceId, state);
+    connect(bus, &EventBus::sigDeviceStateUpdated, this, [this](const QString& deviceId, std::shared_ptr<DeviceState> state, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId && state) emit deviceStateUpdated(deviceId, state);
     });
-    connect(bus, &EventBus::sigDeviceAiInfoUpdated, this, [this](const QString& deviceId, const QJsonObject& aiDoc) {
-        if (deviceId == m_currentDeviceId) emit deviceAiInfoUpdated(deviceId, aiDoc);
+    connect(bus, &EventBus::sigDeviceAiInfoUpdated, this, [this](const QString& deviceId, const QJsonObject& aiDoc, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit deviceAiInfoUpdated(deviceId, aiDoc);
     });
-    connect(bus, &EventBus::sigDeviceAiTimeout, this, [this](const QString& deviceId) {
-        if (deviceId == m_currentDeviceId) emit deviceAiTimeout(deviceId);
+    connect(bus, &EventBus::sigDeviceAiTimeout, this, [this](const QString& deviceId, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit deviceAiTimeout(deviceId);
     });
 
     // 错误/抓拍/ACK/重连
-    connect(bus, &EventBus::sigDeviceError, this, [this](const QString& deviceId, const QString& errorMsg) {
-        if (deviceId == m_currentDeviceId) emit deviceError(deviceId, errorMsg);
+    connect(bus, &EventBus::sigDeviceError, this, [this](const QString& deviceId, const QString& errorMsg, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit deviceError(deviceId, errorMsg);
     });
-    connect(bus, &EventBus::sigImageSnapped, this, [this](const QString& deviceId, const QByteArray& jpegData, const QRect& location) {
-        if (deviceId == m_currentDeviceId) emit imageSnapped(deviceId, jpegData, location);
+    connect(bus, &EventBus::sigImageSnapped, this, [this](const QString& deviceId, const QByteArray& jpegData, const QRect& location, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit imageSnapped(deviceId, jpegData, location);
     });
-    connect(bus, &EventBus::sigAckReceived, this, [this](const QString& deviceId, quint8 statusCode) {
-        if (deviceId == m_currentDeviceId) emit ackReceived(deviceId, statusCode);
+    connect(bus, &EventBus::sigAckReceived, this, [this](const QString& deviceId, quint8 statusCode, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit ackReceived(deviceId, statusCode);
     });
-    connect(bus, &EventBus::sigDeviceReconnecting, this, [this](const QString& deviceId, int attempt, int maxRetries) {
-        if (deviceId == m_currentDeviceId) emit deviceReconnecting(deviceId, attempt, maxRetries);
+    connect(bus, &EventBus::sigDeviceReconnecting, this, [this](const QString& deviceId, int attempt, int maxRetries, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit deviceReconnecting(deviceId, attempt, maxRetries);
     });
-    connect(bus, &EventBus::sigDeviceReconnectFailed, this, [this](const QString& deviceId) {
-        if (deviceId == m_currentDeviceId) emit deviceReconnectFailed(deviceId);
+    connect(bus, &EventBus::sigDeviceReconnectFailed, this, [this](const QString& deviceId, quint64 generation) {
+        if (acceptsEvent(deviceId, generation) && deviceId == m_currentDeviceId) emit deviceReconnectFailed(deviceId);
     });
+}
+
+bool PresenterDeviceService::acceptsEvent(const QString& deviceId, quint64 generation) const
+{
+    return generation == 0 || m_session->accepts(deviceId, generation);
 }

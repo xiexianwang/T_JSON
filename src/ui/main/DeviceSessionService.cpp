@@ -20,6 +20,7 @@ DeviceContext* DeviceSessionService::ensureDevice(const DeviceId& deviceId)
     } else if (!m_state.contains(deviceId)) {
         m_state.ensure(deviceId);
     }
+    if (context) context->setSessionGeneration(m_state.generation(deviceId));
     return context;
 }
 

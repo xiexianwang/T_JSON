@@ -73,6 +73,7 @@ signals:
     void deviceSwitched();
 
 private:
+    bool acceptsEvent(const QString& deviceId, quint64 generation) const;
     // 设备电机信号连接管理（切换设备时解绑/重绑）
     void connectDeviceSignals(DeviceContext* ctx);
     void disconnectDeviceSignals();

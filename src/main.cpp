@@ -7,48 +7,39 @@
 #include "ui/views/mainwindow.h"
 
 #include <QApplication>
+#include <QMessageBox>
 #include <QStyleFactory>
 #include <QtGlobal>
-#include <QMessageBox>
-#include <QTextStream>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
-#include <eh.h>
 
-static void structuredExceptionHandler(unsigned int code, _EXCEPTION_POINTERS* ep)
+static LONG WINAPI crashHandler(EXCEPTION_POINTERS* ep)
 {
-    QString msg = QString("程序崩溃\n异常代码: 0x%1\n异常地址: 0x%2")
-        .arg(code, 8, 16, QChar('0'))
-        .arg(reinterpret_cast<quintptr>(ep->ExceptionRecord->ExceptionAddress), 16, 16, QChar('0'));
-
-    QMessageBox::critical(nullptr, "T-JSON Crash", msg);
-   TerminateProcess(GetCurrentProcess(), 1);
+    const unsigned int code = ep->ExceptionRecord->ExceptionAddress ? ep->ExceptionRecord->ExceptionCode : 0;
+    QMessageBox::critical(nullptr, "T-JSON Crash",
+        QString("程序崩溃\n异常代码: 0x%1\n异常地址: 0x%2")
+            .arg(code, 8, 16, QChar('0'))
+            .arg(reinterpret_cast<quintptr>(ep->ExceptionRecord->ExceptionAddress), 16, 16, QChar('0')));
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif
 
 // 应用程序主入口点
 int main(int argc, char *argv[])
 {
-    // 配置 Chromium / WebEngine 标志：忽略 GPU 黑名单以启用 WebGL、
-    // 设置光栅线程数、移除帧率限制、降低日志级别
-    // 使用 Chrome 访问 http://localhost:9999 调试地图页面
     qputenv("QTWEBENGINE_REMOTE_DEBUGGING", "9999");
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--ignore-gpu-blocklist --enable-webgl --num-raster-threads=4 --disable-frame-rate-limit --log-level=3");
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
-    QApplication a(argc, argv);                    // 创建 QApplication 实例
-    a.setOrganizationName("LSS");                  // 设置组织名（用于 QSettings 路径）
-    a.setApplicationName("LSS Video Manager");     // 设置应用名
-    // a.setStyle(QStyleFactory::create("Fusion"));   // 注释掉 Fusion，让 QSS 完全接管控件绘制
+    QApplication a(argc, argv);
+    a.setOrganizationName("LSS");
+    a.setApplicationName("LSS Video Manager");
 #ifdef Q_OS_WIN
-    _set_se_translator(structuredExceptionHandler);
+    SetUnhandledExceptionFilter(crashHandler);
 #endif
-    qDebug() << "=== T-JSON: before MainWindow ===";
-    MainWindow w;                                  // 创建主窗口
-    qDebug() << "=== T-JSON: MainWindow created ===";
-    w.show();                                      // 显示主窗口
-    qDebug() << "=== T-JSON: entering event loop ===";
-    return QApplication::exec();                   // 进入 Qt 事件循环
+    MainWindow w;
+    w.show();
+    return QApplication::exec();
 }

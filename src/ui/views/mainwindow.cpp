@@ -47,13 +47,11 @@ MainWindow::MainWindow(QWidget *parent)
     , m_cfg(new ConfigManager(this))
     , m_presenter(new MainPresenter(this, m_cfg, this))           // RTSP 视频拉流线程
 {
-    qDebug() << "=== MainWindow: setupUi ===";
     ui->setupUi(this);
 
     setWindowIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
 
     setupUiStyles();
-    qDebug() << "=== MainWindow: uiStyles done ===";
 
     // Replace old single videoWidget with VideoGridWidget
     ui->videoWidget->hide();
@@ -62,7 +60,6 @@ MainWindow::MainWindow(QWidget *parent)
         ui->widgetDisplay->layout()->addWidget(m_videoGrid);
     }
     m_videoGrid->bindDevice(m_presenter->currentDeviceId());
-    qDebug() << "=== MainWindow: videoGrid created ===";
 
 
     
@@ -93,21 +90,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_deviceTree, &DeviceTreeWidget::channelDoubleClicked, m_presenter, &MainPresenter::onDeviceDoubleClicked);
     connect(m_deviceTree, &DeviceTreeWidget::deviceRemoved, m_presenter, &MainPresenter::onDeviceRemoved);
     connect(m_deviceTree, &DeviceTreeWidget::deviceToggleConnect, m_presenter, &MainPresenter::onDeviceToggleConnect);
-    qDebug() << "=== MainWindow: deviceTree done ===";
 
-    qDebug() << "=== MainWindow: before titleBar ops, titleBar=" << ui->titleBar;
     ui->titleBar->installEventFilter(this);
-    qDebug() << "=== MainWindow: eventFilter installed ===";
     ui->titleBar->setProperty("form", "title");
-    qDebug() << "=== MainWindow: titleBar done ===";
     ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.png")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    qDebug() << "=== MainWindow: appIcon done ===";
     ui->btnMenu_Min->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/minimize.png")));
     ui->btnMenu_Max->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/maximize.png")));
     ui->btnMenu_Close->setIcon(QIcon(QStringLiteral(":/qss/blacksoft/close.png")));
     for (auto *b : {ui->btnMenu_Min, ui->btnMenu_Max, ui->btnMenu_Close})
         b->setIconSize(QSize(18, 18));
-    qDebug() << "=== MainWindow: menuButtons done ===";
 
     // 为导航栏按钮设置 SVG 图标（图片在上，文字在下）
     auto setupNavBtn = [](QToolButton* btn, const QString& svgPath) {
@@ -119,7 +110,6 @@ MainWindow::MainWindow(QWidget *parent)
     setupNavBtn(ui->btnNavPlayback, QStringLiteral(":/playback.svg"));
     setupNavBtn(ui->btnNavLog, QStringLiteral(":/log.svg"));
     setupNavBtn(ui->btnNavSettings, QStringLiteral(":/gear.svg"));
-    qDebug() << "=== MainWindow: navBtns done ===";
 
     // 导航按钮互斥组
     auto *navGroup = new QButtonGroup(this);
@@ -129,21 +119,18 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavLog, 2);
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
-    qDebug() << "=== MainWindow: navGroup done ===";
 
     // 初始化导航服务
     m_navigation = new MainWindowNavigation(this);
     m_navigation->setup({ui->btnNavMonitor, ui->btnNavPlayback, ui->btnNavLog, ui->btnNavSettings},
                         ui->btnMapToggle, m_cfg, m_presenter, this);
-    qDebug() << "=== MainWindow: navigation done ===";
 
     // 初始化对话框服务
     m_dialogService = new MainWindowDialogService(this);
     m_dialogService->setup(m_cfg, m_presenter, this);
-    qDebug() << "=== MainWindow: dialogService done ===";
 
     // 根据配置自动初始化电机通道
-    qDebug() << "=== MainWindow: initMotorChannel done ===";
+    m_presenter->initMotorChannel();
 
     // PTZ Forwarder start（延迟到事件循环启动后）
     QTimer::singleShot(0, this, [this]() {
@@ -156,7 +143,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
     m_mapWidget = new MapWidget(m_mapContainer);
     m_mapWidget->setGeometry(0, 0, 280, 280);
-    qDebug() << "=== MainWindow: mapWidget created ===";
     // 透明覆盖层：迷你模式拦截鼠标（拖拽移动，双击展开）
     m_mapOverlay = new QWidget(m_mapContainer);
     m_mapOverlay->setGeometry(0, 0, 280, 280);
@@ -192,7 +178,6 @@ MainWindow::MainWindow(QWidget *parent)
     ));
     connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
-    qDebug() << "=== MainWindow: pipDialog done ===";
 
     m_layoutService = new MainWindowLayoutService(this);
     m_layoutService->setup({
@@ -217,7 +202,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnMapToggle, &QPushButton::clicked,
             m_layoutService, &MainWindowLayoutService::toggleMap);
     m_layoutService->updateMapLayout();
-    qDebug() << "=== MainWindow: layoutService done ===";
 
     // 系统参数轮询：500ms 周期查询设备 ImageSetting
     
@@ -434,14 +418,12 @@ MainWindow::MainWindow(QWidget *parent)
         [this]() { hide(); },
         [this]() { show(); }
     });
-    qDebug() << "=== MainWindow: systemService done ===";
 
     for (auto *cb : findChildren<QComboBox *>()) {
         cb->setFocusPolicy(Qt::StrongFocus);
         cb->installEventFilter(this);
     }
     updateMotorButtons();
-    qDebug() << "=== MainWindow: constructor done ===";
 }
 
 //============================================================================
@@ -1011,7 +993,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
-    if (m_layoutService->handleEventFilter(obj, event)) return true;
+    if (m_layoutService && m_layoutService->handleEventFilter(obj, event)) return true;
     return QMainWindow::eventFilter(obj, event);
 }
 

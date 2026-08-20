@@ -33,11 +33,6 @@ public:
     void toggleDeviceConnect(const QString& ip);
     bool isDeviceConnected(const QString& deviceId) const;
 
-    // ================= 视频流 =================
-    void startVideoStream(const QString& deviceId, const QString& url);
-    void stopVideo(const QString& deviceId);
-    bool isVideoRunning(const QString& deviceId) const;
-
     // ================= 设备切换与删除 =================
     void switchToDevice(const QString& newDeviceId, const QString& ip, const QString& rtspUrl);
     void removeDevice(const QString& ip);

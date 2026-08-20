@@ -5,14 +5,13 @@
 #include "PresenterMapService.h"
 #include "DeviceStateService.h"
 #include "PresenterStateViewService.h"
+#include "PresenterMediaService.h"
 #include "IMainView.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"
 #include "core/GeoCalculator.h"
 #include <QMessageBox>
-#include <QVariant>
 #include <QTimer>
-#include <QtMath>
 
 MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *parent)
     : QObject(parent)
@@ -26,6 +25,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_mapService = new PresenterMapService(view, cfg, this);
     m_stateService = new DeviceStateService(this);
     m_stateViewService = new PresenterStateViewService(view, cfg, m_mapService, this);
+    m_mediaService = new PresenterMediaService(view, this);
 
     // DeviceService 初始化默认设备
     DeviceManager::instance()->addDevice(m_deviceService->currentDeviceId());
@@ -157,13 +157,12 @@ bool MainPresenter::isMotorTcpOpen() const
 
 bool MainPresenter::isVideoStreamRunning() const
 {
-    DeviceContext* ctx = currentDevice();
-    return ctx && ctx->isVideoRunning();
+    return m_mediaService->isStreamRunning(currentDevice());
 }
 
 void MainPresenter::closeVideoStream()
 {
-    if (DeviceContext* ctx = currentDevice()) ctx->stopVideo();
+    m_mediaService->closeStream(currentDevice());
 }
 
 // --- Extracted from MainWindow ---
@@ -191,23 +190,12 @@ void MainPresenter::on_btnCancelConnect_clicked()
 
 void MainPresenter::on_btnVideoConnect_clicked()
 {
-    QString url = m_view->rtspUrlText().trimmed();
-    if (url.isEmpty()) {
-        QMessageBox::warning(m_view->asWidget(), "RTSP", "请输入 RTSP 地址");
-        return;
-    }
-    m_rtspEverOpened = true;
-    if (DeviceContext* ctx = currentDevice()) ctx->startVideo(url);
-    m_view->setVideoConnectButton(QString::fromUtf8("连接中..."), false);
-    m_view->showStatusMessage(QString::fromUtf8("正在连接 RTSP 视频流..."));
+    m_mediaService->connectStream(currentDevice(), m_view->rtspUrlText());
 }
 
 void MainPresenter::on_btnVideoDisconnect_clicked()
 {
-    if (DeviceContext* ctx = currentDevice()) ctx->stopVideo();
-    m_view->repaintVideoGrid();
-    m_view->setVideoConnectButton(QString::fromUtf8("开启"), true);
-    m_view->showStatusMessage(QString::fromUtf8("视频已断开"), 3000);
+    m_mediaService->disconnectStream(currentDevice());
 }
 
 void MainPresenter::on_btnPtzMoveTo_clicked()
@@ -403,7 +391,7 @@ void MainPresenter::onDeviceAiInfoUpdated(const QString& deviceId, const QJsonOb
 }
 
 void MainPresenter::startVideoStream(const QString& url) {
-    if (DeviceContext* ctx = currentDevice()) ctx->startVideo(url);
+    m_mediaService->startStream(currentDevice(), url);
 }
 
 bool MainPresenter::isDeviceConnected() const {
@@ -463,7 +451,6 @@ void MainPresenter::resetDeviceStateCache()
     m_currentResX = 2688;
     m_currentResY = 1520;
     m_deviceHeight = 0;
-    m_rtspEverOpened = false;
 }
 
 StateViewCache MainPresenter::currentStateViewCache() const

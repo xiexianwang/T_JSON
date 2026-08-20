@@ -55,27 +55,6 @@ bool PresenterDeviceService::isDeviceConnected(const QString& deviceId) const
 }
 
 // ============================================================================
-// 视频流
-// ============================================================================
-void PresenterDeviceService::startVideoStream(const QString& deviceId, const QString& url)
-{
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
-    if (ctx) ctx->startVideo(url);
-}
-
-void PresenterDeviceService::stopVideo(const QString& deviceId)
-{
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
-    if (ctx) ctx->stopVideo();
-}
-
-bool PresenterDeviceService::isVideoRunning(const QString& deviceId) const
-{
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
-    return ctx && ctx->isVideoRunning();
-}
-
-// ============================================================================
 // 当前设备管理
 // ============================================================================
 DeviceContext* PresenterDeviceService::currentDevice() const

@@ -5,7 +5,6 @@
 #include <QString>
 #include <QJsonObject>
 #include <QRect>
-#include <QDateTime>
 #include <memory>
 #include "core/DeviceState.h"
 #include "infrastructure/tjsonframe.h"
@@ -19,6 +18,7 @@ class PresenterMotorService;
 class PresenterMapService;
 class DeviceStateService;
 class PresenterAiViewService;
+class PresenterMediaService;
 
 // ============================================================================
 // MainPresenter - MainWindow 的控制器 (MVP 模式中的 Presenter)
@@ -134,10 +134,7 @@ private:
     int m_currentResY = 1520;
     bool m_updatingFromDevice = false;
 
-    QDateTime m_lastAiInfoTime;
-
     double m_deviceHeight = 0;
-    bool m_rtspEverOpened = false;
 
     void showAck(quint8 statusCode);
     int currentAlgoModel() const { return m_currentAlgoModel; }
@@ -151,6 +148,7 @@ private:
     DeviceStateService* m_stateService;
     PresenterStateViewService* m_stateViewService;
     PresenterAiViewService* m_aiViewService;
+    PresenterMediaService* m_mediaService;
 
     DeviceContext* currentDevice() const;
 

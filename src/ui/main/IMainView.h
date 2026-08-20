@@ -4,15 +4,15 @@
 #include <QString>
 #include <QByteArray>
 #include <QRect>
+#include <QJsonArray>
 
 class QWidget;
-class VideoWidget;
-class MapWidget;
 
 // ============================================================================
 // IMainView - MainWindow 的窄 View 接口（MVP 解耦边界）
 //
-// MainPresenter 只依赖此接口，不再直接操作 Ui::MainWindow 控件。
+// MainPresenter 只依赖此接口，不再直接操作 Ui::MainWindow 控件，
+// 也不直接访问 VideoWidget / MapWidget 等具体 Widget 类型。
 // MainWindow 实现该接口，负责布局、信号连接与展示逻辑。
 // ============================================================================
 class IMainView
@@ -94,12 +94,24 @@ public:
     virtual void setCaptureUploadChecked(bool checked) = 0;
     virtual void setPosResetChecked(bool checked) = 0;
 
-    // ---- 视频网格 ----
-    virtual VideoWidget* videoWidget(const QString& deviceId) = 0;
+    // ---- 视频网格（Presenter 不再直接操作 VideoWidget） ----
+    virtual void setVideoFrame(const QString& deviceId, const QImage& frame) = 0;
+    virtual void clearVideoFrame(const QString& deviceId) = 0;
+    virtual void setVideoSelectionEnabled(const QString& deviceId, bool enabled) = 0;
     virtual void repaintVideoGrid() = 0;
 
-    // ---- 地图 ----
-    virtual MapWidget* mapWidget() = 0;
+    // ---- 地图操作（Presenter 不再直接操作 MapWidget） ----
+    virtual void mapClearAllTracks() = 0;
+    virtual void mapUpdateTargetMarkers(const QJsonArray& targets) = 0;
+    virtual void mapClearFov() = 0;
+    virtual void mapAppendTrackPoint(const QString& trackId, double lat, double lon, double speed) = 0;
+    virtual void mapSetDevicePosition(double lat, double lon) = 0;
+    virtual void mapSetVisFov(double lat, double lon, double panDeg, double tiltDeg,
+                              double hfov, double vfov, double distance) = 0;
+    virtual void mapSetIrFov(double lat, double lon, double panDeg, double tiltDeg,
+                             double hfov, double vfov, double distance) = 0;
+    virtual void mapSetDeviceInfo(double lat, double lon, double alt, double pan, double tilt,
+                                  double visHfov, double visVfov, double range, bool rangeEstimated) = 0;
 
     // ---- 连接/电机校验（含弹窗提示） ----
     virtual bool requireConnected() = 0;

@@ -77,6 +77,7 @@ public:
     // ================= 雨刷电机控制（委托 DeviceCommandService） =================
     void motorStart();                      // 启动
     void motorStop();                       // 停止
+    void motorWiperStop();                  // 雨刷关闭(action 8 + action 2)
     void motorJogLeft();                    // 左转(JOG-)
     void motorJogRight();                   // 右转(JOG+)
     void motorZeroCalib();                  // 零点校准
@@ -110,6 +111,7 @@ signals:
     void motorModeResult(bool isManual);  // 电机模式查询结果: true=手动, false=自动
     void motorSilentResult(bool isSilent); // 静音模式切换结果: true=静音, false=狂暴
     void motorSerialError(const QString& msg);
+    void motorTcpError(const QString& msg);
 
 private:
     TJsonClient* m_client;          // 网络客户端（非拥有指针）

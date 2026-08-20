@@ -138,9 +138,13 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
 
             auto *remove = menu.addAction(QStringLiteral("删除"));
             connect(remove, &QAction::triggered, this, [this, item]() {
+                QString ip = item->data(RoleIp).toString();
                 QStandardItem *parent = item->parent();
                 if (parent) parent->removeRow(item->row());
                 else m_model->removeRow(item->row());
+                if (!ip.isEmpty()) {
+                    emit deviceRemoved(ip);
+                }
                 emit treeModified();
             });
 
@@ -189,10 +193,20 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
                 if (item->hasChildren()) {
                     auto ret = QMessageBox::question(this,
                         QStringLiteral("确认删除"),
-                        QStringLiteral("该分组包含子节点，确定删除？"),
+                        QStringLiteral("该分组下有子节点，确认删除？"),
                         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                     if (ret != QMessageBox::Yes) return;
                 }
+                
+                std::function<void(QStandardItem*)> collectIps = [&](QStandardItem *p) {
+                    QString ip = p->data(RoleIp).toString();
+                    if (!ip.isEmpty()) emit deviceRemoved(ip);
+                    for (int i = 0; i < p->rowCount(); ++i) {
+                        collectIps(p->child(i));
+                    }
+                };
+                collectIps(item);
+
                 QStandardItem *parent = item->parent();
                 if (parent) parent->removeRow(item->row());
                 else m_model->removeRow(item->row());

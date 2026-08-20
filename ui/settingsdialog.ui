@@ -215,7 +215,8 @@
         <item><widget class="QCheckBox" name="checkSerialServerEnabled"><property name="text"><string>模拟串口服务器</string></property></widget></item>
         <item><widget class="QCheckBox" name="checkTurntableIpEnabled"><property name="text"><string>转台IP连接</string></property></widget></item>
         <item><widget class="QCheckBox" name="checkMotorSerialEnabled"><property name="text"><string>电机串口连接</string></property></widget></item>
-         <item><widget class="QCheckBox" name="checkSoftwarePtzCalibration"><property name="text"><string>软件偏置标定</string></property></widget></item>
+        <item><widget class="QCheckBox" name="checkMotorIpEnabled"><property name="text"><string>电机IP连接</string></property></widget></item>
+          <item><widget class="QCheckBox" name="checkSoftwarePtzCalibration"><property name="text"><string>软件偏置标定</string></property></widget></item>
          
        </layout>
       </item>

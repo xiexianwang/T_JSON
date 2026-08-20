@@ -27,11 +27,38 @@ DeviceCommandService::DeviceCommandService(ConfigManager* cfg, QObject *parent)
     });
     connect(m_modbus, &ModbusTransport::errorOccurred, this, &DeviceCommandService::motorSerialError);
 
-    // STM32-TCP 接收
+    // STM32-TCP 接收：解析 status / error_code
     connect(m_tcp, &Stm32TcpTransport::dataReceived, this, [this](const QByteArray& data) {
         emit commandSent("STM32-TCP_RECV", data);
+
+        QJsonParseError err;
+        QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+        if (err.error != QJsonParseError::NoError || !doc.isObject()) return;
+        QJsonObject obj = doc.object();
+
+        if (!obj.contains("status")) return;
+        int status = obj["status"].toInt(-1);
+        int errorCode = obj["error_code"].toInt(0);
+
+        // status: 0=OK/空闲, 1=BUSY, 2=COMPLETE, 3=ERROR, 4=LIMIT_ZERO, 5=LIMIT_END, 6=INTERRUPTED
+        switch (status) {
+        case 3: // ERROR
+            emit motorTcpError(tr("电机错误: %1").arg(errorCodeToString(errorCode)));
+            break;
+        case 4: // LIMIT_ZERO
+            emit motorTcpError(tr("触发零点限位"));
+            break;
+        case 5: // LIMIT_END
+            emit motorTcpError(tr("触发终点限位"));
+            break;
+        case 6: // INTERRUPTED
+            emit commandSent("STM32-TCP", QByteArray("被新指令打断"));
+            break;
+        default:
+            break;
+        }
     });
-    connect(m_tcp, &Stm32TcpTransport::errorOccurred, this, &DeviceCommandService::motorSerialError);
+    connect(m_tcp, &Stm32TcpTransport::errorOccurred, this, &DeviceCommandService::motorTcpError);
     // 已发送完整帧（含帧头）通知上层日志
     connect(m_tcp, &Stm32TcpTransport::frameSent, this, [this](const QByteArray& pkt) {
         emit commandSent("STM32-TCP-V4.0", pkt);
@@ -127,10 +154,26 @@ void DeviceCommandService::motorStop()
         sendModbus(QByteArray::fromHex("0106003800000807"));
     } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
-        cmd["action"] = 2;
+        cmd["action"] = 8;
         sendMotorTcpV4(cmd);
     } else {
         sendPelcoDWiper(QByteArray::fromHex("FF01000B00010D"));
+    }
+}
+
+void DeviceCommandService::motorWiperStop()
+{
+    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        QJsonObject cmd;
+        cmd["action"] = 8;
+        sendMotorTcpV4(cmd);
+        QTimer::singleShot(50, this, [this]() {
+            QJsonObject cmd2;
+            cmd2["action"] = 2;
+            sendMotorTcpV4(cmd2);
+        });
+    } else {
+        motorStop();
     }
 }
 
@@ -138,9 +181,9 @@ void DeviceCommandService::motorJogLeft()
 {
     if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
-        cmd["action"] = 1;
-        cmd["target_pos"] = 0;
-        cmd["speed"] = 30000;
+        cmd["action"] = 3;
+        cmd["target_pos"] = 50000;
+        cmd["speed"] = 8000;
         sendMotorTcpV4(cmd);
         return;
     }
@@ -152,9 +195,9 @@ void DeviceCommandService::motorJogRight()
 {
     if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
-        cmd["action"] = 1;
-        cmd["target_pos"] = 100000;
-        cmd["speed"] = 30000;
+        cmd["action"] = 4;
+        cmd["target_pos"] = 50000;
+        cmd["speed"] = 8000;
         sendMotorTcpV4(cmd);
         return;
     }
@@ -170,6 +213,12 @@ void DeviceCommandService::motorZeroCalib()
 
 void DeviceCommandService::motorReturnZero()
 {
+    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        QJsonObject cmd;
+        cmd["action"] = 2;
+        sendMotorTcpV4(cmd);
+        return;
+    }
     if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
     sendModbus(QByteArray::fromHex("01060037000439C7"));
 }
@@ -248,4 +297,17 @@ void DeviceCommandService::motorSetCurrent(int ma)
         QByteArray savePkt = QByteArray::fromHex("010600178000580E");
         sendModbus(savePkt);
     });
+}
+
+QString DeviceCommandService::errorCodeToString(int code)
+{
+    switch (code) {
+    case 0: return QStringLiteral("无错误");
+    case 1: return QStringLiteral("超时(TIMEOUT)");
+    case 2: return QStringLiteral("堵转(STALL)");
+    case 3: return QStringLiteral("过流(OVERCURRENT)");
+    case 4: return QStringLiteral("限位(LIMIT)");
+    case 5: return QStringLiteral("驱动器故障(DRIVER_FAULT)");
+    default: return QStringLiteral("未知错误(%1)").arg(code);
+    }
 }

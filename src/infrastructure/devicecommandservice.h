@@ -39,23 +39,25 @@ public:
     void closeMotorTcp();
     bool isMotorTcpOpen() const;
 
-    // ================= 雨刷电机控制 =================
-    void motorStart();                  // 启动
-    void motorStop();                   // 停止
-    void motorJogLeft();                // 左转(JOG-)
-    void motorJogRight();               // 右转(JOG+)
-    void motorZeroCalib();              // 零点校准
-    void motorReturnZero();             // 回到绝对位置零点
-    void motorCheckMode();              // 查询当前模式（手动/自动）
-    void motorToggleMode();             // 切换模式（手动↔自动）
-    void motorToggleSilentMode();       // 切换静音/狂暴模式
-    void motorSetCurrent(int ma);       // 设置电机电流并固化
+    // ================= 雨刷电机控制 (STM32-TCP-V4.0 action) =================
+    void motorStart();                  // action=5: Continuous Swiping
+    void motorStop();                   // action=8: Stop Only
+    void motorWiperStop();              // action=8 + action=2(50ms): 雨刷关闭(停止+回零)
+    void motorJogLeft();                // action=3: Left(target_pos, speed)
+    void motorJogRight();               // action=4: Right(target_pos, speed)
+    void motorZeroCalib();              // 零点校准(MODBUS-RTU 专用)
+    void motorReturnZero();             // action=2: Home(回零)
+    void motorCheckMode();              // 查询当前模式(MODBUS-RTU 专用)
+    void motorToggleMode();             // action=10: Switch to Manual / action=11: Switch to Auto
+    void motorToggleSilentMode();       // action=6: Silent Mode ON / action=7: Silent Mode OFF
+    void motorSetCurrent(int ma);       // 设置电机电流并固化(MODBUS-RTU 专用)
 
 signals:
     void commandSent(const QString& serialType, const QByteArray& data);
     void motorModeResult(bool isManual);    // true=手动, false=自动
     void motorSilentResult(bool isSilent);  // true=静音, false=狂暴
     void motorSerialError(const QString& msg);
+    void motorTcpError(const QString& msg);
 
 private:
     ConfigManager* m_cfg;
@@ -70,6 +72,7 @@ private:
     void sendModbus(const QByteArray& pkt);
     void sendPelcoDWiper(const QByteArray& pkt);
     void sendMotorTcpV4(const QJsonObject& json);
+    static QString errorCodeToString(int code);
 };
 
 #endif // DEVICECOMMANDSERVICE_H

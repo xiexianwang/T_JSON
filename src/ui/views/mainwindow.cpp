@@ -12,12 +12,12 @@
 #include "ui/components/VideoGridWidget.h"
 #include "ui/components/DeviceTreeWidget.h"
 
-#include "ui/views/settingsdialog.h"
 #include "infrastructure/rtspthread.h"
 #include "ui/views/videowidget.h"
 #include "ui/views/mapwidget.h"
-#include <QScreen>
 #include "ui/views/cmdlogdialog.h"
+#include "ui/views/MainWindowNavigation.h"
+#include "ui/views/MainWindowDialogService.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>
@@ -32,9 +32,6 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QCheckBox>
-#include <QRadioButton>
-
-#include <QtMath>
 
 
 
@@ -89,6 +86,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(btnToggleTree, &QToolButton::toggled, m_deviceTree, &QWidget::setVisible);
 
     connect(m_deviceTree, &DeviceTreeWidget::channelDoubleClicked, m_presenter, &MainPresenter::onDeviceDoubleClicked);
+    connect(m_deviceTree, &DeviceTreeWidget::deviceRemoved, m_presenter, &MainPresenter::onDeviceRemoved);
+    connect(m_deviceTree, &DeviceTreeWidget::deviceToggleConnect, m_presenter, &MainPresenter::onDeviceToggleConnect);
 
 
     ui->titleBar->installEventFilter(this);
@@ -119,6 +118,15 @@ MainWindow::MainWindow(QWidget *parent)
     navGroup->addButton(ui->btnNavLog, 2);
     navGroup->addButton(ui->btnNavSettings, 3);
     ui->btnNavMonitor->setChecked(true);
+
+    // 初始化导航服务
+    m_navigation = new MainWindowNavigation(this);
+        m_navigation->setup({ui->btnNavMonitor, ui->btnNavPlayback, ui->btnNavLog, ui->btnNavSettings},
+                        ui->btnMapToggle, m_cfg, m_presenter, this);
+
+    // 初始化对话框服务
+    m_dialogService = new MainWindowDialogService(this);
+    m_dialogService->setup(m_cfg, m_presenter, this);
 
     // 根据配置自动初始化电机通道
     m_presenter->initMotorChannel();
@@ -327,6 +335,10 @@ MainWindow::MainWindow(QWidget *parent)
         ui->statWiperStatus->setText("故障");
         qWarning() << "电机串口错误:" << msg;
     });
+    connect(m_presenter, &MainPresenter::motorTcpErrorOccurred, this, [this](const QString& msg) {
+        ui->statWiperStatus->setText("故障");
+        qWarning() << "电机TCP错误:" << msg;
+    });
     connect(ui->btnWiperLeft, &QPushButton::pressed, this, [this]() {
         m_presenter->onWiperJogLeft();
     });
@@ -366,6 +378,8 @@ MainWindow::MainWindow(QWidget *parent)
     //============================================================================
     m_logDialog = new CmdLogDialog(this);
     connect(m_presenter, &MainPresenter::commandSentToLog, m_logDialog, &CmdLogDialog::appendLog);
+    m_navigation->setLogDialog(m_logDialog);
+    m_dialogService->setLogDialog(m_logDialog);
 
     //============================================================================
     // 系统托盘
@@ -399,8 +413,10 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
-    // Make sure all devices are properly stopped and threads are terminated
-    // This prevents background RTSP threads from causing Heap Corruption on exit
+    // 1. 先断开 EventBus 对 MainPresenter 的信号连接，防止析构过程中信号回调访问已析构对象
+    disconnect(m_presenter, nullptr, this, nullptr);
+
+    // 2. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
     DeviceManager::instance()->removeAllDevices();
 
     delete m_pipDialog;
@@ -426,60 +442,10 @@ void MainWindow::on_btnMenu_Max_clicked()
 
 void MainWindow::on_btnMenu_Close_clicked()
 {
-    auto action = m_cfg->closeAction();
-    if (action == ConfigManager::Exit) {
+    if (m_dialogService->showCloseConfirmation()) {
         m_trayIcon->hide();
         qApp->quit();
-        return;
     }
-    if (action == ConfigManager::Minimize) {
-        hide();
-        return;
-    }
-
-    QDialog dlg(this);
-    dlg.setWindowTitle(QStringLiteral("关闭提示"));
-    dlg.setFixedSize(300, 160);
-    dlg.setWindowFlags((dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint));
-
-    auto *layout = new QVBoxLayout(&dlg);
-
-    // Radio 按钮行：左对齐退出程序，右对齐最小化到托盘
-    auto *radioLayout = new QHBoxLayout();
-    auto *radioExit = new QRadioButton(QStringLiteral("退出程序"), &dlg);
-    auto *radioMin = new QRadioButton(QStringLiteral("最小化到托盘"), &dlg);
-    radioMin->setChecked(true);
-    radioLayout->addWidget(radioExit);
-    radioLayout->addStretch();
-    radioLayout->addWidget(radioMin);
-    layout->addLayout(radioLayout);
-
-    // 底部行：记住选择（左）+ 确认（右）
-    auto *bottomLayout = new QHBoxLayout();
-    auto *cbRemember = new QCheckBox(QStringLiteral("记住本次选择"), &dlg);
-    bottomLayout->addWidget(cbRemember);
-    bottomLayout->addStretch();
-    auto *btnConfirm = new QPushButton(QStringLiteral("确认"), &dlg);
-    btnConfirm->setFixedWidth(80);
-    bottomLayout->addWidget(btnConfirm);
-    layout->addLayout(bottomLayout);
-
-    connect(btnConfirm, &QPushButton::clicked, this, [this, &dlg, radioExit, cbRemember]() {
-        if (cbRemember->isChecked()) {
-            m_cfg->setCloseAction(radioExit->isChecked()
-                ? ConfigManager::Exit : ConfigManager::Minimize);
-            m_cfg->save();
-        }
-        if (radioExit->isChecked()) {
-            m_trayIcon->hide();
-            qApp->quit();
-        } else {
-            hide();
-        }
-        dlg.close();
-    });
-
-    dlg.exec();
 }
 
 //============================================================================
@@ -541,24 +507,11 @@ void MainWindow::onTrayExit()
 void MainWindow::on_btnNavMonitor_clicked()  { /* 当前页面 */ }
 void MainWindow::on_btnNavPlayback_clicked() { /* 预留 */ }
 void MainWindow::on_btnNavLog_clicked()      {
-    if (m_logDialog->isVisible()) {
-        m_logDialog->hide();
-    } else {
-        m_logDialog->show();
-        m_logDialog->raise();
-        m_logDialog->activateWindow();
-    }
+    m_navigation->onBtnNavLogClicked();
 }
 void MainWindow::on_btnNavSettings_clicked() {
-    SettingsDialog dlg(m_cfg, this);
-    dlg.exec();
-
-    // 电机协议变更后重新打开串口
-    m_presenter->applyMotorChannel();
+    m_navigation->onBtnNavSettingsClicked();
     updateMotorButtons();
-
-    // 重启 PTZ 转发服务
-    m_presenter->initPtzForwarder();
 }
 
 //============================================================================
@@ -906,45 +859,14 @@ void MainWindow::onImageSnapped(const QByteArray& jpegData, const QRect& locatio
 //============================================================================
 bool MainWindow::requireConnected()
 {
-    if (!m_presenter->isDeviceConnected()) {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle(QStringLiteral("提示"));
-        msgBox.setText(QStringLiteral("请连接设备"));
-        msgBox.setStandardButtons(QMessageBox::Ok);
-        msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
-        msgBox.exec();
-        return false;
-    }
-    return true;
+    return m_dialogService->requireConnected();
 }
 
 // 检查电机是否就绪
 // MODBUS-RTU 协议时需串口已打开，Pelco-D 直发即可
 bool MainWindow::requireMotorReady()
 {
-    if (m_cfg->motorProtocol() == "MODBUS-RTU") {
-        if (m_cfg->motorCommandChannel() == "串口" && !m_presenter->isMotorSerialOpen()) {
-            QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QStringLiteral("提示"));
-            msgBox.setText(QStringLiteral("电机串口未打开，请在设置中配置"));
-            msgBox.setStandardButtons(QMessageBox::Ok);
-            msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
-            msgBox.exec();
-            return false;
-        }
-    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
-        if (!m_presenter->isMotorTcpOpen()) {
-            QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QStringLiteral("提示"));
-            msgBox.setText(QStringLiteral("电机 TCP 正在连接或连接失败，请检查配置"));
-            msgBox.setStandardButtons(QMessageBox::Ok);
-            msgBox.setStyleSheet("QPushButton { min-width: 80px; margin: 5px; }");
-            // 这里我们允许它尝试去重连，不直接 return false
-            // 但是如果是要强制的话可以 return false; 
-            // 我们在 DeviceController 里面已经有 sendMotorTcpV4 时如果断开会自动尝试重连一次
-        }
-    }
-    return true;
+    return m_dialogService->requireMotorReady();
 }
 
 // 更新电机控制按钮状态
@@ -1479,19 +1401,85 @@ void MainWindow::setPosResetChecked(bool checked)
     ui->checkPosReset->blockSignals(false);
 }
 
-VideoWidget* MainWindow::videoWidget(const QString& deviceId)
+void MainWindow::setVideoFrame(const QString& deviceId, const QImage& frame)
 {
-    return m_videoGrid->bindDevice(deviceId);
+    if (!m_videoGrid) return;
+    if (VideoWidget* vw = m_videoGrid->bindDevice(deviceId)) {
+        vw->setFrame(frame);
+    }
+}
+
+void MainWindow::clearVideoFrame(const QString& deviceId)
+{
+    if (!m_videoGrid) return;
+    if (VideoWidget* vw = m_videoGrid->bindDevice(deviceId)) {
+        vw->clearFrame();
+    }
+}
+
+void MainWindow::setVideoSelectionEnabled(const QString& deviceId, bool enabled)
+{
+    if (!m_videoGrid) return;
+    if (VideoWidget* vw = m_videoGrid->bindDevice(deviceId)) {
+        vw->setSelectionEnabled(enabled);
+    }
 }
 
 void MainWindow::repaintVideoGrid()
 {
+    if (!m_videoGrid) return;
     m_videoGrid->repaint();
 }
 
-MapWidget* MainWindow::mapWidget()
+void MainWindow::mapClearAllTracks()
 {
-    return m_mapWidget;
+    if (!m_mapWidget) return;
+    m_mapWidget->clearAllTracks();
+}
+
+void MainWindow::mapUpdateTargetMarkers(const QJsonArray& targets)
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->updateTargetMarkers(targets);
+}
+
+void MainWindow::mapClearFov()
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->clearFov();
+}
+
+void MainWindow::mapAppendTrackPoint(const QString& trackId, double lat, double lon, double speed)
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->appendTrackPoint(trackId, lat, lon, speed);
+}
+
+void MainWindow::mapSetDevicePosition(double lat, double lon)
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->setDevicePosition(lat, lon);
+}
+
+void MainWindow::mapSetVisFov(double lat, double lon, double panDeg, double tiltDeg,
+                              double hfov, double vfov, double distance)
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->setVisFov(lat, lon, panDeg, tiltDeg, hfov, vfov, distance);
+}
+
+void MainWindow::mapSetIrFov(double lat, double lon, double panDeg, double tiltDeg,
+                             double hfov, double vfov, double distance)
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->setIrFov(lat, lon, panDeg, tiltDeg, hfov, vfov, distance);
+}
+
+void MainWindow::mapSetDeviceInfo(double lat, double lon, double alt, double pan, double tilt,
+                                  double visHfov, double visVfov, double range, bool rangeEstimated)
+{
+    if (!m_mapWidget) return;
+    m_mapWidget->setDeviceInfo(lat, lon, alt, pan, tilt, visHfov, visVfov, range, rangeEstimated);
 }
 
 void MainWindow::onDeviceReconnecting(int attempt, int maxRetries) {

@@ -51,10 +51,16 @@ T-JSON-V1.0/
 │       ├── rtspthread.*      # FFmpeg RTSP 拉流解码线程
 │       ├── ptzforwarder.*    # Pelco-D 串口服务器转发 + 角度偏移
 │       ├── configmanager.*   # QSettings 配置持久化
-│       └── s3uploader.*      # S3 上传（⚠️ 未参与构建，见 §8）
 ├── ui/*.ui                   # Qt Designer 布局（AUTOUIC）
 ├── resources/                # QSS、图标、地图前端（Leaflet + 天地图 内联）
-├── tests/track_sim.py        # 轨迹模拟脚本
+├── tests/                     # 单元测试（Qt Test + CTest，阶段 6）
+│   ├── CMakeLists.txt         # 5 个纯逻辑测试目标（不依赖 WebEngine/FFmpeg）
+│   ├── test_tjsonframecodec.cpp   # 帧编解码：粘包/半包/重同步/组包
+│   ├── test_jsonframeparser.cpp   # 载荷解析：JSON/ACK/抓拍帧
+│   ├── test_protocolbuilder.cpp   # Pelco-D/VISCA 组包 + checksum
+│   ├── test_devicestate.cpp       # DeviceState 状态模型
+│   ├── test_geocalc.cpp           # 地理算法（parseCoord/距离/航向/抽稀）
+│   └── track_sim.py           # 轨迹模拟脚本
 ├── docs/                     # 开发规范 / 需求说明书 / CHANGELOG / 算法参考 / 指令速查
 ```
 
@@ -95,7 +101,7 @@ T-JSON-V1.0/
 | 数据模型 | `core/DeviceState.h` | 设备运行时纯数据（PTZ/镜头/位置/AI/图像参数） | — | ✅ |
 | 地理算法 | `core/GeoCalculator.*` | haversine、bearing、pixelToGps、目标测距、轨迹抽稀判定 | — | ✅ |
 | 帧解析 | `core/JsonFrameParser.*` | ZoomInfoData / AiInfoData / ImageSettingData 提取 | — | ✅ |
-| 设备上下文 | `service/DeviceContext.*` | 单设备聚合根：持有 TCP/RTSP/PTZ/State，管理定时器 | TJsonClient, RtspThread, DeviceController, PtzForwarder | ✅ |
+| 设备上下文 | `service/DeviceContext.*` | 单设备聚合根：持有 TCP/RTSP/PTZ/State，对外仅暴露业务 API，管理定时器 | TJsonClient, RtspThread, DeviceController, PtzForwarder | ✅ |
 | 设备管理器 | `service/DeviceManager.*` | 多设备增删查，全局单例 | DeviceContext | ✅ |
 | TCP 客户端 | `infrastructure/tjsonclient.*` | Socket、连接/断开、心跳 10s、指数退避重连、事件分发 | QTcpSocket, TJsonFrameCodec, TJsonProtocolParser | ✅ |
 | 帧编解码 | `infrastructure/tjsonframecodec.*` | 帧头识别、长度解析、粘包/半包、重同步、发送组包 | TJsonFrame, QByteArray | ✅ |
@@ -115,7 +121,6 @@ T-JSON-V1.0/
 | 视频宫格 | `ui/components/VideoGridWidget.*` | 多设备 VideoWidget 宫格布局 | VideoWidget | ✅ |
 | 设置对话框 | `ui/views/settingsdialog.*` | 串口/协议/相机参数编辑 | ConfigManager | ✅ |
 | 指令日志 | `ui/views/cmdlogdialog.*` | 串口 HEX 收发日志窗口 | — | ✅ |
-| S3 上传 | `infrastructure/s3uploader.*` | AWS S3 上传（`ENABLE_S3_UPLOAD` 宏 + AWS SDK） | aws-sdk-cpp | ❌ |
 
 ## 5. 关键数据流
 
@@ -162,9 +167,10 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 ## 7. 构建与运行
 
 - **环境**：MSVC2022 x64 Debug，`vcvars64.bat` + CMake + jom（QtCreator 构建目录 `build/Desktop_Qt_6_11_1_MSVC2022_64bit_Debug`）
-- **依赖**：Qt6（Core/Widgets/Network/Gui/WebEngineWidgets/WebChannel/SerialPort）+ FFmpeg（`thirdparty/ffmpeg` 静态 `.lib`，DLL 构建后拷贝）+ AWS SDK（仅 S3，当前未启用）
+- **依赖**：Qt6（Core/Widgets/Network/Gui/WebEngineWidgets/WebChannel/SerialPort/Test）+ FFmpeg（`thirdparty/ffmpeg` 静态 `.lib`，DLL 构建后拷贝）
 - **输出**：`LSSVideoManager.exe`
 - **调试**：`http://localhost:9999`（WebEngine 远程调试地图页面）
+- **单元测试**：`ctest --test-dir build/Desktop_Qt_6_11_1_MSVC2022_64bit_Debug`（7 个纯逻辑测试，不依赖实机；`-DBUILD_TESTING=OFF` 可跳过）
 - **辅助脚本**：`check_main.py` / `check_main2.py` / `check_dm.py` / `check_dm_cpp.py`（代码复查用）
 
 ## 8. 已知架构债（现状 vs 重构规则）
@@ -172,16 +178,17 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 | 债务 | 位置 | 说明 |
 |---|---|---|
 | 超大文件 | `ui/views/mainwindow.cpp`(约 1400 行)、`ui/main/MainPresenter.cpp`(约 1290 行) | 违反"方法超 80 行拆分"规则 |
-| 死代码 | `infrastructure/s3uploader.*` + `thirdparty/aws-sdk-cpp`(~1GB) | 未进 CMakeLists，`ENABLE_S3_UPLOAD` 无定义 |
 | 生命周期风险 | `service/DeviceContext.*`、`infrastructure/rtspthread.*` | 设备销毁、RTSP 停止与后台线程退出需要持续验证 |
 | 多设备收口 | `ui/main/MainPresenter.cpp`、`ui/views/mainwindow.cpp` | 当前设备切换与视频控件绑定仍需继续收敛，避免业务依赖默认设备 |
-| DeviceContext 暴露底层 | `service/DeviceContext.*` | 仍公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()`，待 5.3 收口为业务 API |
+| 多设备电机信号 | `ui/main/MainPresenter.cpp` | 电机结果信号仅对默认设备转发（构造时连接），多设备切换后沿用默认设备信号 |
 
+> ✅ 已解决：`DeviceContext` 不再公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()`（阶段 5.3），全部业务经 `connectDevice/disconnectDevice/startVideo/stopVideo/ptzMove/lensMove/setWorkMode/setAlgoModel` 等业务 API 交互；`MainPresenter` 仅通过 `currentDevice()` 访问设备上下文。
 > ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
 > ✅ 已解决：`TJsonClient` 职责过重 —— 帧编解码已拆为 `TJsonFrameCodec`，载荷解析已拆为 `TJsonProtocolParser`（阶段 5.1）。
 > ✅ 已解决：`DeviceController` 职责过重 —— 协议组包拆为 `PelcoDProtocol`/`ViscaProtocol`，传输拆为 `ModbusTransport`/`Stm32TcpTransport`，电机编排拆为 `DeviceCommandService`（阶段 5.2）。残留：`Stm32TcpTransport::send` 的 `waitForConnected(500)` 仍同步等待（行为等价保留，联调时评估异步化）。
-
-## 9. 文档导航
+> ✅ 已解决：测试与构建体系 —— `include(CTest)` + `enable_testing()` + `tests/` 子目录已建立，7 个单元测试目标（帧编解码/载荷解析/协议组包/DeviceState/地理算法/MODBUS-CRC16/STM32-TCP 初始状态）独立于主程序，不依赖 WebEngine/FFmpeg，`ctest` 全部通过（阶段 6 两轮）。残留：`test_devicecontext`（需 FFmpeg）待后续补充。
+> ✅ 已解决：多设备电机信号 —— `MainPresenter` 构造函数中 `motorModeResult/motorSerialError/motorSilentResult/commandSent` 从固定绑定默认设备改为 `connectDeviceSignals()/disconnectDeviceSignals()` 动态管理，`onDeviceDoubleClicked` 切换设备时自动重连。
+> ✅ 已解决：RtspThread 线程等待 —— `closeStream()` 已正确调用 `wait(3000)`，析构兜底，FFmpeg 中断回调保证快速返回（债务已清除）。
 
 | 文档 | 适用场景 |
 |---|---|

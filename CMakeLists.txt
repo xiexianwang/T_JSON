@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(T-JSON LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel SerialPort)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel SerialPort Test)
 # Compute Qt binary directory from Qt6_DIR
 get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../../bin" ABSOLUTE)
 
@@ -42,6 +42,16 @@ qt_add_executable(T-JSON
     src/service/DeviceManager.h
     src/ui/main/MainPresenter.cpp
     src/ui/main/MainPresenter.h
+    src/ui/main/PresenterDeviceService.cpp
+    src/ui/main/PresenterDeviceService.h
+    src/ui/main/PresenterMotorService.cpp
+    src/ui/main/PresenterMotorService.h
+    src/ui/main/PresenterMapService.cpp
+    src/ui/main/PresenterMapService.h
+    src/ui/views/MainWindowNavigation.cpp
+    src/ui/views/MainWindowNavigation.h
+    src/ui/views/MainWindowDialogService.cpp
+    src/ui/views/MainWindowDialogService.h
     src/ui/components/VideoGridWidget.cpp
     src/ui/components/VideoGridWidget.h
     src/ui/components/DeviceTreeWidget.cpp
@@ -137,3 +147,12 @@ qt_generate_deploy_app_script(
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
+
+# ── 测试与构建体系（阶段 6） ──
+# 单元测试目标独立于主程序，仅编译纯逻辑模块，避免依赖 WebEngine/FFmpeg。
+# 通过 -DBUILD_TESTING=OFF 可完全跳过测试。
+include(CTest)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

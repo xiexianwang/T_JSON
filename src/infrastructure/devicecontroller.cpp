@@ -31,6 +31,8 @@ DeviceController::DeviceController(TJsonClient* client, ConfigManager* cfg, QObj
             this, &DeviceController::motorSilentResult);
     connect(m_motorService, &DeviceCommandService::motorSerialError,
             this, &DeviceController::motorSerialError);
+    connect(m_motorService, &DeviceCommandService::motorTcpError,
+            this, &DeviceController::motorTcpError);
 }
 
 // 设置设备工作模式
@@ -389,6 +391,7 @@ bool DeviceController::isMotorTcpOpen() const
 
 void DeviceController::motorStart() { m_motorService->motorStart(); }
 void DeviceController::motorStop() { m_motorService->motorStop(); }
+void DeviceController::motorWiperStop() { m_motorService->motorWiperStop(); }
 void DeviceController::motorJogLeft() { m_motorService->motorJogLeft(); }
 void DeviceController::motorJogRight() { m_motorService->motorJogRight(); }
 void DeviceController::motorZeroCalib() { m_motorService->motorZeroCalib(); }

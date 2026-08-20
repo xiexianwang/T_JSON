@@ -27,13 +27,13 @@ public:
     }
 
     // VISCA 变焦控制（Focus Far/Near），固定指令
-    static QByteArray buildFocus(quint8 addr, bool far) {
+    static QByteArray buildFocus(quint8 addr, bool focusFar) {
         QByteArray pkt;
         pkt.append(static_cast<char>(0x80 | addr));
         pkt.append(static_cast<char>(0x01));
         pkt.append(static_cast<char>(0x04));
         pkt.append(static_cast<char>(0x08));            // 子命令: 变焦 (Focus)
-        pkt.append(static_cast<char>(far ? 0x02 : 0x03));
+        pkt.append(static_cast<char>(focusFar ? 0x02 : 0x03));
         pkt.append(static_cast<char>(0xFF));
         return pkt;
     }

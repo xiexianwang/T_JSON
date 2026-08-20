@@ -871,7 +871,7 @@
                <item>
                 <widget class="QPushButton" name="btnWiperStop">
                  <property name="text">
-                  <string>停止</string>
+                  <string>关闭</string>
                  </property>
                 </widget>
                </item>
@@ -1855,7 +1855,7 @@
   <customwidget>
    <class>VideoWidget</class>
    <extends>QWidget</extends>
-    <header>ui/views/videowidget.h</header>
+   <header>ui/views/videowidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

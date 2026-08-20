@@ -76,7 +76,7 @@ void RtspThread::closeStream()
         m_cond.wakeOne();
     }
 
-    if (isRunning() && QThread::currentThread() != this && !wait(3000)) {
+    if (isRunning() && QThread::currentThread() != this && !wait(5000)) {
         qWarning() << "RtspThread::closeStream() - thread did not exit within timeout";
     }
 }

@@ -5,7 +5,208 @@
 
 ---
 
-## 2026-08-14 · 阶段 5.2：拆分 DeviceController（协议组包 / 传输层 / 指令服务）
+## 2026-08-14 · 阶段 8：清理死代码（删除 S3Uploader + AWS SDK）
+
+### 解决的问题 / 实现功能
+
+- **删除 `s3uploader.h` / `s3uploader.cpp`**：原文件受 `ENABLE_S3_UPLOAD` 宏保护，未定义时为空桩，不参与构建，不链接 AWS SDK。已删除。
+- **删除 `thirdparty/aws-sdk-cpp`**：约 1GB 的 AWS SDK 源码与构建系统，从未纳入 CMakeLists 构建。已删除。
+- **更新 ARCHITECTURE.md**：移除目录树 `s3uploader.*` 条目、§4 模块职责表 S3 行、§7 依赖中 AWS SDK 引用、§8 债务表死代码行。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，7 个测试全部通过。
+
+### 阶段 8 验收核对
+
+| 验收项 | 结论 |
+|---|---|
+| `s3uploader.h` / `s3uploader.cpp` 已删除 | ✅ |
+| `thirdparty/aws-sdk-cpp` 已删除 | ✅ 节省约 1GB 磁盘 |
+| src/ 中无残留引用 | ✅ grep 确认 |
+| 主程序构建通过 | ✅ 产物 `LSSVideoManager.exe` |
+| 7 个测试全部通过 | ✅ 7/7 Passed |
+| ARCHITECTURE.md 已同步更新 | ✅ |
+
+### 核心改动
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/infrastructure/s3uploader.h` | 删除 |
+| `src/infrastructure/s3uploader.cpp` | 删除 |
+| `thirdparty/aws-sdk-cpp/` | 整目录删除 |
+| `ARCHITECTURE.md` | 移除 S3 相关条目与债务记录 |
+
+### 遗留问题
+
+- **超大文件拆分**：`mainwindow.cpp`(约 1530行)、`MainPresenter.cpp`(约 1347行) 待后续轮次。
+- **实机验收待办**：双设备并行 PTZ/镜头/框选/电机信号切换需实机确认。
+
+---
+
+### 解决的问题 / 实现功能
+
+- **移除 Presenter 对具体 Widget 类型的直接依赖**：`MainPresenter.cpp` 原直接 `#include "ui/views/mapwidget.h"` / `"ui/views/videowidget.h"` / `"ui/components/VideoGridWidget.h"`，并直接调用 `VideoWidget::setFrame/clearFrame/setSelectionEnabled` 和 `MapWidget` 的 8 个方法；现已全部改为通过 `IMainView` 抽象接口调用。
+- **扩展 `IMainView` 接口**：新增 11 个纯虚方法——`setVideoFrame/clearVideoFrame/setVideoSelectionEnabled`（视频网格）、`mapClearAllTracks/mapUpdateTargetMarkers/mapClearFov/mapAppendTrackPoint/mapSetDevicePosition/mapSetVisFov/mapSetIrFov/mapSetDeviceInfo`（地图操作）。移除旧的 `videoWidget()` / `mapWidget()` 返回具体类型的接口。
+- **MainWindow 实现新接口**：在 `mainwindow.cpp` 中实现 11 个新方法，内部委托给 `m_videoGrid` / `m_mapWidget`。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，7 个测试全部通过。
+
+### 阶段 7 验收核对
+
+| 验收项 | 结论 |
+|---|---|
+| `MainPresenter.cpp` 不再 include `mapwidget.h` / `videowidget.h` / `VideoGridWidget.h` | ✅ 3 个 include 已移除 |
+| Presenter 不直接调用 `VideoWidget::setFrame/clearFrame/setSelectionEnabled` | ✅ 改经 `IMainView` 接口 |
+| Presenter 不直接调用 `MapWidget` 的任何方法（18 处） | ✅ 改经 `IMainView` 接口 |
+| `IMainView` 不再暴露 `videoWidget()` / `mapWidget()` 具体类型 | ✅ 已移除 |
+| 主程序构建通过 | ✅ 产物 `LSSVideoManager.exe` |
+| 7 个测试全部通过 | ✅ 7/7 Passed |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/ui/main/IMainView.h` | 新增 11 个纯虚方法（视频 3 个 + 地图 8 个）；移除 `videoWidget()` / `mapWidget()`；移除 `VideoWidget` / `MapWidget` 前置声明 |
+| `src/ui/main/MainPresenter.cpp` | 移除 3 个 Widget include；18 处 `map->` 调用改为 `m_view->mapXxx()`；3 处 `videoWidget()` 调用改为 `m_view->setVideoFrame/clearVideoFrame/setVideoSelectionEnabled` |
+| `src/ui/views/mainwindow.h` | 新增 11 个 override 方法声明；移除旧 `videoWidget()` / `mapWidget()` 声明 |
+| `src/ui/views/mainwindow.cpp` | 新增 11 个方法实现（委托给 `m_videoGrid` / `m_mapWidget`）；移除旧实现 |
+
+### 遗留问题
+
+- **死代码清理**：`s3uploader.*` + `thirdparty/aws-sdk-cpp` 待确认是否保留。
+- **超大文件拆分**：`mainwindow.cpp`(约 1530行)、`MainPresenter.cpp`(约 1347行) 待后续轮次。
+- **实机验收待办**：双设备并行 PTZ/镜头/框选/电机信号切换需实机确认。
+
+---
+
+### 解决的问题 / 实现功能
+
+- **新增 `test_modbustransport.cpp`**：覆盖 `ModbusTransport::crc16` 静态方法（MODBUS-RTU 标准多项式 0xA001），含已知向量、单字节、空数据三个用例；验证构造后 `isOpen()=false`。需链接 `Qt::SerialPort`。
+- **新增 `test_stm32tcptransport.cpp`**：覆盖 `Stm32TcpTransport` 初始状态（`seq()=0`、`isOpen()=false`）与未连接时 `send()` 返回 `false`。需链接 `Qt::Network`。
+- **修复多设备电机信号绑定**：`MainPresenter` 构造函数中 `motorModeResult/motorSerialError/motorSilentResult/commandSent` 原固定绑定默认设备；现改为 `connectDeviceSignals()/disconnectDeviceSignals()` 管理，`onDeviceDoubleClicked` 切换设备时自动断开旧连接、绑定新设备。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，7 个测试全部通过。
+
+### 阶段 6 第二轮验收核对
+
+| 验收项 | 结论 |
+|---|---|
+| 7 个测试全部通过 | ✅ 7/7 Passed |
+| ModbusTransport CRC16 纯逻辑测试 | ✅ 标准向量 + 单字节 + 空数据 |
+| Stm32TcpTransport 初始状态 / 未连接 send | ✅ |
+| 多设备切换后电机信号跟随当前设备 | ✅ 动态断开/重连 |
+| 主程序构建不回归 | ✅ 产物 `LSSVideoManager.exe` |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `tests/CMakeLists.txt` | 新增 2 个测试目标 + `Qt::SerialPort` / `Qt::Network` 链接 |
+| `tests/test_modbustransport.cpp` | 新增：CRC16 单元测试 |
+| `tests/test_stm32tcptransport.cpp` | 新增：STM32-TCP 初始状态测试 |
+| `src/ui/main/MainPresenter.h` | 新增 `connectDeviceSignals/disconnectDeviceSignals` + 4 个 `QMetaObject::Connection` 成员 |
+| `src/ui/main/MainPresenter.cpp` | 构造函数改用 `connectDeviceSignals`；新增信号管理方法实现；`onDeviceDoubleClicked` 切换时重连信号 |
+
+### 遗留问题
+
+- **RtspThread 线程等待**：已确认 `closeStream()` 正确调用 `wait(3000)`，无需修复（债务已清除）。
+- **Presenter/View 接口收口**：Presenter 仍直接操作 `VideoWidget`/`VideoGridWidget`/`MapWidget` 具体类型，待后续收口。
+- **死代码清理**：`s3uploader.*` + `thirdparty/aws-sdk-cpp` 待确认是否保留。
+- **超大文件拆分**：`mainwindow.cpp`(1514行)、`MainPresenter.cpp`(约 1340行) 待后续轮次。
+- **实机验收待办**：双设备并行 PTZ/镜头/框选/电机信号切换需实机确认。
+
+---
+
+### 解决的问题 / 实现功能
+
+- **建立 CTest 测试框架**：根 `CMakeLists.txt` 增加 `include(CTest)` + `enable_testing()` + `add_subdirectory(tests)`，`-DBUILD_TESTING=OFF` 可完全跳过测试；`find_package(Qt6)` 增加 `Test` 组件。
+- **新增 `tests/CMakeLists.txt`**：公共函数 `tjson_add_test()` 定义 5 个独立 Qt Test 可执行文件（`QTEST_GUILESS_MAIN`，无 GUI），各自仅链接最小纯逻辑源文件 + `Qt::Core` `Qt::Test`，不链接 WebEngine/FFmpeg，构建轻量、可离线运行。
+- **新增 5 个单元测试文件**（`tests/`）：
+  - `test_tjsonframecodec.cpp`：标准帧/心跳帧组包逐字节校验、单帧切分、粘包两帧、半包补齐、非法超长长度丢弃并重同步、未知垃圾数据重同步、抓拍帧切分。
+  - `test_jsonframeparser.cpp`：JSON 状态帧解析（合法/非法/非对象）、ACK 状态码（0/1/2/非法载荷）、抓拍帧解析（合法坐标与 JPEG、checksum 不匹配失败、帧尾缺失失败、短帧失败）。
+  - `test_protocolbuilder.cpp`：Pelco-D 7 字节帧结构与 checksum、`PtzDir` 八方向位组合、停止、绝对角度（Pan/Tilt 高位在前）、预置位三连、红外镜头变倍/变焦/停止、雨刷开合；VISCA 变倍（Tele/Wide 速度位）、变焦、停止逐字节校验。
+  - `test_devicestate.cpp`：`DeviceState` 默认值、ZoomInfo/ImageSetting 字段赋值、AI 目标列表增删清空。
+  - `test_geocalc.cpp`：`parseCoord`（含 N/S/E/W 后缀与大小写）、haversine 已知坐标距离、bearing 0°/90°/180°、视觉测距、`pixelToGps` 中心像素与无位姿、轨迹抽稀判定（首点/死区/强制/航向变化）。
+- **测试验证**：5 个测试目标全部通过（`100% tests passed`），主程序 `LSSVideoManager.exe` Debug 构建通过。
+
+### 阶段 6 第一轮验收核对
+
+| 验收项 | 结论 |
+|---|---|
+| CTest 集成（`enable_testing()` + `add_test()`） | ✅ 根 CMakeLists 启用，`ctest` 可运行 |
+| 测试目标独立，不依赖 WebEngine/FFmpeg | ✅ 纯逻辑源文件 + Qt::Core/Test |
+| 帧编解码/载荷解析/协议组包/状态/地理算法覆盖 | ✅ 5 个测试文件 |
+| 粘包半包/非法帧头/非法长度/ACK/抓拍帧边界/Pelco-D checksum 优先覆盖 | ✅ |
+| 测试全部通过 | ✅ 5/5 Passed |
+| 主程序构建不回归 | ✅ 产物 `LSSVideoManager.exe` |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `CMakeLists.txt` | 增加 `Test` 组件、`include(CTest)`、`enable_testing()`、`add_subdirectory(tests)` |
+| `tests/CMakeLists.txt` | 新增：`tjson_add_test()` 辅助 + 5 个测试目标 |
+| `tests/test_tjsonframecodec.cpp` | 新增：帧编解码器单元测试 |
+| `tests/test_jsonframeparser.cpp` | 新增：载荷解析器单元测试 |
+| `tests/test_protocolbuilder.cpp` | 新增：Pelco-D/VISCA 组包单元测试 |
+| `tests/test_devicestate.cpp` | 新增：DeviceState 状态模型测试 |
+| `tests/test_geocalc.cpp` | 新增：地理算法测试 |
+
+### 遗留问题
+
+- **阶段 6 后续补充**：`test_devicecontext.cpp`（聚合根生命周期，需链接 RtspThread+FFmpeg）、`test_modbustransport.cpp`（MODBUS 帧 + CRC16，可纯逻辑）、`test_stm32tcptransport.cpp`（STM32 帧组包，可纯逻辑）留待后续轮次。
+- **RTSP/多设备切换测试**：依赖真实设备或模拟目标，与实机验收一并推进。
+- **实机验收待办**：与阶段 5 各轮一致，需实机确认三通道电机指令、PTZ/镜头、视频流、框选跟踪、PTZ 转发。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 6 改动（建议消息 `test: 建立 Qt Test 单元测试体系`）。
+2. 补充 `test_devicecontext` / `test_modbustransport` / `test_stm32tcptransport`。
+3. 实机联调验收（三通道电机指令、PTZ/镜头、视频、框选跟踪、PTZ 转发），测试用例作为回归基线复用。
+
+---
+
+### 解决的问题 / 实现功能
+
+- **DeviceContext 收口为聚合根**：移除 `tcpClient()/motorController()/videoStream()/ptzForwarder()` 四个公开访问器，底层组件（TJsonClient / DeviceController / RtspThread / PtzForwarder）不再向业务层泄漏，仅由 DeviceContext 内部持有。
+- **新增完整业务 API**：连接/断开（`connectDevice` / `disconnectDevice` / `disconnectNetwork` / `isConnected`）、视频（`startVideo` / `stopVideo` / `isVideoRunning`）、PTZ/镜头、图像参数/工作模式/算法/显示、附加开关、框选跟踪、预置位、电机通道、雨刷电机、PTZ 转发服务等全部封装为设备业务方法。
+- **信号收口**：`DeviceController` 的 `commandSent / motorModeResult / motorSilentResult / motorSerialError` 经 DeviceContext 同名信号转发，View 经 Presenter 订阅，不直连底层。
+- **MainPresenter 彻底解耦底层类型**：移除私有访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 及 `DeviceController/TJsonClient/RtspThread/PtzForwarder` 前置声明；新增 `currentDevice()` 业务入口，全部底层调用改为 `DeviceContext` 业务 API；`DeviceController::pipShowToComboIndex` 静态映射改经 `DeviceContext::pipShowToComboIndex`。
+- **行为等价**：PTZ/镜头/电机/预置位/附加开关/框选跟踪/视频/PTZ 转发指令目标与下发链路保持不变；`disconnectDevice` 保留原 `stopConnection` 的完整停止语义（定时器 + PTZ 转发 + 电机 + RTSP + TCP）。
+- **构建验证**：MSVC2022 x64 Debug 构建通过，产物 `LSSVideoManager.exe`。
+
+### 阶段 5.3 验收核对（代码层面）
+
+| 验收项 | 结论 |
+|---|---|
+| `DeviceContext` 不再公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()` | ✅ 4 个访问器已移除，仅保留业务 API 与 `state()` |
+| Presenter 不再接触底层组件类型 | ✅ `MainPresenter` 无 `DeviceController/TJsonClient/RtspThread/PtzForwarder` 引用 |
+| 只公开设备业务 API 和状态 | ✅ `connectDevice/disconnectDevice/startVideo/stopVideo/ptzMove/lensMove/setWorkMode/setAlgoModel/state()` 等 |
+| 底层信号经 DeviceContext 收口 | ✅ 4 个电机/指令日志信号转发，View 经 Presenter 订阅 |
+| 外部调用全部迁移（MainPresenter/DeviceManager） | ✅ `startConnection/stopConnection` 已改为 `connectDevice/disconnectDevice` |
+| Debug 构建通过 | ✅ 产物 `LSSVideoManager.exe` |
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/service/DeviceContext.h` | 移除 4 个公开访问器；新增完整业务 API 声明 + 4 个转发信号 + 静态 `pipShowToComboIndex` |
+| `src/service/DeviceContext.cpp` | 实现业务 API 转发；构造函数连接 DeviceController 信号到 DeviceContext 信号 |
+| `src/ui/main/MainPresenter.h` | 移除私有访问器声明与底层类型前置声明；新增 `currentDevice()` |
+| `src/ui/main/MainPresenter.cpp` | 全部底层调用改为 `currentDevice()->xxx` 业务 API；静态映射改经 DeviceContext |
+| `src/service/DeviceManager.cpp` | `stopConnection()` → `disconnectDevice()` |
+
+### 遗留问题
+
+- **实机验收待办**：电机 MODBUS/STM32/Pelco-D 三通道、PTZ/镜头、视频流、框选跟踪、PTZ 转发需实机确认（与 5.2 一致）。
+- **阶段 6 测试落地**：`tests/` CTest 集成（帧编解码 / 载荷解析 / 协议组包 / DeviceState / DeviceContext）待阶段 6 建立。
+- **`sendMotorTcpV4` 的 `waitForConnected(500)` 同步等待保留**：随 `Stm32TcpTransport` 迁入，行为等价保留，联调时评估异步化。
+- **遗留功能 TODO 仍有效**：Pelco-D 焦聚控制（`0x02` 指令）、框选坐标真实逆映射。
+
+### 下一步计划
+
+1. 提交本次阶段 5.3 改动（建议消息 `refactor: 封装 DeviceContext 业务 API`）。
+2. 实机联调验收（三通道电机指令、PTZ/镜头、视频、框选跟踪、PTZ 转发）。
+3. 进入阶段 6：测试与构建体系（Qt Test + CTest，测试帧编解码/载荷解析/协议组包/DeviceState）。
+
+---
 
 ### 解决的问题 / 实现功能
 

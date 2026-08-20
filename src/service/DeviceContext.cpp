@@ -16,6 +16,13 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
     m_ptz = new PtzForwarder(this);
     setupTimers();
 
+    // --- 转发 DeviceController 信号（业务层收口，View 经 Presenter 订阅） ---
+    connect(m_motor, &DeviceController::commandSent, this, &DeviceContext::commandSent);
+    connect(m_motor, &DeviceController::motorModeResult, this, &DeviceContext::motorModeResult);
+    connect(m_motor, &DeviceController::motorSilentResult, this, &DeviceContext::motorSilentResult);
+    connect(m_motor, &DeviceController::motorSerialError, this, &DeviceContext::motorSerialError);
+    connect(m_motor, &DeviceController::motorTcpError, this, &DeviceContext::motorTcpError);
+
     // --- 拦截设备 JSON 帧，解析后更新 DeviceState ---
     connect(m_tcp, &TJsonClient::jsonReceived, this, [this](const QJsonObject& doc) {
         QString controlType = doc.value("ControlType").toString();
@@ -80,29 +87,328 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
 
 DeviceContext::~DeviceContext()
 {
-    stopConnection();
-    
+    // shutdown() 应已在 DeviceManager::removeAllDevices() 中被调用
+    // 此处兜底：仅在异常路径（未被显式关闭）时执行
+    if (m_lifecycleState == State::Active) {
+        shutdown();
+    }
 }
 
-void DeviceContext::startConnection(const QString& ip, quint16 port)
+// ============================================================================
+// 连接与状态
+// ============================================================================
+void DeviceContext::connectDevice(const QString& ip, quint16 port)
 {
+    if (m_lifecycleState != State::Active) return;
     if (m_cfg) {
         m_tcp->connectToDevice(ip, port);
     }
 }
 
-void DeviceContext::stopConnection()
+void DeviceContext::disconnectDevice()
 {
+    shutdown();
+}
+
+void DeviceContext::shutdown()
+{
+    if (m_lifecycleState == State::ShuttingDown || m_lifecycleState == State::Stopped) {
+        return;
+    }
+    m_lifecycleState = State::ShuttingDown;
+
+    // 停止业务定时器
     m_sysParamTimer->stop();
     m_aiCleanupTimer->stop();
 
+    // 停止 PTZ 转发
     m_ptz->stop();
+
+    // 关闭电机 TCP 和串口
     m_motor->closeMotorTcp();
     m_motor->closeMotorSerial();
-    m_video->closeStream();
 
-    // 即使当前已经断开，也必须调用主动断开以取消自动重连定时器。
+    // 停止 RTSP 并等待线程退出
+    m_video->closeStream();
+    if (m_video->isRunning()) {
+        qWarning() << "DeviceContext::shutdown() - RTSP thread timeout for device:" << m_deviceId;
+    }
+
+    // 断开 TJsonClient 并取消自动重连
     m_tcp->disconnectDevice();
+
+    m_lifecycleState = State::Stopped;
+}
+
+void DeviceContext::disconnectNetwork()
+{
+    m_tcp->disconnectDevice();
+}
+
+bool DeviceContext::isConnected() const
+{
+    return m_tcp->isConnected();
+}
+
+// ============================================================================
+// 视频流
+// ============================================================================
+void DeviceContext::startVideo(const QString& url)
+{
+    if (m_lifecycleState != State::Active) return;
+    m_video->openStream(url);
+}
+
+void DeviceContext::stopVideo()
+{
+    m_video->closeStream();
+}
+
+bool DeviceContext::isVideoRunning() const
+{
+    return m_video->isRunning();
+}
+
+// ============================================================================
+// 云台控制 (Pelco-D)
+// ============================================================================
+void DeviceContext::ptzMove(PtzDir dir)
+{
+    m_motor->ptzMove(dir);
+}
+
+void DeviceContext::ptzStop()
+{
+    m_motor->ptzStop();
+}
+
+void DeviceContext::ptzMoveTo(double pan, double tilt)
+{
+    m_motor->ptzMoveTo(pan, tilt);
+}
+
+void DeviceContext::ptzSetZero()
+{
+    m_motor->ptzSetZero();
+}
+
+// ============================================================================
+// 镜头控制
+// ============================================================================
+void DeviceContext::lensZoomIn(int target)
+{
+    m_motor->lensZoomIn(target);
+}
+
+void DeviceContext::lensZoomOut(int target)
+{
+    m_motor->lensZoomOut(target);
+}
+
+void DeviceContext::lensFocusIn(int target)
+{
+    m_motor->lensFocusIn(target);
+}
+
+void DeviceContext::lensFocusOut(int target)
+{
+    m_motor->lensFocusOut(target);
+}
+
+void DeviceContext::lensStop()
+{
+    m_motor->lensStop();
+}
+
+// ============================================================================
+// 图像参数 / 工作模式 / 算法 / 显示
+// ============================================================================
+void DeviceContext::queryImageParams()
+{
+    m_motor->queryImageParams();
+}
+
+void DeviceContext::setWorkMode(int mode)
+{
+    m_motor->setWorkMode(mode);
+}
+
+void DeviceContext::setAlgoModel(int model)
+{
+    m_motor->setAlgoModel(model);
+}
+
+void DeviceContext::setDisplayMode(int mode)
+{
+    m_motor->setDisplayMode(mode);
+}
+
+void DeviceContext::setLocation(const QString& lat, const QString& lon)
+{
+    m_motor->setLocation(lat, lon);
+}
+
+// ============================================================================
+// 附加功能开关
+// ============================================================================
+void DeviceContext::setDigitalZoom(bool enable)
+{
+    m_motor->setDigitalZoom(enable);
+}
+
+void DeviceContext::setAutoZoom(bool enable)
+{
+    m_motor->setAutoZoom(enable);
+}
+
+void DeviceContext::setCaptureUpload(bool enable)
+{
+    m_motor->setCaptureUpload(enable);
+}
+
+void DeviceContext::posReset(bool enable)
+{
+    m_motor->posReset(enable);
+}
+
+// ============================================================================
+// 框选/点选跟踪
+// ============================================================================
+void DeviceContext::setPointTrack(int centerX, int centerY)
+{
+    m_motor->setPointTrack(centerX, centerY);
+}
+
+void DeviceContext::setBoxTrack(int centerX, int centerY, int width, int height)
+{
+    m_motor->setBoxTrack(centerX, centerY, width, height);
+}
+
+// ============================================================================
+// 预置位
+// ============================================================================
+void DeviceContext::setPreset(int preset)
+{
+    m_motor->setPreset(preset);
+}
+
+void DeviceContext::callPreset(int preset)
+{
+    m_motor->callPreset(preset);
+}
+
+void DeviceContext::delPreset(int preset)
+{
+    m_motor->delPreset(preset);
+}
+
+// ============================================================================
+// 电机通道管理
+// ============================================================================
+bool DeviceContext::openMotorSerial(const QString& portName)
+{
+    return m_motor->openMotorSerial(portName);
+}
+
+void DeviceContext::closeMotorSerial()
+{
+    m_motor->closeMotorSerial();
+}
+
+bool DeviceContext::isMotorSerialOpen() const
+{
+    return m_motor->isMotorSerialOpen();
+}
+
+void DeviceContext::openMotorTcp()
+{
+    m_motor->openMotorTcp();
+}
+
+void DeviceContext::closeMotorTcp()
+{
+    m_motor->closeMotorTcp();
+}
+
+bool DeviceContext::isMotorTcpOpen() const
+{
+    return m_motor->isMotorTcpOpen();
+}
+
+// ============================================================================
+// 雨刷电机控制
+// ============================================================================
+void DeviceContext::motorStart()
+{
+    m_motor->motorStart();
+}
+
+void DeviceContext::motorStop()
+{
+    m_motor->motorStop();
+}
+
+void DeviceContext::motorWiperStop()
+{
+    m_motor->motorWiperStop();
+}
+
+void DeviceContext::motorReturnZero()
+{
+    m_motor->motorReturnZero();
+}
+
+void DeviceContext::motorJogLeft()
+{
+    m_motor->motorJogLeft();
+}
+
+void DeviceContext::motorJogRight()
+{
+    m_motor->motorJogRight();
+}
+
+void DeviceContext::motorZeroCalib()
+{
+    m_motor->motorZeroCalib();
+}
+
+void DeviceContext::motorCheckMode()
+{
+    m_motor->motorCheckMode();
+}
+
+void DeviceContext::motorToggleMode()
+{
+    m_motor->motorToggleMode();
+}
+
+void DeviceContext::motorToggleSilentMode()
+{
+    m_motor->motorToggleSilentMode();
+}
+
+void DeviceContext::motorSetCurrent(int ma)
+{
+    m_motor->motorSetCurrent(ma);
+}
+
+// ============================================================================
+// PTZ 转发服务
+// ============================================================================
+void DeviceContext::startPtzForwarder(const QString& ptzIp, quint16 ptzPort, quint16 mockServerPort)
+{
+    m_ptz->start(ptzIp, ptzPort, mockServerPort);
+}
+
+void DeviceContext::setPtzOffsets(double panOffset, double tiltOffset)
+{
+    m_ptz->setOffsets(panOffset, tiltOffset);
+}
+
+void DeviceContext::flushZeroPosition()
+{
+    m_ptz->flushZeroPosition();
 }
 
 
@@ -111,6 +417,7 @@ void DeviceContext::setupTimers()
     m_sysParamTimer = new QTimer(this);
     m_sysParamTimer->setInterval(500);
     connect(m_sysParamTimer, &QTimer::timeout, this, [this]() {
+        if (m_lifecycleState != State::Active) return;
         if (m_tcp->isConnected()) {
             m_motor->queryImageParams();
         }
@@ -119,6 +426,7 @@ void DeviceContext::setupTimers()
     m_aiCleanupTimer = new QTimer(this);
     m_aiCleanupTimer->setInterval(1000);
     connect(m_aiCleanupTimer, &QTimer::timeout, this, [this]() {
+        if (m_lifecycleState != State::Active) return;
         if (m_state->lastAiInfoTime.isValid() && m_state->lastAiInfoTime.msecsTo(QDateTime::currentDateTime()) >= 2000) {
             m_state->lastAiInfoTime = QDateTime();
             m_state->aiObjectCount = 0;

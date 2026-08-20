@@ -1,12 +1,14 @@
 ﻿#include "ptzforwarder.h"
 #include <QDebug>
 #include <QTimer>
+#include <QNetworkProxy>
 
 PtzForwarder::PtzForwarder(QObject *parent)
     : QObject(parent),
       m_ptzClient(new QTcpSocket(this)),
       m_mockServer(new QTcpServer(this))
 {
+    m_ptzClient->setProxy(QNetworkProxy::NoProxy); // 禁止使用代理
     connect(m_ptzClient, &QTcpSocket::readyRead, this, &PtzForwarder::onPtzReadyRead);
     connect(m_ptzClient, &QTcpSocket::disconnected, this, &PtzForwarder::onPtzDisconnected);
     connect(m_mockServer, &QTcpServer::newConnection, this, &PtzForwarder::onNewMockConnection);

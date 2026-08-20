@@ -182,6 +182,8 @@ public:
     
     bool motorSerialEnabled() const { return m_motorSerialEnabled; }
     void setMotorSerialEnabled(bool enabled) { m_motorSerialEnabled = enabled; }
+    bool motorIpEnabled() const { return m_motorIpEnabled; }
+    void setMotorIpEnabled(bool enabled) { m_motorIpEnabled = enabled; }
     QString motorTcpIp() const { return m_motorTcpIp; }
     void setMotorTcpIp(const QString& ip) { m_motorTcpIp = ip; }
     quint16 motorTcpPort() const { return m_motorTcpPort; }
@@ -219,6 +221,7 @@ private:
     bool m_turntableIpEnabled = true;
     bool m_softwarePtzCalibrationEnabled = false;
     bool m_motorSerialEnabled = true;
+    bool m_motorIpEnabled = true;
     QString m_motorTcpIp = "192.168.1.55";
     quint16 m_motorTcpPort = 5000;
     quint16 m_deviceTcpPort = 8089;

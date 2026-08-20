@@ -7,18 +7,13 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QJsonObject>
 #include <QPushButton>
 #include <QDateTime>
 #include <QTimer>
-#include <QVector>
 #include <QDialog>
 #include <QSystemTrayIcon>
 #include <QMenu>
-#include "infrastructure/tjsonclient.h"
-#include "infrastructure/devicecontroller.h"
 #include "infrastructure/configmanager.h"
-#include "infrastructure/ptzforwarder.h"
 #include "ui/main/MainPresenter.h"
 #include "ui/main/IMainView.h"
 #ifdef Q_OS_WIN
@@ -32,6 +27,8 @@ class MapWidget;
 class CmdLogDialog;
 class VideoGridWidget;
 class DeviceTreeWidget;
+class MainWindowNavigation;
+class MainWindowDialogService;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -110,9 +107,21 @@ public:
     void setAutoZoomChecked(bool checked) override;
     void setCaptureUploadChecked(bool checked) override;
     void setPosResetChecked(bool checked) override;
-    VideoWidget* videoWidget(const QString& deviceId) override;
+    void setVideoFrame(const QString& deviceId, const QImage& frame) override;
+    void clearVideoFrame(const QString& deviceId) override;
+    void setVideoSelectionEnabled(const QString& deviceId, bool enabled) override;
     void repaintVideoGrid() override;
-    MapWidget* mapWidget() override;
+    void mapClearAllTracks() override;
+    void mapUpdateTargetMarkers(const QJsonArray& targets) override;
+    void mapClearFov() override;
+    void mapAppendTrackPoint(const QString& trackId, double lat, double lon, double speed) override;
+    void mapSetDevicePosition(double lat, double lon) override;
+    void mapSetVisFov(double lat, double lon, double panDeg, double tiltDeg,
+                      double hfov, double vfov, double distance) override;
+    void mapSetIrFov(double lat, double lon, double panDeg, double tiltDeg,
+                     double hfov, double vfov, double distance) override;
+    void mapSetDeviceInfo(double lat, double lon, double alt, double pan, double tilt,
+                          double visHfov, double visVfov, double range, bool rangeEstimated) override;
     bool requireConnected() override;
     bool requireMotorReady() override;
 
@@ -206,6 +215,10 @@ public:          // 地图控件（单实例，迷你/全屏切换，含内建�
 
     // ── 日志窗口 ──
     CmdLogDialog *m_logDialog = nullptr;
+
+    // ── 服务对象 ──
+    MainWindowNavigation *m_navigation = nullptr;
+    MainWindowDialogService *m_dialogService = nullptr;
 
     // ── 迷你地图控制 ──
     void toggleMap();                               // 切换地图显示/隐藏

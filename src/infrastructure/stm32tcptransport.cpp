@@ -5,6 +5,7 @@
 
 #include "stm32tcptransport.h"
 #include <QTcpSocket>
+#include <QNetworkProxy>
 #include <QJsonDocument>
 
 Stm32TcpTransport::Stm32TcpTransport(QObject *parent)
@@ -19,6 +20,7 @@ void Stm32TcpTransport::open(const QString& ip, quint16 port)
     m_port = port;
 
     m_socket = new QTcpSocket(this);
+    m_socket->setProxy(QNetworkProxy::NoProxy);
     connect(m_socket, &QTcpSocket::readyRead, this, [this]() {
         emit dataReceived(m_socket->readAll());
     });

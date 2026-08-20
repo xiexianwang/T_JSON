@@ -29,6 +29,7 @@ public:
 signals:
     void channelDoubleClicked(const QString &name, const QString &ip, const QString &rtspUrl);
     void deviceAdded(const QString &ip, const QString &name);
+    void deviceRemoved(const QString &ip);
     void treeModified();
     void deviceToggleConnect(const QString &ip);
 

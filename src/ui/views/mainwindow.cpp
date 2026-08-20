@@ -331,23 +331,21 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
-    // 1. 移除事件过滤器，防止 delete ui 期间子控件销毁触发 eventFilter 访问已释放指针
-    removeEventFilter(this);
+    // 1. 移除 MainWindow 作为过滤器安装到子控件上的 eventFilter
+    if (ui && ui->titleBar) ui->titleBar->removeEventFilter(this);
+    if (m_mapOverlay)       m_mapOverlay->removeEventFilter(this);
+    if (m_pipTitle)         m_pipTitle->removeEventFilter(this);
 
-    // 2. 断开 EventBus 对 MainPresenter 的信号连接
-    disconnect(m_presenter, nullptr, this, nullptr);
+    // 2. 断开所有进出 MainWindow 的信号连接，防止析构期间回调
+    disconnect(this, nullptr, nullptr, nullptr);
+    disconnect(nullptr, nullptr, this, nullptr);
 
     // 3. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
     DeviceManager::instance()->removeAllDevices();
 
-    // 4. 显式销毁服务（它们持有 ui 子控件的裸指针，必须在 delete ui 之前销毁）
-    delete m_controlService;  m_controlService = nullptr;
-    delete m_layoutService;   m_layoutService = nullptr;
-    delete m_systemService;   m_systemService = nullptr;
-    delete m_dialogService;   m_dialogService = nullptr;
-    delete m_navigation;      m_navigation = nullptr;
-
-    delete m_pipDialog;
+    // 4. 不手动 delete 服务/m_pipDialog —— 它们是 QObject 子对象，
+    //    由 ~QMainWindow() 按构造逆序自动销毁。
+    //    delete ui 仅释放 Ui 结构体（不含 QWidget 生命周期）。
     delete ui;
 }
 

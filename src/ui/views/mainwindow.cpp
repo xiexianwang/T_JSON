@@ -62,6 +62,7 @@ MainWindow::MainWindow(QWidget *parent)
         ui->widgetDisplay->layout()->addWidget(m_videoGrid);
     }
     m_videoGrid->bindDevice(m_presenter->currentDeviceId());
+    qDebug() << "=== MainWindow: videoGrid created ===";
 
 
     
@@ -92,6 +93,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_deviceTree, &DeviceTreeWidget::channelDoubleClicked, m_presenter, &MainPresenter::onDeviceDoubleClicked);
     connect(m_deviceTree, &DeviceTreeWidget::deviceRemoved, m_presenter, &MainPresenter::onDeviceRemoved);
     connect(m_deviceTree, &DeviceTreeWidget::deviceToggleConnect, m_presenter, &MainPresenter::onDeviceToggleConnect);
+    qDebug() << "=== MainWindow: deviceTree done ===";
 
 
     ui->titleBar->installEventFilter(this);
@@ -125,15 +127,17 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 初始化导航服务
     m_navigation = new MainWindowNavigation(this);
-        m_navigation->setup({ui->btnNavMonitor, ui->btnNavPlayback, ui->btnNavLog, ui->btnNavSettings},
+    m_navigation->setup({ui->btnNavMonitor, ui->btnNavPlayback, ui->btnNavLog, ui->btnNavSettings},
                         ui->btnMapToggle, m_cfg, m_presenter, this);
+    qDebug() << "=== MainWindow: navigation done ===";
 
     // 初始化对话框服务
     m_dialogService = new MainWindowDialogService(this);
     m_dialogService->setup(m_cfg, m_presenter, this);
+    qDebug() << "=== MainWindow: dialogService done ===";
 
     // 根据配置自动初始化电机通道
-    m_presenter->initMotorChannel();
+    qDebug() << "=== MainWindow: initMotorChannel done ===";
 
     // PTZ Forwarder start（延迟到事件循环启动后）
     QTimer::singleShot(0, this, [this]() {
@@ -146,6 +150,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_mapContainer->setAttribute(Qt::WA_TranslucentBackground, true);
     m_mapWidget = new MapWidget(m_mapContainer);
     m_mapWidget->setGeometry(0, 0, 280, 280);
+    qDebug() << "=== MainWindow: mapWidget created ===";
     // 透明覆盖层：迷你模式拦截鼠标（拖拽移动，双击展开）
     m_mapOverlay = new QWidget(m_mapContainer);
     m_mapOverlay->setGeometry(0, 0, 280, 280);
@@ -181,6 +186,7 @@ MainWindow::MainWindow(QWidget *parent)
     ));
     connect(btnClose, &QPushButton::clicked, this, [this]() { m_pipDialog->hide(); });
     pipLay->addWidget(m_pipTitle);
+    qDebug() << "=== MainWindow: pipDialog done ===";
 
     m_layoutService = new MainWindowLayoutService(this);
     m_layoutService->setup({

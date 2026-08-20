@@ -119,25 +119,12 @@ private:
     FrameType m_lastAckFrameType = FrameType::Status;
 
     // ── 设备状态缓存 ──
-    double m_currentVisZoom = 1.0;
-    double m_currentIrZoom = 1.0;
-    double m_currentTilt = 0.0;
-    int m_currentPipShow = 0;
-    int m_previousWorkMode = 0;
-    bool m_workModeInitialized = false;
-    bool m_displayModeInitialized = false;
-    bool m_algoModelInitialized = false;
-    int m_previousAlgoModel = 0;
-    int m_currentAlgoModel = 0;
-    int m_previousDisplayMode = 0;
-    int m_currentResX = 2688;
-    int m_currentResY = 1520;
+    StateViewCache m_cache;
     bool m_updatingFromDevice = false;
 
     double m_deviceHeight = 0;
 
     void showAck(quint8 statusCode);
-    int currentAlgoModel() const { return m_currentAlgoModel; }
     void resetDeviceStateCache();
     StateViewCache currentStateViewCache() const;
     void applyStateViewCache(const StateViewCache& cache);

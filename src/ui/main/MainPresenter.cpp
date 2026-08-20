@@ -438,45 +438,18 @@ void MainPresenter::onDeviceDisconnected()
 
 void MainPresenter::resetDeviceStateCache()
 {
-    m_currentVisZoom = 1.0;
-    m_currentIrZoom = 1.0;
-    m_currentTilt = 0.0;
-    m_currentPipShow = 0;
-    m_previousWorkMode = 0;
-    m_workModeInitialized = false;
-    m_displayModeInitialized = false;
-    m_algoModelInitialized = false;
-    m_previousAlgoModel = 0;
-    m_currentAlgoModel = 0;
-    m_previousDisplayMode = 0;
-    m_currentResX = 2688;
-    m_currentResY = 1520;
+    m_cache = {};
     m_deviceHeight = 0;
 }
 
 StateViewCache MainPresenter::currentStateViewCache() const
 {
-    return {m_currentVisZoom, m_currentIrZoom, m_currentTilt, m_currentPipShow,
-            m_previousWorkMode, m_workModeInitialized, m_displayModeInitialized,
-            m_algoModelInitialized, m_previousAlgoModel, m_currentAlgoModel,
-            m_previousDisplayMode, m_currentResX, m_currentResY};
+    return m_cache;
 }
 
 void MainPresenter::applyStateViewCache(const StateViewCache& cache)
 {
-    m_currentVisZoom = cache.currentVisZoom;
-    m_currentIrZoom = cache.currentIrZoom;
-    m_currentTilt = cache.currentTilt;
-    m_currentPipShow = cache.currentPipShow;
-    m_previousWorkMode = cache.previousWorkMode;
-    m_workModeInitialized = cache.workModeInitialized;
-    m_displayModeInitialized = cache.displayModeInitialized;
-    m_algoModelInitialized = cache.algoModelInitialized;
-    m_previousAlgoModel = cache.previousAlgoModel;
-    m_currentAlgoModel = cache.currentAlgoModel;
-    m_previousDisplayMode = cache.previousDisplayMode;
-    m_currentResX = cache.currentResX;
-    m_currentResY = cache.currentResY;
+    m_cache = cache;
 }
 
 // ============================================================================
@@ -671,11 +644,11 @@ void MainPresenter::onComboWorkModeChanged(int index)
 
     if (!m_view->requireConnected()) {
         m_updatingFromDevice = true;
-        m_view->setWorkModeIndex(m_previousWorkMode);
+        m_view->setWorkModeIndex(m_cache.previousWorkMode);
         m_updatingFromDevice = false;
         return;
     }
-    m_previousWorkMode = index;
+    m_cache.previousWorkMode = index;
     if (DeviceContext* ctx = currentDevice()) {
         ctx->setWorkMode(index);
         ctx->queryImageParams();
@@ -686,8 +659,8 @@ void MainPresenter::sendAlgoModel(int model)
 {
     if (m_updatingFromDevice) return;
     if (!m_view->requireConnected()) return;
-    m_currentAlgoModel = model;
-    m_previousAlgoModel = model;
+    m_cache.currentAlgoModel = model;
+    m_cache.previousAlgoModel = model;
     if (DeviceContext* ctx = currentDevice()) {
         ctx->setAlgoModel(model);
         ctx->queryImageParams();
@@ -697,16 +670,16 @@ void MainPresenter::sendAlgoModel(int model)
 void MainPresenter::onComboDisplayModeChanged(int index)
 {
     if (!m_view->requireConnected()) {
-        m_view->setDisplayModeIndex(m_previousDisplayMode);
+        m_view->setDisplayModeIndex(m_cache.previousDisplayMode);
         return;
     }
     if (m_updatingFromDevice) return;
     {
         int algoIdx = (index == 1 || index == 4) ? 1 : 0;
-        if ((m_currentAlgoModel / 10) != algoIdx) {
+        if ((m_cache.currentAlgoModel / 10) != algoIdx) {
             int low = m_view->algoModel2Index();
             int model = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
-            m_currentAlgoModel = model;
+            m_cache.currentAlgoModel = model;
             m_view->setAlgoModel1Index(algoIdx);
             if (DeviceContext* ctx = currentDevice()) ctx->setAlgoModel(model);
         }

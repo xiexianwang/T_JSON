@@ -16,7 +16,13 @@ DeviceManager::DeviceManager(QObject *parent)
 
 DeviceManager::~DeviceManager()
 {
-    removeAllDevices();
+    // 不在此调用 removeAllDevices() —— MainWindow 析构已负责清理。
+    // 此处仅兜底：若仍有残留设备，逐个关闭但不显式 delete
+    // （QObject 析构会自动清理子对象）。
+    for (auto it = m_devices.begin(); it != m_devices.end(); ++it) {
+        it.value()->shutdown();
+    }
+    m_devices.clear();
 }
 
 void DeviceManager::init(ConfigManager* cfg)
@@ -46,6 +52,7 @@ void DeviceManager::removeDevice(const QString& deviceId)
             return;
         }
         m_devices.remove(deviceId);
+        ctx->setParent(nullptr);
         delete ctx;
     }
 }

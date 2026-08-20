@@ -7,6 +7,7 @@
 #include "PresenterStateViewService.h"
 #include "PresenterMediaService.h"
 #include "PresenterAiViewService.h"
+#include "DeviceControlService.h"
 #include "IMainView.h"
 #include "service/DeviceManager.h"
 #include "service/DeviceContext.h"
@@ -27,6 +28,7 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_stateService = new DeviceStateService(this);
     m_stateViewService = new PresenterStateViewService(view, cfg, m_mapService, this);
     m_mediaService = new PresenterMediaService(view, this);
+    m_controlService = new DeviceControlService(cfg, this);
 
     // DeviceService 初始化默认设备
     DeviceManager::instance()->addDevice(m_deviceService->currentDeviceId());
@@ -209,7 +211,7 @@ void MainPresenter::on_btnPtzMoveTo_clicked()
     double tilt = m_view->targetTiltText().toDouble(&tiltOk);
 
     if (panOk && tiltOk) {
-        if (DeviceContext* ctx = currentDevice()) ctx->ptzMoveTo(pan, tilt);
+        m_controlService->ptzMoveTo(currentDeviceId(), pan, tilt);
     } else {
         QMessageBox::warning(m_view->asWidget(), "输入错误", "请输入有效的水平和垂直角度值。");
     }
@@ -249,7 +251,7 @@ void MainPresenter::on_btnPtzMoveToGps_clicked()
         tilt = -qRadiansToDegrees(qAtan2(targetAlt - devAlt, dist));
     }
 
-    if (DeviceContext* ctx = currentDevice()) ctx->ptzMoveTo(pan, tilt);
+    m_controlService->ptzMoveTo(currentDeviceId(), pan, tilt);
     m_view->showStatusMessage(QString("转到 GPS: 方位=%1° 俯仰=%2°").arg(pan, 0, 'f', 1).arg(tilt, 0, 'f', 1), 3000);
 }
 
@@ -283,15 +285,12 @@ void MainPresenter::on_btnPanZeroCalib_clicked()
             m_cfg->setPtzTiltOffset(newTiltOffset);
             m_cfg->save();
 
-            if (DeviceContext* ctx = currentDevice()) {
-                ctx->setPtzOffsets(newPanOffset, newTiltOffset);
-                ctx->flushZeroPosition();
-            }
+            m_controlService->setPtzOffsets(currentDeviceId(), newPanOffset, newTiltOffset);
 
             m_view->showDeviceState(-1, QString(), QString(), QString(), "0.0°", "0.0°");
             m_view->showStatusMessage("零点标定(软件偏置)已保存", 3000);
         } else {
-            if (DeviceContext* ctx = currentDevice()) ctx->ptzSetZero();
+            m_controlService->ptzSetZero(currentDeviceId());
             m_view->showStatusMessage("零点标定指令(Pelco-D)已下发", 3000);
             // 这里不强制改 UI，让后续设备主动上报的新角度来刷新 UI
         }
@@ -325,14 +324,14 @@ void MainPresenter::on_btnSetLocation_clicked()
     QString strictLat = QString::asprintf("%.7f%s", qAbs(latNum), latNum >= 0 ? "N" : "S");
     QString strictLon = QString::asprintf("%.7f%s", qAbs(lonNum), lonNum >= 0 ? "E" : "W");
 
-    if (DeviceContext* ctx = currentDevice()) ctx->setLocation(strictLat, strictLon);
+    m_controlService->setLocation(currentDeviceId(), strictLat, strictLon);
     m_view->showStatusMessage(QString::fromUtf8("已下发经纬度"), 3000);
 }
 
 void MainPresenter::on_btnGetImageParams_clicked()
 {
     if (!m_view->requireConnected()) return;
-    if (DeviceContext* ctx = currentDevice()) ctx->queryImageParams();
+    m_controlService->queryImageParams(currentDeviceId());
     m_view->showStatusMessage(QString::fromUtf8("已发送参数查询请求"), 3000);
 }
 
@@ -561,7 +560,7 @@ void MainPresenter::onCheckDigitalZoomToggled(bool checked)
         return;
     }
     m_lastAckFrameType = FrameType::SetDigitalZoom;
-    if (DeviceContext* ctx = currentDevice()) ctx->setDigitalZoom(checked);
+    m_controlService->setDigitalZoom(currentDeviceId(), checked);
     m_cfg->setDigitalZoomEnabled(checked);
     m_cfg->save();
 }
@@ -573,7 +572,7 @@ void MainPresenter::onCheckAutoZoomToggled(bool checked)
         return;
     }
     m_lastAckFrameType = FrameType::SetAlgoModel;
-    if (DeviceContext* ctx = currentDevice()) ctx->setAutoZoom(checked);
+    m_controlService->setAutoZoom(currentDeviceId(), checked);
     m_cfg->setAutoZoomEnabled(checked);
     m_cfg->save();
 }
@@ -585,7 +584,7 @@ void MainPresenter::onCheckCaptureUploadToggled(bool checked)
         return;
     }
     m_lastAckFrameType = FrameType::SetCaptureState;
-    if (DeviceContext* ctx = currentDevice()) ctx->setCaptureUpload(checked);
+    m_controlService->setCaptureUpload(currentDeviceId(), checked);
     m_cfg->setCaptureUploadEnabled(checked);
     m_cfg->save();
 }
@@ -597,7 +596,7 @@ void MainPresenter::onCheckPosResetToggled(bool checked)
         return;
     }
     m_lastAckFrameType = FrameType::SetPosReset;
-    if (DeviceContext* ctx = currentDevice()) ctx->posReset(checked);
+    m_controlService->setPosReset(currentDeviceId(), checked);
     m_cfg->setPosResetEnabled(checked);
     m_cfg->save();
 }
@@ -614,8 +613,7 @@ void MainPresenter::onVideoSelection(const QString& deviceId, int cx, int cy, in
         return;
     }
 
-    DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId);
-    if (!ctx || !ctx->isConnected()) {
+    if (DeviceContext* ctx = DeviceManager::instance()->getDevice(deviceId); ctx && !ctx->isConnected()) {
         m_view->showStatusMessage(
             QString::fromUtf8("设备未连接: %1").arg(deviceId), 3000);
         return;
@@ -624,12 +622,12 @@ void MainPresenter::onVideoSelection(const QString& deviceId, int cx, int cy, in
     if (wm == 3) {
         m_view->showStatusMessage(
             QString::fromUtf8("点选跟踪: 像素中心(%1,%2)").arg(cx).arg(cy));
-        ctx->setPointTrack(cx, cy);
+        m_controlService->setPointTrack(deviceId, cx, cy);
     } else {
         m_view->showStatusMessage(
             QString::fromUtf8("框选跟踪: 像素中心(%1,%2) 宽%3高%4")
                 .arg(cx).arg(cy).arg(pw).arg(ph));
-        ctx->setBoxTrack(cx, cy, pw, ph);
+        m_controlService->setBoxTrack(deviceId, cx, cy, pw, ph);
     }
 }
 
@@ -649,10 +647,8 @@ void MainPresenter::onComboWorkModeChanged(int index)
         return;
     }
     m_cache.previousWorkMode = index;
-    if (DeviceContext* ctx = currentDevice()) {
-        ctx->setWorkMode(index);
-        ctx->queryImageParams();
-    }
+    m_controlService->setWorkMode(currentDeviceId(), index);
+    m_controlService->queryImageParams(currentDeviceId());
 }
 
 void MainPresenter::sendAlgoModel(int model)
@@ -661,10 +657,8 @@ void MainPresenter::sendAlgoModel(int model)
     if (!m_view->requireConnected()) return;
     m_cache.currentAlgoModel = model;
     m_cache.previousAlgoModel = model;
-    if (DeviceContext* ctx = currentDevice()) {
-        ctx->setAlgoModel(model);
-        ctx->queryImageParams();
-    }
+    m_controlService->setAlgoModel(currentDeviceId(), model);
+    m_controlService->queryImageParams(currentDeviceId());
 }
 
 void MainPresenter::onComboDisplayModeChanged(int index)
@@ -681,13 +675,13 @@ void MainPresenter::onComboDisplayModeChanged(int index)
             int model = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
             m_cache.currentAlgoModel = model;
             m_view->setAlgoModel1Index(algoIdx);
-            if (DeviceContext* ctx = currentDevice()) ctx->setAlgoModel(model);
+            m_controlService->setAlgoModel(currentDeviceId(), model);
         }
     }
     QTimer::singleShot(150, this, [this]() {
         if (isDeviceConnected()) {
             int idx = m_view->displayModeIndex();
-            if (DeviceContext* ctx = currentDevice()) ctx->setDisplayMode(idx);
+            m_controlService->setDisplayMode(currentDeviceId(), idx);
         }
     });
 }

@@ -59,6 +59,8 @@ qt_add_executable(T-JSON
     src/ui/main/PresenterDeviceService.h
     src/ui/main/PresenterMotorService.cpp
     src/ui/main/PresenterMotorService.h
+    src/ui/main/DeviceControlService.cpp
+    src/ui/main/DeviceControlService.h
     src/ui/main/PresenterMapService.cpp
     src/ui/main/PresenterMapService.h
     src/ui/views/MainWindowNavigation.cpp

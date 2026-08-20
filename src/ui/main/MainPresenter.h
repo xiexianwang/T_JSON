@@ -19,6 +19,7 @@ class PresenterMapService;
 class DeviceStateService;
 class PresenterAiViewService;
 class PresenterMediaService;
+class DeviceControlService;
 
 // ============================================================================
 // MainPresenter - MainWindow 的控制器 (MVP 模式中的 Presenter)
@@ -136,6 +137,7 @@ private:
     PresenterStateViewService* m_stateViewService;
     PresenterAiViewService* m_aiViewService;
     PresenterMediaService* m_mediaService;
+    DeviceControlService* m_controlService;
 
     DeviceContext* currentDevice() const;
 

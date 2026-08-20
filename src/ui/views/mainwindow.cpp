@@ -95,8 +95,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_deviceTree, &DeviceTreeWidget::deviceToggleConnect, m_presenter, &MainPresenter::onDeviceToggleConnect);
     qDebug() << "=== MainWindow: deviceTree done ===";
 
-
+    qDebug() << "=== MainWindow: before titleBar ops, titleBar=" << ui->titleBar;
     ui->titleBar->installEventFilter(this);
+    qDebug() << "=== MainWindow: eventFilter installed ===";
     ui->titleBar->setProperty("form", "title");
     qDebug() << "=== MainWindow: titleBar done ===";
     ui->labelAppIcon->setPixmap(QPixmap(QStringLiteral(":/qss/logo.png")).scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));

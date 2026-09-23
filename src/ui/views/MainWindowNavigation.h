@@ -5,7 +5,6 @@
 
 class QButtonGroup;
 class QToolButton;
-class QPushButton;
 class QDialog;
 class CmdLogDialog;
 class ConfigManager;
@@ -25,8 +24,7 @@ public:
 
     explicit MainWindowNavigation(QObject* parent = nullptr);
 
-    void setup(NavButtons buttons, QPushButton* btnMapToggle,
-               ConfigManager* cfg, MainPresenter* presenter, IMainView* view);
+    void setup(NavButtons buttons, ConfigManager* cfg, MainPresenter* presenter, IMainView* view);
     void setLogDialog(CmdLogDialog* dlg);
 
 public slots:
@@ -37,7 +35,6 @@ public slots:
 
 private:
     NavButtons m_btns;
-    QPushButton* m_btnMapToggle = nullptr;
     ConfigManager* m_cfg = nullptr;
     MainPresenter* m_presenter = nullptr;
     IMainView* m_view = nullptr;

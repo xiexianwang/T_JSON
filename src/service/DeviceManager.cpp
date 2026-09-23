@@ -27,13 +27,13 @@ void DeviceManager::init(ConfigManager* cfg)
     m_globalCfg = cfg;
 }
 
-DeviceContext* DeviceManager::addDevice(const QString& deviceId)
+DeviceContext* DeviceManager::addDevice(const QString& deviceId, const DeviceConfig& devCfg)
 {
     if (m_devices.contains(deviceId)) {
         return m_devices.value(deviceId);
     }
     
-    DeviceContext* ctx = new DeviceContext(deviceId, m_globalCfg, this);
+    DeviceContext* ctx = new DeviceContext(deviceId, m_globalCfg, devCfg, this);
     m_devices.insert(deviceId, ctx);
     return ctx;
 }

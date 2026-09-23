@@ -44,7 +44,7 @@ T-JSON-V1.0/
 │   │   │   ├── settingsdialog.*            # 参数设置对话框
 │   │   │   └── cmdlogdialog.*              # 十六进制指令日志
 │   │   └── components/
-│   │       ├── DeviceTreeWidget.*          # 多设备树
+│   │       ├── DeviceTreeWidget.*          # 多设备树（显式节点类型 + 稳定 id + 状态列）
 │   │       └── VideoGridWidget.*           # 多设备视频宫格
 │   ├── core/                 # 领域层（无 UI / 无平台依赖）
 │   │   ├── DeviceState.h     # 纯数据模型
@@ -77,6 +77,7 @@ T-JSON-V1.0/
 │   ├── test_protocolbuilder.cpp   # Pelco-D/VISCA 组包 + checksum
 │   ├── test_devicestate.cpp       # DeviceState 状态模型
 │   ├── test_geocalc.cpp           # 地理算法（parseCoord/距离/航向/抽稀）
+│   ├── test_deviceentry.cpp       # 设备条目（显式类型/稳定 id/序列化/旧格式兼容/IP 校验）
 │   └── track_sim.py           # 轨迹模拟脚本
 ├── docs/                     # 开发规范 / 需求说明书 / CHANGELOG / 算法参考 / 指令速查
 ```
@@ -144,7 +145,8 @@ T-JSON-V1.0/
 | 地图 View | `ui/views/mapwidget.*` | WebEngine 天地图、FOV 扇形、目标/轨迹、脏标记批量刷新 | MapBridge, WebChannel | ✅ |
 | 地图桥 | `ui/views/mapbridge.*` | C++ ↔ JS 双向桥接（初始化/点击/缩放） | QWebChannel | ✅ |
 | 视频控件 | `ui/views/videowidget.*` | 帧渲染、16:9 锁定、框选区域坐标映射 | QPainter | ✅ |
-| 设备树 | `ui/components/DeviceTreeWidget.*` | 多设备树增删改、JSON 持久化 | QTreeView | ✅ |
+| 设备树 | `ui/components/DeviceTreeWidget.*` | 显式节点类型 + 稳定 id + 状态列、拖拽/层级/数量约束、原子 JSON 持久化 | DeviceEntry, QTreeView | ✅ |
+| 设备条目模型 | `core/DeviceEntry.*` | 设备树节点纯数据（type/id/连接参数/DeviceConfig）、旧格式兼容、IP 校验 | DeviceConfig | ✅ |
 | 视频宫格 | `ui/components/VideoGridWidget.*` | 多设备 VideoWidget 宫格布局 | VideoWidget | ✅ |
 | 设置对话框 | `ui/views/settingsdialog.*` | 串口/协议/相机参数编辑 | ConfigManager | ✅ |
 | 指令日志 | `ui/views/cmdlogdialog.*` | 串口 HEX 收发日志窗口 | — | ✅ |
@@ -197,7 +199,7 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 - **依赖**：Qt6（Core/Widgets/Network/Gui/WebEngineWidgets/WebChannel/SerialPort/Test）+ FFmpeg（`thirdparty/ffmpeg` 静态 `.lib`，DLL 构建后拷贝）
 - **输出**：`LSSVideoManager.exe`
 - **调试**：`http://localhost:9999`（WebEngine 远程调试地图页面）
-- **单元测试**：`ctest --test-dir build/Desktop_Qt_6_11_1_MSVC2022_64bit_Debug`（7 个纯逻辑测试，不依赖实机；`-DBUILD_TESTING=OFF` 可跳过）
+- **单元测试**：`ctest --test-dir build/msvc2022`（10 个纯逻辑测试，不依赖实机；`-DBUILD_TESTING=OFF` 可跳过）
 - **辅助脚本**：`check_main.py` / `check_main2.py` / `check_dm.py` / `check_dm_cpp.py`（代码复查用）
 
 ## 8. 已知架构债（现状 vs 重构规则）
@@ -206,14 +208,15 @@ AIInfo(40ms) → GeoCalculator.shouldPlotTrackPoint（3m 死区 / 20m 强制 / 2
 |---|---|---|
 | 生命周期风险 | `service/DeviceContext.*`、`infrastructure/rtspthread.*` | 设备销毁、RTSP 停止与后台线程退出需要持续验证 |
 | 多设备收口 | `ui/main/MainPresenter.cpp`、`ui/views/mainwindow.cpp` | 当前设备切换与视频控件绑定仍需继续收敛，避免业务依赖默认设备 |
-| 多设备电机信号 | `ui/main/MainPresenter.cpp` | 电机结果信号仅对默认设备转发（构造时连接），多设备切换后沿用默认设备信号 |
+| 多设备电机信号 | `ui/main/MainPresenter.cpp` | 电机结果信号经 `PresenterDeviceService` 按当前设备动态转发；仍待验证切换后状态同步 |
 
 > ✅ 已解决：**超大文件拆分** —— `mainwindow.cpp` 从 1514 行缩至 ~737 行（IMainView 实现分离至 `mainwindow_imainview.cpp`），`MainPresenter.cpp` 从 ~1290 行缩至 ~716 行（设备命令编排收口至 `DeviceControlService`；13 个缓存字段合并为 `StateViewCache`）。
 > ✅ 已解决：`DeviceContext` 不再公开 `tcpClient()/motorController()/videoStream()/ptzForwarder()`（阶段 5.3），全部业务经 `connectDevice/disconnectDevice/startVideo/stopVideo/ptzMove/lensMove/setWorkMode/setAlgoModel` 等业务 API 交互；`MainPresenter` 仅通过 `currentDevice()` 访问设备上下文。
 > ✅ 已解决：`MainPresenter` 过渡期访问器 `motorController()/tcpClient()/videoStream()/ptzForwarder()` 已移出公有接口（降为私有）；`mainwindow.cpp` PTZ 方向/镜头按钮不再直连底层，全部经 Presenter 业务方法。View 已不再直取底层组件。
 > ✅ 已解决：`TJsonClient` 职责过重 —— 帧编解码已拆为 `TJsonFrameCodec`，载荷解析已拆为 `TJsonProtocolParser`（阶段 5.1）。
 > ✅ 已解决：`DeviceController` 职责过重 —— 协议组包拆为 `PelcoDProtocol`/`ViscaProtocol`，传输拆为 `ModbusTransport`/`Stm32TcpTransport`，电机编排拆为 `DeviceCommandService`（阶段 5.2）。
-> ✅ 已解决：测试与构建体系 —— `include(CTest)` + `enable_testing()` + `tests/` 子目录已建立，7 个单元测试目标独立于主程序，不依赖 WebEngine/FFmpeg，`ctest` 全部通过（阶段 6 两轮）。
+> ✅ 已解决：测试与构建体系 —— `include(CTest)` + `enable_testing()` + `tests/` 子目录已建立，10 个单元测试目标独立于主程序，不依赖 WebEngine/FFmpeg，`ctest` 全部通过。
+> ✅ 已解决：设备树隐式类型/IP 主键 —— 节点类型显式化（`DeviceEntry.type`），设备以 UUID 稳定 id 标识、IP 降级为可编辑连接参数；移除 `default_device` 幽灵设备；`switchToDevice`/`toggleDeviceConnect` 合并为 `activateDevice`；连接状态独立成列；持久化改为带 schema 版本的原子写入（损坏文件自动备份）。
 > ✅ 已解决：多设备电机信号 —— `MainPresenter` 构造函数中 `motorModeResult/motorSerialError/motorSilentResult/commandSent` 从固定绑定默认设备改为 `connectDeviceSignals()/disconnectDeviceSignals()` 动态管理，`onDeviceDoubleClicked` 切换设备时自动重连。
 > ✅ 已解决：RtspThread 线程等待 —— `closeStream()` 已正确调用 `wait(3000)`，析构兜底，FFmpeg 中断回调保证快速返回（债务已清除）。
 > ✅ 已解决：mainwindow.h 9 个 public 成员改为 private，删除 `getUi()`；`pipShowToComboIndex` 从 `DeviceController` 迁移到 `DeviceState`。

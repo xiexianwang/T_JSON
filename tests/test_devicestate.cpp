@@ -104,7 +104,8 @@ void TestDeviceState::aiTargetList()
 
     AiTargetItem t2;
     t2.id = "t_002";
-    t2.cls = 0xB1;
+    t2.cls = 0xA2;
+    t2.state = 0xB2;
     s.aiTargets.append(t2);
 
     QCOMPARE(s.aiTargets.size(), 2);
@@ -114,7 +115,8 @@ void TestDeviceState::aiTargetList()
     QVERIFY(s.aiTargets.at(0).hasPoints);
     QCOMPARE(s.aiTargets.at(0).right, 300);
     QCOMPARE(s.aiTargets.at(0).bottom, 400);
-    QCOMPARE(s.aiTargets.at(1).cls, 0xB1);
+    QCOMPARE(s.aiTargets.at(1).cls, 0xA2);
+    QCOMPARE(s.aiTargets.at(1).state, 0xB2);
 
     // 清空（AI 超时清理路径）
     s.aiTargets.clear();

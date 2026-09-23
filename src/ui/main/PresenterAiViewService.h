@@ -5,6 +5,7 @@
 #include <QJsonObject>
 
 #include "core/DeviceState.h"
+#include "core/DeviceConfig.h"
 #include "PresenterStateViewService.h"
 
 class IMainView;
@@ -23,6 +24,8 @@ public:
                       const DeviceState& state, const StateViewCache& cache);
 
 private:
+    const DeviceConfig& deviceCam(const QString& deviceId) const;
+
     IMainView* m_view;
     ConfigManager* m_cfg;
     PresenterMapService* m_mapService;

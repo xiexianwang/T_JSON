@@ -71,8 +71,24 @@ private slots:
     void onSocketDisconnected();        // Socket 断开后的回调
     void onSocketError(QAbstractSocket::SocketError socketError);  // Socket 错误处理
     void attemptReconnect();            // 执行一次重连尝试
+    void checkActivityTimeout();        // 心跳应答超时检测（半开连接主动探测）
+    void onConnectTimeout();            // 单次连接尝试超时（收敛不可达主机的系统 TCP 超时）
 
 private:
+    // 心跳应答超时（毫秒）：连续该时长未收到任何上行数据即判定连接假死。
+    // TCP 半开（如拔设备端网线）时系统栈可能数十秒才报错，本机制把恢复时间
+    // 收敛为「检测时长 + 退避初始延迟」，与拔线位置无关。
+    // 心跳周期 10s（文档约定），阈值取 15s：容忍一次心跳丢失，又不会误判。
+    static constexpr int kHeartbeatIntervalMs = 10000;   // 心跳周期（10s）
+    static constexpr int kActivityCheckMs      = 1000;   // 探测周期（1s）
+    static constexpr int kActivityTimeoutMs    = 15000;  // 连续无上行数据阈值（1.5 个心跳）
+
+    // 重连退避：初始 1s、上限 5s，与 RTSP 侧量级一致，避免拔线后等待数分钟。
+    static constexpr int kReconnectInitialDelayMs = 1000;
+    static constexpr int kReconnectMaxDelayMs     = 5000;
+    // 单次连接尝试超时：不可达主机时系统 TCP 可能 21s 才报错，此处主动收敛。
+    static constexpr int kConnectTimeoutMs        = 4000;
+
     QTcpSocket* m_socket;               // TCP Socket 实例
     QTimer* m_heartbeatTimer;           // 心跳定时器（周期 10 秒）
     TJsonFrameCodec m_codec;            // 协议帧编解码器（粘包/半包/重同步）
@@ -82,12 +98,17 @@ private:
     QString m_lastIp;                   // 上次连接的 IP 地址
     quint16 m_lastPort;                 // 上次连接的端口号
     int m_retryCount;                   // 当前已重连次数
-    int m_maxRetries;                   // 最大重连尝试次数（默认 10）
-    int m_currentDelay;                 // 当前重连延迟（指数退避，初始 2 秒）
+    int m_maxRetries;                   // 最大重连尝试次数（0 = 无限重试）
+    int m_currentDelay;                 // 当前重连延迟（指数退避，初始 1 秒）
     bool m_autoReconnectEnabled;        // 自动重连是否启用
+
+    QTimer* m_activityTimer;            // 活动看门狗定时器（检测半开连接）
+    QTimer* m_connectTimer;             // 单次连接尝试超时定时器
+    qint64 m_lastRxMs = 0;              // 最近一次收到任意上行数据的时刻（ms）
 
     void dispatchFrame(TJsonFrameKind kind, FrameType type, const QByteArray& payload);  // 分发解析后的完整帧
     void handleReconnect();             // 触发自动重连流程（指数退避调度）
+    void forceReconnectNow();           // 应用层主动判定假死并立即重连
 };
 
 #endif // TJSONCLIENT_H

@@ -8,10 +8,14 @@
 
 struct AiTargetItem {
     QString id;
-    int cls = 0;
+    int cls = 0;          // Class：目标类型 (0xA0-0xA4)
+    int state = 0;        // State：跟踪状态 (0xB1 跟踪正常 / 0xB2 跟踪丢失)
     double distance = 0;
     bool hasPoints = false;
     int left = 0, top = 0, right = 0, bottom = 0;
+    double angleHor = 0;  // Angle.Hor（度）
+    double angleVer = 0;  // Angle.Ver（度）
+    bool hasAngle = false;
 };
 
 // 表示设备的运行时状态 (纯数据模型)
@@ -49,6 +53,7 @@ struct DeviceState {
     // --- ZoomInfo 原始字段 ---
     int camShowMode = 0;
     double laserRange = 0;
+    bool hasZoomInfo = false;
 
     // --- ImageSetting 字段 ---
     int imgSize = 0;
@@ -59,6 +64,7 @@ struct DeviceState {
     QString maxIRFL;
     int resX = 2688;
     int resY = 1520;
+    bool hasImageSetting = false;
 
     // --- AIInfo 目标列表 ---
     int aiWorkMode = 0;

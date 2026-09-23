@@ -12,11 +12,11 @@ DeviceSessionService::DeviceSessionService(ConfigManager* cfg, QObject* parent)
 DeviceContext* DeviceSessionService::ensureDevice(const DeviceId& deviceId)
 {
     if (deviceId.isEmpty()) return nullptr;
-    DeviceManager* manager = DeviceManager::instance();
-    DeviceContext* context = manager->getDevice(deviceId);
+    auto& manager = DeviceManager::instance();
+    DeviceContext* context = manager.getDevice(deviceId);
     if (!context) {
         m_state.ensure(deviceId);
-        context = manager->addDevice(deviceId);
+        context = manager.addDevice(deviceId);
     } else if (!m_state.contains(deviceId)) {
         m_state.ensure(deviceId);
     }

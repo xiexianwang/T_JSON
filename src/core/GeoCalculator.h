@@ -22,6 +22,9 @@ struct DevicePose {
 class GeoCalculator
 {
 public:
+    // 解析十进制坐标（可选 N/S/E/W 后缀，大小写不敏感）。
+    // 带 ok 出参的重载：解析失败时返回 0 且 *ok=false，用于区分「真正的 0」与「非法输入」。
+    static double parseCoord(const QString& s, bool* ok);
     static double parseCoord(const QString& s);
     static double haversineDistance(double lat1, double lon1, double lat2, double lon2);
     static double bearing(double lat1, double lon1, double lat2, double lon2);

@@ -6,6 +6,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "ui/components/VideoGridWidget.h"
+#include "ui/components/DeviceTreeWidget.h"
 #include "ui/views/videowidget.h"
 #include "ui/views/mapwidget.h"
 #include "ui/views/MainWindowDialogService.h"
@@ -38,24 +39,6 @@ void MainWindow::showStatusMessage(const QString& msg, int timeoutMs)
     ui->statusbar->showMessage(msg, timeoutMs);
 }
 
-void MainWindow::setConnectButton(const QString& text, bool enabled,
-                                  const QString& state, bool cancelVisible)
-{
-    ui->btnConnect->setText(text);
-    ui->btnConnect->setEnabled(enabled);
-    ui->btnConnect->setProperty("state", state.isEmpty() ? QVariant() : QVariant(state));
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(cancelVisible);
-}
-
-void MainWindow::setVideoConnectButton(const QString& text, bool enabled)
-{
-    ui->btnVideoConnect->setEnabled(enabled);
-    ui->btnVideoConnect->setText(text);
-}
-
-QString MainWindow::ipText() const { return ui->lineEditIp->text(); }
-QString MainWindow::rtspUrlText() const { return ui->lineEditRtsp->text(); }
 QString MainWindow::targetPanText() const { return ui->editTargetPan->text(); }
 QString MainWindow::targetTiltText() const { return ui->editTargetTilt->text(); }
 QString MainWindow::targetLonText() const { return ui->editTargetLon->text(); }
@@ -64,7 +47,9 @@ QString MainWindow::targetAltText() const { return ui->editTargetAlt->text(); }
 QString MainWindow::setLatText() const { return ui->editSetLat->text(); }
 QString MainWindow::setLonText() const { return ui->editSetLon->text(); }
 QString MainWindow::setHeightText() const { return ui->editSetHeight->text(); }
-int MainWindow::wiperCurrentMa() const { return ui->editWiperCurrent->text().toInt(); }
+int MainWindow::wiperRunCurrent() const { return ui->editWiperRunCurrent->text().toInt(); }
+int MainWindow::wiperHoldCurrent() const { return ui->editWiperHoldCurrent->text().toInt(); }
+int MainWindow::wiperHoldDelay() const { return ui->editWiperHoldDelay->text().toInt(); }
 int MainWindow::presetValue() const { return ui->spinPreset->value(); }
 int MainWindow::workModeIndex() const { return ui->comboWorkMode->currentIndex(); }
 int MainWindow::algoModel2Index() const { return ui->comboAlgoModel2->currentIndex(); }
@@ -78,11 +63,9 @@ QString MainWindow::statTiltAngleText() const { return ui->statTiltAngle->text()
 //============================================================================
 // IMainView - 状态展示
 //============================================================================
-void MainWindow::showDeviceState(int camMode, const QString& lat, const QString& lon,
+void MainWindow::showDeviceState(const QString& lat, const QString& lon,
                                  const QString& height, const QString& pan, const QString& tilt)
 {
-    if (camMode >= 0)
-        ui->statCamMode->setText(QString::number(camMode));
     if (!lat.isNull())
         ui->statLatitude->setText(lat);
     if (!lon.isNull())
@@ -104,6 +87,17 @@ void MainWindow::showDeviceState(int camMode, const QString& lat, const QString&
 void MainWindow::showLensStats(double visZoom, double visFocal, double visHfov,
                                double irZoom, double irFocal, double irHfov)
 {
+    if (visZoom == 0 && irZoom == 0) {
+        ui->statZoomVis->clear();
+        ui->statFocalVis->clear();
+        ui->statFocusVis->clear();
+        ui->statFovVis->clear();
+        ui->statZoomIR->clear();
+        ui->statFocalIR->clear();
+        ui->statFocusIR->clear();
+        ui->statFovIR->clear();
+        return;
+    }
     ui->statZoomVis->setText(QString::number(visZoom, 'f', 2) + QStringLiteral("x"));
     ui->statFocalVis->setText(QString::number(visFocal, 'f', 2) + QStringLiteral(" mm"));
     ui->statFocusVis->clear();
@@ -128,13 +122,13 @@ void MainWindow::clearIdentifyTable()
     ui->tableIdentify->setRowCount(0);
 }
 
-void MainWindow::addIdentifyRow(const QString& id, int cls, double dist,
+void MainWindow::addIdentifyRow(const QString& id, const QString& typeName, double dist,
                                 const QString& pos, const QString& miss)
 {
     int r = ui->tableIdentify->rowCount();
     ui->tableIdentify->insertRow(r);
     ui->tableIdentify->setItem(r, 0, new QTableWidgetItem(id));
-    ui->tableIdentify->setItem(r, 1, new QTableWidgetItem(QString::number(cls)));
+    ui->tableIdentify->setItem(r, 1, new QTableWidgetItem(typeName));
     ui->tableIdentify->setItem(r, 2, new QTableWidgetItem(QString::number(dist, 'f', 1)));
     if (!pos.isNull())
         ui->tableIdentify->setItem(r, 3, new QTableWidgetItem(pos));
@@ -168,6 +162,18 @@ void MainWindow::setTrackMissDistance(const QString& text)
 {
     if (text.isEmpty()) ui->trackMissDistance->clear();
     else ui->trackMissDistance->setText(text);
+}
+
+void MainWindow::setTrackTargetType(const QString& text)
+{
+    if (text.isEmpty()) ui->trackTargetType->clear();
+    else ui->trackTargetType->setText(text);
+}
+
+void MainWindow::setTrackAngle(const QString& text)
+{
+    if (text.isEmpty()) ui->trackAngle->clear();
+    else ui->trackAngle->setText(text);
 }
 
 //============================================================================
@@ -250,27 +256,35 @@ void MainWindow::setPosResetChecked(bool checked)
 //============================================================================
 // IMainView - 视频帧路由
 //============================================================================
-void MainWindow::setVideoFrame(const QString& deviceId, const QImage& frame)
+bool MainWindow::setVideoFrame(const QString& deviceId, const QImage& frame)
 {
-    if (!m_videoGrid) return;
+    if (!m_videoGrid) return false;
     if (VideoWidget* vw = m_videoGrid->bindDevice(deviceId)) {
         vw->setFrame(frame);
+        return true;
     }
+    return false;
 }
 
 void MainWindow::clearVideoFrame(const QString& deviceId)
 {
     if (!m_videoGrid) return;
-    if (VideoWidget* vw = m_videoGrid->bindDevice(deviceId)) {
-        vw->clearFrame();
-    }
+    m_videoGrid->unbindDevice(deviceId);
 }
 
 void MainWindow::setVideoSelectionEnabled(const QString& deviceId, bool enabled)
 {
     if (!m_videoGrid) return;
-    if (VideoWidget* vw = m_videoGrid->bindDevice(deviceId)) {
+    if (VideoWidget* vw = m_videoGrid->getWidget(deviceId)) {
         vw->setSelectionEnabled(enabled);
+    }
+}
+
+void MainWindow::setVideoStatusText(const QString& deviceId, const QString& text)
+{
+    if (!m_videoGrid) return;
+    if (VideoWidget* vw = m_videoGrid->getWidget(deviceId)) {
+        vw->setStatusText(text);
     }
 }
 

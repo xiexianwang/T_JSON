@@ -26,7 +26,7 @@ public:
     void init(ConfigManager* cfg);
 
     // 设备生命周期管理
-    DeviceContext* addDevice(const QString& deviceId);
+    DeviceContext* addDevice(const QString& deviceId, const DeviceConfig& devCfg = DeviceConfig());
     void removeDevice(const QString& deviceId);
     DeviceContext* getDevice(const QString& deviceId) const;
     

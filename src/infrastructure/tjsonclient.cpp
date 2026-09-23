@@ -9,6 +9,7 @@
 #include "tjsonclient.h"
 #include "infrastructure/tjsonprotocolparser.h"
 #include <QtEndian>
+#include <QDateTime>
 #include <QDebug>
 #include <QNetworkProxy>
 
@@ -19,9 +20,11 @@ TJsonClient::TJsonClient(QObject *parent)
     , m_heartbeatTimer(new QTimer(this))        // 创建心跳定时器
     , m_reconnectTimer(new QTimer(this))        // 创建重连定时器
     , m_retryCount(0)                           // 初始重连次数
-    , m_maxRetries(10)                          // 最大重连尝试 10 次
-    , m_currentDelay(2000)                      // 初始重连延迟 2 秒
+    , m_maxRetries(0)                           // 0 = 无限重试（与 RTSP 侧一致）
+    , m_currentDelay(kReconnectInitialDelayMs)  // 初始重连延迟 1 秒
     , m_autoReconnectEnabled(false)             // 默认不启用自动重连
+    , m_activityTimer(new QTimer(this))         // 活动看门狗定时器
+    , m_connectTimer(new QTimer(this))          // 单次连接尝试超时定时器
 {
     m_socket->setProxy(QNetworkProxy::NoProxy); // 禁用系统代理，直连设备
 
@@ -32,12 +35,21 @@ TJsonClient::TJsonClient(QObject *parent)
     connect(m_socket, &QTcpSocket::readyRead, this, &TJsonClient::onReadyRead);
 
     // 心跳定时器：每 10 秒发送一次心跳帧
-    m_heartbeatTimer->setInterval(10000);
+    m_heartbeatTimer->setInterval(kHeartbeatIntervalMs);
     connect(m_heartbeatTimer, &QTimer::timeout, this, &TJsonClient::sendHeartbeat);
 
     // 重连定时器：单次触发，超时时执行一次重连尝试
     m_reconnectTimer->setSingleShot(true);
     connect(m_reconnectTimer, &QTimer::timeout, this, &TJsonClient::attemptReconnect);
+
+    m_activityTimer->setInterval(kActivityCheckMs);
+    connect(m_activityTimer, &QTimer::timeout, this, &TJsonClient::checkActivityTimeout);
+
+    // 单次连接尝试超时：不可达主机时主动 abort 并交给重连流程，
+    // 避免系统 TCP 超时（可达 21s）期间重连被长时间阻塞。
+    m_connectTimer->setSingleShot(true);
+    m_connectTimer->setInterval(kConnectTimeoutMs);
+    connect(m_connectTimer, &QTimer::timeout, this, &TJsonClient::onConnectTimeout);
 }
 
 // 析构函数：禁用自动重连并断开 Socket
@@ -46,6 +58,8 @@ TJsonClient::~TJsonClient()
     m_autoReconnectEnabled = false;
     m_heartbeatTimer->stop();
     m_reconnectTimer->stop();
+    if (m_activityTimer) m_activityTimer->stop();
+    if (m_connectTimer) m_connectTimer->stop();
     m_socket->abort();
 }
 
@@ -61,7 +75,7 @@ void TJsonClient::connectToDevice(const QString& ip, quint16 port)
 {
     m_autoReconnectEnabled = true;          // 启用自动重连
     m_retryCount = 0;                       // 重置重连次数
-    m_currentDelay = 2000;                  // 重置延迟为初始值
+    m_currentDelay = kReconnectInitialDelayMs;  // 重置延迟为初始值
     m_lastIp = ip;                          // 保存 IP 用于重连
     m_lastPort = port;                      // 保存端口用于重连
     m_reconnectTimer->stop();               // 停止待处理的重连
@@ -71,6 +85,8 @@ void TJsonClient::connectToDevice(const QString& ip, quint16 port)
         m_socket->disconnectFromHost();
     }
     m_socket->connectToHost(ip, port);      // 发起连接
+    m_connectTimer->start();                // 启动本次连接尝试超时
+    m_lastRxMs = QDateTime::currentMSecsSinceEpoch();
 }
 
 // 主动断开设备连接
@@ -79,6 +95,8 @@ void TJsonClient::disconnectDevice()
 {
     m_autoReconnectEnabled = false;         // 禁用自动重连
     m_reconnectTimer->stop();               // 停止重连定时器
+    if (m_activityTimer) m_activityTimer->stop();
+    if (m_connectTimer) m_connectTimer->stop();
     m_socket->disconnectFromHost();         // 优雅断开
     // 如果尚未断开，强制终止连接
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
@@ -94,8 +112,8 @@ void TJsonClient::handleReconnect()
     if (m_reconnectTimer->isActive()) return;    // 已有待处理重连
     if (m_socket->state() != QAbstractSocket::UnconnectedState) return;  // 尚未断开
 
-    // 达到最大重连次数：停止自动重连并通知失败
-    if (m_retryCount >= m_maxRetries) {
+    // 达到最大重连次数（0 = 无限重试）：停止自动重连并通知失败
+    if (m_maxRetries > 0 && m_retryCount >= m_maxRetries) {
         m_autoReconnectEnabled = false;
         emit reconnectFailed();                 // 重连最终失败
         return;
@@ -104,8 +122,8 @@ void TJsonClient::handleReconnect()
     m_reconnectTimer->start(m_currentDelay);    // 启动延迟定时器
     emit reconnecting(m_retryCount + 1, m_maxRetries);  // 发射重连通知信号
 
-    // 指数退避：每次延迟翻倍，上限 60 秒
-    m_currentDelay = qMin(m_currentDelay * 2, 60000);
+    // 指数退避：每次延迟翻倍，上限 kReconnectMaxDelayMs
+    m_currentDelay = qMin(m_currentDelay * 2, kReconnectMaxDelayMs);
     m_retryCount++;                             // 累加重连计数
 }
 
@@ -114,6 +132,18 @@ void TJsonClient::attemptReconnect()
 {
     m_socket->abort();
     m_socket->connectToHost(m_lastIp, m_lastPort);
+    m_connectTimer->start();                    // 启动本次连接尝试超时
+}
+
+// 单次连接尝试超时：主动 abort（会触发 errorOccurred → handleReconnect 调度下一次退避重试）
+void TJsonClient::onConnectTimeout()
+{
+    if (!m_autoReconnectEnabled) return;
+    if (m_socket->state() == QAbstractSocket::ConnectedState) return;
+    qWarning() << "TJsonClient - connect attempt timeout, aborting to retry";
+    m_socket->abort();
+    if (m_socket->state() == QAbstractSocket::UnconnectedState)
+        handleReconnect();
 }
 
 // 将 QJsonObject 序列化为 JSON 字符串，以指定帧类型发送
@@ -165,9 +195,12 @@ void TJsonClient::onSocketConnected()
 {
     m_codec.clear();                            // 清空残留在缓冲区中的数据
     m_retryCount = 0;                           // 重置重连计数
-    m_currentDelay = 2000;                      // 重置退避延迟
+    m_currentDelay = kReconnectInitialDelayMs;  // 重置退避延迟
     m_reconnectTimer->stop();                   // 停止待处理重连
+    m_connectTimer->stop();                     // 连接成功，取消连接尝试超时
     m_heartbeatTimer->start();                  // 启动心跳
+    m_lastRxMs = QDateTime::currentMSecsSinceEpoch();
+    m_activityTimer->start();
     emit deviceConnected();
 
     // 连接成功后立即发送一次心跳以确认双向通信正常
@@ -179,14 +212,48 @@ void TJsonClient::onSocketConnected()
 void TJsonClient::onSocketDisconnected()
 {
     m_heartbeatTimer->stop();                   // 停止心跳
+    m_activityTimer->stop();                    // 停止活动看门狗
+    if (m_connectTimer) m_connectTimer->stop(); // 连接已结束，停掉连接尝试超时
     emit deviceDisconnected();
     handleReconnect();                          // 触发自动重连
+}
+
+// 活动看门狗：周期性检查是否长时间未收到任何上行数据。
+// 用于检测半开连接：对端已不可达但本地 TCP 尚未报错（如拔设备端网线），
+// 此时主动 abort 触发重连，避免等待系统 TCP 重传超时（可能数十秒）。
+void TJsonClient::checkActivityTimeout()
+{
+    if (!isConnected()) return;
+    if (!m_autoReconnectEnabled) return;
+    if (m_lastRxMs <= 0) return;
+
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastRxMs > kActivityTimeoutMs) {
+        qWarning() << "TJsonClient - activity timeout (no rx for"
+                   << (now - m_lastRxMs) << "ms), forcing reconnect";
+        forceReconnectNow();
+    }
+}
+
+// 应用层主动判定假死并立即重连：
+// abort 会触发 disconnected/errorOccurred，进而走既有 handleReconnect 退避流程。
+void TJsonClient::forceReconnectNow()
+{
+    if (!m_autoReconnectEnabled) return;
+    m_lastRxMs = QDateTime::currentMSecsSinceEpoch();  // 防止重复触发
+    m_socket->abort();
+    if (m_socket->state() == QAbstractSocket::UnconnectedState)
+        handleReconnect();
 }
 
 // Socket 错误处理
 // 自动重连启用时静默重试（不弹窗）；否则转发错误通知 UI
 void TJsonClient::onSocketError(QAbstractSocket::SocketError)
 {
+    if (m_socket->state() == QAbstractSocket::UnconnectedState
+        && m_connectTimer) {
+        m_connectTimer->stop();                 // 本次连接尝试结束，取消超时
+    }
     if (m_autoReconnectEnabled) {
         if (m_socket->state() == QAbstractSocket::UnconnectedState) {
             handleReconnect();
@@ -200,6 +267,7 @@ void TJsonClient::onSocketError(QAbstractSocket::SocketError)
 // 将新到达的数据追加到编解码器后切帧并分发
 void TJsonClient::onReadyRead()
 {
+    m_lastRxMs = QDateTime::currentMSecsSinceEpoch();
     m_codec.feed(m_socket->readAll());
 
     TJsonFrameKind kind;

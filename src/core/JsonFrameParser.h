@@ -35,10 +35,14 @@ struct ImageSettingData {
 
 struct AiTargetData {
     QString id;
-    int cls = 0;
+    int cls = 0;          // Class：目标类型 (0xA0-0xA4)
+    int state = 0;        // State：跟踪状态 (0xB1 跟踪正常 / 0xB2 跟踪丢失)
     double distance = 0;
     bool hasPoints = false;
     int left = 0, top = 0, right = 0, bottom = 0;
+    double angleHor = 0;  // Angle.Hor：设备上报水平角度（度）
+    double angleVer = 0;  // Angle.Ver：设备上报垂直角度（度）
+    bool hasAngle = false;
 };
 
 struct AiInfoData {

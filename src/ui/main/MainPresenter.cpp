@@ -31,14 +31,22 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
     m_aiViewService = new PresenterAiViewService(view, cfg, m_mapService, this);
     m_controlService = new DeviceControlService(cfg, this);
 
-    // DeviceService 初始化默认设备
-    DeviceManager::instance().addDevice(m_deviceService->currentDeviceId());
+    // 注入电机服务到设备服务（用于连接时初始化电机/转台）
+    m_deviceService->setMotorService(m_motorService);
+
+    // 不再预创建默认设备：设备上下文在设备树激活设备时按需创建。
 
     // DeviceService EventBus → MainPresenter 信号连接
     connect(m_deviceService, &PresenterDeviceService::deviceConnected, this, &MainPresenter::onDeviceConnected);
     connect(m_deviceService, &PresenterDeviceService::deviceDisconnected, this, &MainPresenter::onDeviceDisconnected);
     connect(m_deviceService, &PresenterDeviceService::deviceFrameReady, this, [this](const QString& deviceId, const QImage& frame) {
         if (m_view) m_view->setVideoFrame(deviceId, frame);
+    });
+    connect(m_deviceService, &PresenterDeviceService::videoSlotUnavailable, this, [this](const QString& deviceId) {
+        Q_UNUSED(deviceId);
+        if (m_view)
+            m_view->showStatusMessage(
+                QString::fromUtf8("视频宫格已满，请切换更大布局后再连接"), 5000);
     });
     connect(m_deviceService, &PresenterDeviceService::deviceStateUpdated, this, &MainPresenter::onDeviceStateUpdated);
     connect(m_deviceService, &PresenterDeviceService::deviceAiInfoUpdated, this, &MainPresenter::onDeviceAiInfoUpdated);
@@ -47,12 +55,10 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
         if (m_view) m_view->onErrorOccurred(errorMsg);
     });
     connect(m_deviceService, &PresenterDeviceService::rtspOpened, this, [this](const QString& deviceId) {
-        Q_UNUSED(deviceId);
-        if (m_view) m_view->onRtspOpened();
+        if (m_view) m_view->onRtspOpened(deviceId);
     });
     connect(m_deviceService, &PresenterDeviceService::rtspError, this, [this](const QString& deviceId, const QString& msg) {
-        Q_UNUSED(deviceId);
-        if (m_view) m_view->onRtspError(msg);
+        if (m_view) m_view->onRtspError(deviceId, msg);
     });
     connect(m_deviceService, &PresenterDeviceService::imageSnapped, this, [this](const QString& deviceId, const QByteArray& jpegData, const QRect& location) {
         Q_UNUSED(deviceId);
@@ -86,13 +92,27 @@ MainPresenter::MainPresenter(IMainView* view, ConfigManager* cfg, QObject *paren
             [this](const QString& deviceId, bool value) {
         if (deviceId == currentDeviceId()) emit motorSilentChanged(value);
     });
+    connect(m_deviceService, &PresenterDeviceService::motorCurrentChanged, this,
+            [this](const QString& deviceId, int run, int hold, int delay) {
+        if (deviceId == currentDeviceId()) emit motorCurrentChanged(run, hold, delay);
+    });
     connect(m_deviceService, &PresenterDeviceService::commandSent, this,
             [this](const QString& deviceId, const QString& type, const QByteArray& data) {
         if (deviceId == currentDeviceId()) emit commandSentToLog(type, data);
     });
 
+    connect(m_deviceService, &PresenterDeviceService::rtspStatsChanged, this,
+            [this](const QString& deviceId, const RtspThread::Stats& stats) {
+        if (deviceId != currentDeviceId()) return;
+        emit rtspStatsChanged(deviceId, stats);
+        if (m_view) m_view->onRtspStats(deviceId, stats);
+    });
+
     // 设备切换后重置状态缓存
     connect(m_deviceService, &PresenterDeviceService::deviceSwitched, this, &MainPresenter::onDeviceSwitched);
+
+    // 注：currentDeviceChanged → 设备树标记由 View 自行订阅，
+    // 避免把设备树这一具体控件细节塞进 IMainView 窄接口。
 
     // DeviceService 内部初始化 EventBus 连接
     m_deviceService->setupEventBus();
@@ -114,7 +134,8 @@ QString MainPresenter::currentDeviceId() const
 
 void MainPresenter::connectToDevice(const QString& ip, quint16 port)
 {
-    m_deviceService->connectToDevice(m_deviceService->currentDeviceId(), ip, port);
+    DeviceContext* ctx = currentDevice();
+    if (ctx) ctx->connectDevice(ip, port);
 }
 
 void MainPresenter::disconnectDevice()
@@ -147,6 +168,11 @@ void MainPresenter::initPtzForwarder()
     m_motorService->initPtzForwarder(m_deviceService->currentDeviceId());
 }
 
+void MainPresenter::initPtzForwarderForDevice(const QString& deviceId)
+{
+    m_motorService->initPtzForwarder(deviceId);
+}
+
 bool MainPresenter::isMotorSerialOpen() const
 {
     DeviceContext* ctx = currentDevice();
@@ -159,6 +185,18 @@ bool MainPresenter::isMotorTcpOpen() const
     return ctx && ctx->isMotorTcpOpen();
 }
 
+QString MainPresenter::motorProtocol() const
+{
+    DeviceContext* ctx = currentDevice();
+    return ctx ? ctx->deviceConfig().motorProtocol : m_cfg->motorProtocol();
+}
+
+QString MainPresenter::motorCommandChannel() const
+{
+    DeviceContext* ctx = currentDevice();
+    return ctx ? ctx->deviceConfig().motorCommandChannel : m_cfg->motorCommandChannel();
+}
+
 bool MainPresenter::isVideoStreamRunning() const
 {
     return m_mediaService->isStreamRunning(currentDevice());
@@ -167,39 +205,6 @@ bool MainPresenter::isVideoStreamRunning() const
 void MainPresenter::closeVideoStream()
 {
     m_mediaService->closeStream(currentDevice());
-}
-
-// --- Extracted from MainWindow ---
-void MainPresenter::on_btnConnect_clicked()
-{
-    if (isDeviceConnected()) {
-        m_deviceService->disconnectDevice(m_deviceService->currentDeviceId());
-    } else {
-        if (!m_cfg->turntableIpEnabled()) {
-             m_view->showStatusMessage(QString::fromUtf8("转台IP连接已禁用"), 3000);
-             return;
-        }
-        QString ip = m_view->ipText();
-        m_deviceService->connectToDevice(m_deviceService->currentDeviceId(), ip, m_cfg->deviceTcpPort());
-        m_view->setConnectButton(QString::fromUtf8("连接中..."), false, QString(), true);
-    }
-}
-
-void MainPresenter::on_btnCancelConnect_clicked()
-{
-    m_deviceService->disconnectDevice(m_deviceService->currentDeviceId());
-    m_view->setConnectButton(QString::fromUtf8("连接设备"), true, QString(), false);
-    m_view->showStatusMessage(QString::fromUtf8("已取消连接"), 3000);
-}
-
-void MainPresenter::on_btnVideoConnect_clicked()
-{
-    m_mediaService->connectStream(currentDevice(), m_view->rtspUrlText());
-}
-
-void MainPresenter::on_btnVideoDisconnect_clicked()
-{
-    m_mediaService->disconnectStream(currentDevice());
 }
 
 void MainPresenter::on_btnPtzMoveTo_clicked()
@@ -231,9 +236,19 @@ void MainPresenter::on_btnPtzMoveToGps_clicked()
         return;
     }
 
-    double targetLon = GeoCalculator::parseCoord(lonStr);
-    double targetLat = GeoCalculator::parseCoord(latStr);
-    double targetAlt = altStr.toDouble();
+    bool lonOk = false;
+    bool latOk = false;
+    double targetLon = GeoCalculator::parseCoord(lonStr, &lonOk);
+    double targetLat = GeoCalculator::parseCoord(latStr, &latOk);
+    // 高度可留空（按 0 处理），但填了就必须是合法数值
+    bool altOk = true;
+    double targetAlt = 0.0;
+    if (!altStr.isEmpty()) targetAlt = altStr.toDouble(&altOk);
+    if (!lonOk || !latOk || !altOk) {
+        QMessageBox::warning(m_view->asWidget(), "输入错误",
+                             "请输入有效的目标经度、纬度与高度。");
+        return;
+    }
 
     double devLat = GeoCalculator::parseCoord(m_view->statLatitudeText());
     double devLon = GeoCalculator::parseCoord(m_view->statLongitudeText());
@@ -288,7 +303,7 @@ void MainPresenter::on_btnPanZeroCalib_clicked()
 
             m_controlService->setPtzOffsets(currentDeviceId(), newPanOffset, newTiltOffset);
 
-            m_view->showDeviceState(-1, QString(), QString(), QString(), "0.0°", "0.0°");
+            m_view->showDeviceState(QString(), QString(), QString(), "0.0°", "0.0°");
             m_view->showStatusMessage("零点标定(软件偏置)已保存", 3000);
         } else {
             m_controlService->ptzSetZero(currentDeviceId());
@@ -309,15 +324,25 @@ void MainPresenter::on_btnSetLocation_clicked()
         return;
     }
 
+    bool latOk = false;
+    bool lonOk = false;
+    double latNum = GeoCalculator::parseCoord(latStr, &latOk);
+    double lonNum = GeoCalculator::parseCoord(lonStr, &lonOk);
+    QString altStr = m_view->setHeightText().trimmed();
+    bool altOk = true;
+    double altNum = 0.0;
+    if (!altStr.isEmpty()) altNum = altStr.toDouble(&altOk);
+    if (!latOk || !lonOk || !altOk) {
+        QMessageBox::warning(m_view->asWidget(), QString::fromUtf8("输入错误"),
+                             QString::fromUtf8("请输入有效的经纬度/高度数值"));
+        return;
+    }
+
     if (!m_view->requireConnected()) return;
 
-    double latNum = GeoCalculator::parseCoord(latStr);
-    double lonNum = GeoCalculator::parseCoord(lonStr);
-
-    QString altStr = m_view->setHeightText().trimmed();
     if (!altStr.isEmpty()) {
-        m_deviceHeight = altStr.toDouble();
-        m_view->showDeviceState(-1, QString(), QString(),
+        m_deviceHeight = altNum;
+        m_view->showDeviceState(QString(), QString(),
                                 QString::number(m_deviceHeight, 'f', 1) + QStringLiteral(" m"),
                                 QString(), QString());
     }
@@ -354,23 +379,26 @@ void MainPresenter::onDeviceAiTimeout(const QString& deviceId)
     m_view->mapClearFov();
 }
 
-void MainPresenter::onDeviceDoubleClicked(const QString& name, const QString& ip, const QString& rtspUrl)
+void MainPresenter::onDeviceActivated(const QString& deviceId, const DeviceEntry& entry)
 {
-    QString deviceId = QString("dev_%1").arg(ip);
-    m_deviceService->switchToDevice(deviceId, ip, rtspUrl);
+    m_deviceService->activateDevice(deviceId, entry);
 }
 
-void MainPresenter::onDeviceToggleConnect(const QString& ip)
+void MainPresenter::onDeviceToggleConnect(const QString& deviceId, const DeviceEntry& entry)
 {
-    m_deviceService->toggleDeviceConnect(ip);
+    m_deviceService->toggleDeviceConnect(deviceId, entry);
 }
 
-void MainPresenter::onDeviceRemoved(const QString& ip)
+void MainPresenter::selectDevice(const QString& deviceId)
 {
-    const QString deviceId = QString("dev_%1").arg(ip);
+    m_deviceService->focusDevice(deviceId);
+}
+
+void MainPresenter::onDeviceRemoved(const QString& deviceId)
+{
     m_stateService->deviceRemoved(deviceId);
     m_mapService->resetDevice(deviceId);
-    m_deviceService->removeDevice(ip);
+    m_deviceService->removeDevice(deviceId);
 }
 
 //============================================================================
@@ -389,10 +417,6 @@ void MainPresenter::onDeviceStateUpdated(const QString& deviceId, std::shared_pt
 void MainPresenter::onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc) {
     m_stateService->updateAi(deviceId, aiDoc);
     updateAiInfoFromJson(deviceId, aiDoc);
-}
-
-void MainPresenter::startVideoStream(const QString& url) {
-    m_mediaService->startStream(currentDevice(), url);
 }
 
 bool MainPresenter::isDeviceConnected() const {
@@ -417,6 +441,18 @@ void MainPresenter::onDeviceSwitched()
     }
     m_updatingFromDevice = false;
     if (snapshot.hasAi) updateAiInfoFromJson(deviceId, snapshot.aiInfo);
+    refreshSwitchView(deviceId);
+    emit currentDeviceChanged(deviceId);
+}
+
+void MainPresenter::refreshSwitchView(const QString& deviceId)
+{
+    if (!m_view) return;
+    const DeviceConfig cfg = m_deviceService->currentDevice() ? m_deviceService->currentDevice()->deviceConfig() : DeviceConfig();
+    m_view->setDigitalZoomChecked(cfg.digitalZoom);
+    m_view->setAutoZoomChecked(cfg.autoZoom);
+    m_view->setCaptureUploadChecked(cfg.captureUpload);
+    m_view->setPosResetChecked(cfg.posReset);
 }
 
 void MainPresenter::updateAiInfoFromJson(const QString& deviceId, const QJsonObject& aiDoc)
@@ -426,14 +462,14 @@ void MainPresenter::updateAiInfoFromJson(const QString& deviceId, const QJsonObj
     m_aiViewService->updateAiInfo(deviceId, aiDoc, state, currentStateViewCache());
 }
 
-void MainPresenter::onDeviceConnected()
+void MainPresenter::onDeviceConnected(const QString& deviceId)
 {
-    if (m_view) m_view->onDeviceConnected();
+    if (m_view) m_view->onDeviceConnected(deviceId);
 }
 
-void MainPresenter::onDeviceDisconnected()
+void MainPresenter::onDeviceDisconnected(const QString& deviceId)
 {
-    if (m_view) m_view->onDeviceDisconnected();
+    if (m_view) m_view->onDeviceDisconnected(deviceId);
 }
 
 void MainPresenter::resetDeviceStateCache()
@@ -463,6 +499,11 @@ void MainPresenter::initMotorChannel()
 void MainPresenter::applyMotorChannel()
 {
     m_motorService->applyMotorChannel(m_deviceService->currentDeviceId());
+}
+
+void MainPresenter::applyMotorChannelForDevice(const QString& deviceId)
+{
+    m_motorService->applyMotorChannel(deviceId);
 }
 
 void MainPresenter::onWiperStart()
@@ -516,15 +557,29 @@ void MainPresenter::onWiperSilent()
 void MainPresenter::onWiperCurrentSet()
 {
     if (!m_view->requireMotorReady()) return;
-    int ma = m_view->wiperCurrentMa();
-    m_motorService->onWiperCurrentSet(m_deviceService->currentDeviceId(), ma);
-    m_view->showStatusMessage(
-        QString("正在下发并固化电机电流: %1 mA").arg(ma), 3000);
+    int run = m_view->wiperRunCurrent();
+    int hold = m_view->wiperHoldCurrent();
+    int delay = m_view->wiperHoldDelay();
+    m_motorService->onWiperCurrentSet(m_deviceService->currentDeviceId(), run, hold, delay);
+
+    DeviceContext* ctx = currentDevice();
+    const QString proto = ctx ? ctx->deviceConfig().motorProtocol : QString();
+    if (proto == "STM32-TCP-V4.0") {
+        m_view->showStatusMessage(
+            QString("正在下发电流: 运行%1 保持%2 延迟%3").arg(run).arg(hold).arg(delay), 3000);
+    } else {
+        m_view->showStatusMessage(QString("正在下发电流: 运行%1 mA").arg(run), 3000);
+    }
 }
 
 void MainPresenter::checkMotorMode()
 {
     m_motorService->checkMotorMode(m_deviceService->currentDeviceId());
+}
+
+void MainPresenter::readMotorCurrent()
+{
+    m_motorService->readMotorCurrent(m_deviceService->currentDeviceId());
 }
 
 void MainPresenter::on_btnCallPreset_clicked()
@@ -562,8 +617,7 @@ void MainPresenter::onCheckDigitalZoomToggled(bool checked)
     }
     m_lastAckFrameType = FrameType::SetDigitalZoom;
     m_controlService->setDigitalZoom(currentDeviceId(), checked);
-    m_cfg->setDigitalZoomEnabled(checked);
-    m_cfg->save();
+    saveDeviceSwitchConfig([](DeviceConfig& c, bool v) { c.digitalZoom = v; }, checked);
 }
 
 void MainPresenter::onCheckAutoZoomToggled(bool checked)
@@ -574,8 +628,7 @@ void MainPresenter::onCheckAutoZoomToggled(bool checked)
     }
     m_lastAckFrameType = FrameType::SetAlgoModel;
     m_controlService->setAutoZoom(currentDeviceId(), checked);
-    m_cfg->setAutoZoomEnabled(checked);
-    m_cfg->save();
+    saveDeviceSwitchConfig([](DeviceConfig& c, bool v) { c.autoZoom = v; }, checked);
 }
 
 void MainPresenter::onCheckCaptureUploadToggled(bool checked)
@@ -586,8 +639,7 @@ void MainPresenter::onCheckCaptureUploadToggled(bool checked)
     }
     m_lastAckFrameType = FrameType::SetCaptureState;
     m_controlService->setCaptureUpload(currentDeviceId(), checked);
-    m_cfg->setCaptureUploadEnabled(checked);
-    m_cfg->save();
+    saveDeviceSwitchConfig([](DeviceConfig& c, bool v) { c.captureUpload = v; }, checked);
 }
 
 void MainPresenter::onCheckPosResetToggled(bool checked)
@@ -598,8 +650,15 @@ void MainPresenter::onCheckPosResetToggled(bool checked)
     }
     m_lastAckFrameType = FrameType::SetPosReset;
     m_controlService->setPosReset(currentDeviceId(), checked);
-    m_cfg->setPosResetEnabled(checked);
-    m_cfg->save();
+    saveDeviceSwitchConfig([](DeviceConfig& c, bool v) { c.posReset = v; }, checked);
+}
+
+void MainPresenter::saveDeviceSwitchConfig(const std::function<void(DeviceConfig&, bool)>& setter, bool value)
+{
+    DeviceContext* ctx = currentDevice();
+    if (!ctx) return;
+    setter(ctx->deviceConfig(), value);
+    emit deviceConfigChanged(currentDeviceId(), ctx->deviceConfig());
 }
 
 // ============================================================================

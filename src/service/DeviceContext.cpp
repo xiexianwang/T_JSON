@@ -3,15 +3,16 @@
 #include "core/JsonFrameParser.h"
 #include "core/GeoCalculator.h"
 
-DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObject *parent)
+DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, const DeviceConfig& devCfg, QObject *parent)
     : QObject(parent)
     , m_deviceId(deviceId)
     , m_cfg(cfg)
+    , m_devCfg(devCfg)
     , m_state(std::make_shared<DeviceState>())
 {
     // 初始化底层驱动组件
     m_tcp = new TJsonClient(this);
-    m_motor = new DeviceController(m_tcp, m_cfg, this);
+    m_motor = new DeviceController(m_tcp, m_cfg, &m_devCfg, this);
     m_video = new RtspThread(this);
     m_ptz = new PtzForwarder(this);
     setupTimers();
@@ -20,6 +21,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
     connect(m_motor, &DeviceController::commandSent, this, &DeviceContext::commandSent);
     connect(m_motor, &DeviceController::motorModeResult, this, &DeviceContext::motorModeResult);
     connect(m_motor, &DeviceController::motorSilentResult, this, &DeviceContext::motorSilentResult);
+    connect(m_motor, &DeviceController::motorCurrentResult, this, &DeviceContext::motorCurrentResult);
     connect(m_motor, &DeviceController::motorSerialError, this, &DeviceContext::motorSerialError);
     connect(m_motor, &DeviceController::motorTcpError, this, &DeviceContext::motorTcpError);
 
@@ -30,6 +32,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
 
         if (controlType == "ZoomInfo") {
             auto zoom = ZoomInfoData::parse(doc);
+            m_state->hasZoomInfo = true;
             m_state->currentVisZoom = zoom.visZoom;
             m_state->currentIrZoom = zoom.irZoom;
             m_state->camShowMode = zoom.camShowMode;
@@ -45,6 +48,7 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
         }
         else if (controlType == "ImageSetting") {
             auto img = ImageSettingData::parse(doc);
+            m_state->hasImageSetting = true;
             m_state->imgSize = img.imgSize;
             m_state->bitrate = img.bitrate;
             m_state->codec = img.codec;
@@ -73,12 +77,16 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, QObjec
                 AiTargetItem item;
                 item.id = t.id;
                 item.cls = t.cls;
+                item.state = t.state;
                 item.distance = t.distance;
                 item.hasPoints = t.hasPoints;
                 item.left = t.left;
                 item.top = t.top;
                 item.right = t.right;
                 item.bottom = t.bottom;
+                item.angleHor = t.angleHor;
+                item.angleVer = t.angleVer;
+                item.hasAngle = t.hasAngle;
                 m_state->aiTargets.append(item);
             }
             EventBus::instance().postDeviceAiInfoUpdated(m_deviceId, doc, m_sessionGeneration);
@@ -170,7 +178,32 @@ bool DeviceContext::isConnected() const
 void DeviceContext::startVideo(const QString& url)
 {
     if (m_lifecycleState != State::Active) return;
-    m_video->openStream(url);
+
+    // 从全局配置组装 RTSP 会话参数（可按需扩展为每设备覆盖）
+    RtspThread::StreamConfig cfg;
+    if (m_cfg) {
+        cfg.transport = m_cfg->rtspTransport();
+        cfg.ioTimeoutMs = m_cfg->rtspIoTimeoutMs();
+        cfg.stallTimeoutMs = m_cfg->rtspStallTimeoutMs();
+        cfg.backoffInitialMs = m_cfg->rtspBackoffInitialMs();
+        cfg.backoffMaxMs = m_cfg->rtspBackoffMaxMs();
+        cfg.backoffJitterPercent = m_cfg->rtspBackoffJitterPercent();
+        cfg.maxRetries = m_cfg->rtspMaxRetries();
+        cfg.minSessionMs = m_cfg->rtspMinSessionMs();
+        cfg.tcpKeepAlive = m_cfg->rtspTcpKeepAlive();
+    }
+    m_video->openStream(url, cfg);
+}
+
+bool DeviceContext::isVideoHealthy() const
+{
+    const RtspThread::Stats s = m_video->stats();
+    return s.connected && s.healthy;
+}
+
+RtspThread::Stats DeviceContext::videoStats() const
+{
+    return m_video->stats();
 }
 
 void DeviceContext::stopVideo()
@@ -428,6 +461,12 @@ void DeviceContext::motorCheckMode()
     m_motor->motorCheckMode();
 }
 
+void DeviceContext::motorReadCurrent()
+{
+    if (!isActive()) return;
+    m_motor->motorReadCurrent();
+}
+
 void DeviceContext::motorToggleMode()
 {
     if (!isActive()) return;
@@ -440,24 +479,29 @@ void DeviceContext::motorToggleSilentMode()
     m_motor->motorToggleSilentMode();
 }
 
-void DeviceContext::motorSetCurrent(int ma)
+void DeviceContext::motorSetCurrent(int run, int hold, int delay)
 {
     if (!isActive()) return;
-    m_motor->motorSetCurrent(ma);
+    m_motor->motorSetCurrent(run, hold, delay);
 }
 
 // ============================================================================
 // PTZ 转发服务
 // ============================================================================
-void DeviceContext::startPtzForwarder(const QString& ptzIp, quint16 ptzPort, quint16 mockServerPort)
+void DeviceContext::startPtzForwarder()
 {
     if (!isActive()) return;
-    m_ptz->start(ptzIp, ptzPort, mockServerPort);
+    if (m_devCfg.serialServerEnabled && m_devCfg.turntableIpEnabled) {
+        m_ptz->setOffsets(m_devCfg.ptzPanOffset, m_devCfg.ptzTiltOffset);
+        m_ptz->start(m_devCfg.serialIp, m_devCfg.serialPort, m_devCfg.mockServerPort);
+    }
 }
 
 void DeviceContext::setPtzOffsets(double panOffset, double tiltOffset)
 {
     if (!isActive()) return;
+    m_devCfg.ptzPanOffset = panOffset;
+    m_devCfg.ptzTiltOffset = tiltOffset;
     m_ptz->setOffsets(panOffset, tiltOffset);
 }
 
@@ -535,5 +579,11 @@ void DeviceContext::setupTimers()
     connect(m_tcp, &TJsonClient::reconnectFailed, this, [this]() {
         if (!isActive()) return;
         EventBus::instance().postDeviceReconnectFailed(m_deviceId, m_sessionGeneration);
+    });
+
+    // RTSP 会话统计（链路健康度）转发给业务层
+    connect(m_video, &RtspThread::statsChanged, this, [this](const RtspThread::Stats& stats) {
+        if (!isActive()) return;
+        emit rtspStatsChanged(stats);
     });
 }

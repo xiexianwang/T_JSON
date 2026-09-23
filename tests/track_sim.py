@@ -59,25 +59,33 @@ def zoominfo_frame(lat: float, lon: float, height: float = 50,
     return build_frame(FRAME_TYPE_STATUS, json.dumps(data).encode())
 
 
-def aiinfo_frame(objects: list, work_mode: int = 2) -> bytes:
+def aiinfo_frame(objects: list, work_mode: int = 2, model: int = 13) -> bytes:
     """构建 AIInfo 状态帧
 
     objects: [
-        { id, cls, distance, left, top, right, bottom },
+        { id, cls, state, distance, left, top, right, bottom, hor, ver },
         ...
     ]
     work_mode: 2=自动跟踪, 3=点选跟踪, 4=框选跟踪
+    cls  : Class 目标类型 (0xA0-0xA4)
+    state: State 跟踪状态 (0xB1 跟踪正常 / 0xB2 跟踪丢失)
+    model: 算法模型（ImageSetting.Model），用于类型名映射
     """
     obj_dict = {}
     for o in objects:
         obj_dict[o['id']] = {
-            "Class": o.get('cls', 0xB1),
+            "Class": o.get('cls', 0xA1),
+            "State": o.get('state', 0xB1),
             "Distance": o.get('distance', 500),
             "Points": {
                 "Left": o['left'],
                 "Top": o['top'],
                 "Right": o['right'],
                 "Bottom": o['bottom']
+            },
+            "Angle": {
+                "Hor": o.get('hor', 0.0),
+                "Ver": o.get('ver', 0.0)
             }
         }
     data = {
@@ -194,18 +202,22 @@ def run_track_scenario(server: SimServer):
 
         # 模拟失锁：短时丢失(步12~15)和长时丢失(步60~89)
         t_step = step % 90
-        cls_val = 0xB2 if (t_step >= 60) or (12 <= t_step < 16) else 0xB1
+        state_val = 0xB2 if (t_step >= 60) or (12 <= t_step < 16) else 0xB1
+        cls_val = 0xA3  # Class: infrared ship model(13) -> 0xA3 = ship
 
         obj = {
             'id': TID,
             'cls': cls_val,
+            'state': state_val,
             'distance': RANGE,
             'left': max(0, CX + dx - bw // 2),
             'top': max(0, CY + dy - bh // 2),
             'right': min(2687, CX + dx + bw // 2),
             'bottom': min(1519, CY + dy + bh // 2),
+            'hor': PAN,
+            'ver': TILT,
         }
-        server.send(aiinfo_frame([obj]))
+        server.send(aiinfo_frame([obj], model=13))
         server.discard_input()
 
         # 每步刷新 ZoomInfo 保持 FOV 更新
@@ -214,7 +226,7 @@ def run_track_scenario(server: SimServer):
         server.discard_input()
 
         timestamp = time.strftime("%H:%M:%S")
-        status = "锁定" if cls_val == 0xB1 else "丢失"
+        status = "跟踪正常" if state_val == 0xB1 else "跟踪丢失"
         print(f"  [{timestamp}] {TID:5s} {status} Pan={PAN:6.1f}° 偏移 dx={dx:+4d} dy={dy:+4d}")
         time.sleep(0.2)
         step += 1

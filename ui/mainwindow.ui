@@ -246,6 +246,25 @@
             </widget>
            </item>
            <item>
+            <widget class="QPushButton" name="btnMapToggle">
+             <property name="minimumSize">
+              <size>
+               <width>45</width>
+               <height>38</height>
+              </size>
+             </property>
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::NoFocus</enum>
+             </property>
+             <property name="text">
+              <string>地图</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="btnMenu_Min">
              <property name="minimumSize">
               <size>
@@ -313,119 +332,6 @@
            </item>
           </layout>
          </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_combined">
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QLabel" name="label_ip">
-             <property name="text">
-              <string>设备 IP:</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLineEdit" name="lineEditIp">
-             <property name="maximumSize">
-              <size>
-               <width>130</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>192.168.1.200</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btnConnect">
-             <property name="text">
-              <string>连接设备</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btnCancelConnect">
-             <property name="visible">
-              <bool>false</bool>
-             </property>
-             <property name="text">
-              <string>取消</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLabel" name="labelRtsp">
-             <property name="text">
-              <string>RTSP 地址:</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLineEdit" name="lineEditRtsp">
-             <property name="maximumSize">
-              <size>
-               <width>280</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>rtsp://admin:admin@192.168.1.200:554/live/1</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btnVideoConnect">
-             <property name="text">
-              <string>开启</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btnVideoDisconnect">
-             <property name="text">
-              <string>关闭</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btnMapToggle">
-             <property name="minimumSize">
-              <size>
-               <width>45</width>
-               <height>24</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>36</width>
-               <height>24</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>地图</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
         </layout>
        </item>
       </layout>
@@ -433,6 +339,18 @@
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_middle">
+      <property name="leftMargin">
+       <number>4</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>4</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
       <item>
        <widget class="QWidget" name="widgetDisplay" native="true">
         <property name="sizePolicy">
@@ -914,38 +832,68 @@
              </item>
              <item>
               <layout class="QHBoxLayout" name="horizontalLayout_wiper_current">
+               <property name="spacing">
+                <number>6</number>
+               </property>
                <item>
-                <widget class="QLabel" name="lblWiperCurrent">
+                <widget class="QLabel" name="lblWiperRunCurrent">
                  <property name="text">
-                  <string>电机电流(mA):</string>
+                  <string>运行电流:</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QLineEdit" name="editWiperCurrent">
-                 <property name="minimumSize">
+                <widget class="QLineEdit" name="editWiperRunCurrent">
+                 <property name="maximumSize">
                   <size>
-                   <width>150</width>
-                   <height>0</height>
+                   <width>64</width>
+                   <height>16777215</height>
                   </size>
                  </property>
                  <property name="placeholderText">
-                  <string>输入电流0-2000，回车设置</string>
+                  <string>1-31</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <spacer name="horizontalSpacer_wiper_current">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
+                <widget class="QLabel" name="lblWiperHoldCurrent">
+                 <property name="text">
+                  <string>保持电流:</string>
                  </property>
-                 <property name="sizeHint" stdset="0">
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="editWiperHoldCurrent">
+                 <property name="maximumSize">
                   <size>
-                   <width>40</width>
-                   <height>20</height>
+                   <width>64</width>
+                   <height>16777215</height>
                   </size>
                  </property>
-                </spacer>
+                 <property name="placeholderText">
+                  <string>1-31</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="lblWiperHoldDelay">
+                 <property name="text">
+                  <string>延迟:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="editWiperHoldDelay">
+                 <property name="maximumSize">
+                  <size>
+                   <width>64</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="placeholderText">
+                  <string>0-15</string>
+                 </property>
+                </widget>
                </item>
               </layout>
              </item>
@@ -1229,13 +1177,13 @@
         <number>4</number>
        </property>
        <property name="leftMargin">
-        <number>0</number>
+        <number>4</number>
        </property>
        <property name="topMargin">
         <number>5</number>
        </property>
        <property name="rightMargin">
-        <number>0</number>
+        <number>4</number>
        </property>
        <property name="bottomMargin">
         <number>0</number>
@@ -1264,8 +1212,20 @@
           </item>
           <item row="0" column="1">
            <widget class="QLineEdit" name="statPanAngle">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>0.0°</string>
             </property>
            </widget>
           </item>
@@ -1278,36 +1238,129 @@
           </item>
           <item row="0" column="3">
            <widget class="QLineEdit" name="statTiltAngle">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>0.0°</string>
             </property>
            </widget>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>模式:</string>
+             <string>高度:</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QLineEdit" name="statCamMode">
+           <widget class="QLineEdit" name="statHeight">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
            </widget>
           </item>
-          <item row="1" column="2">
-           <widget class="QLabel" name="label_wiper">
+          <item row="2" column="0">
+           <widget class="QLabel" name="label">
             <property name="text">
-             <string>雨刷:</string>
+             <string>经度:</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="3">
-           <widget class="QLineEdit" name="statWiperStatus">
+          <item row="2" column="1" colspan="3">
+           <widget class="QLineEdit" name="statLongitude">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label">
             <property name="text">
-             <string notr="true"/>
+             <string>纬度:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1" colspan="3">
+           <widget class="QLineEdit" name="statLatitude">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="dashGroupMotor">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="title">
+          <string>电机参数</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_motor">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_motorMode">
+            <property name="text">
+             <string>模式:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="editMotorMode">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>自动/静音</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_motorRun">
+            <property name="text">
+             <string>运行电流:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="editMotorRunCurrent">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
             </property>
             <property name="alignment">
              <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1318,42 +1371,46 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="label">
+           <widget class="QLabel" name="label_motorHold">
             <property name="text">
-             <string>纬度:</string>
+             <string>保持电流:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="statLatitude">
-            <property name="readOnly">
-             <bool>true</bool>
+           <widget class="QLineEdit" name="editMotorHoldCurrent">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
             </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>经度:</string>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
-           </widget>
-          </item>
-          <item row="2" column="3">
-           <widget class="QLineEdit" name="statLongitude">
             <property name="readOnly">
              <bool>true</bool>
             </property>
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLabel" name="label">
+           <widget class="QLabel" name="label_motorDelay">
             <property name="text">
-             <string>高度:</string>
+             <string>延迟:</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLineEdit" name="statHeight">
+           <widget class="QLineEdit" name="editMotorHoldDelay">
+            <property name="maximumSize">
+             <size>
+              <width>70</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
             <property name="readOnly">
              <bool>true</bool>
             </property>
@@ -1408,7 +1465,7 @@
            <widget class="QLineEdit" name="statFocalVis">
             <property name="maximumSize">
              <size>
-              <width>60</width>
+              <width>80</width>
               <height>16777215</height>
              </size>
             </property>
@@ -1448,7 +1505,7 @@
            <widget class="QLineEdit" name="statFocusVis">
             <property name="maximumSize">
              <size>
-              <width>60</width>
+              <width>80</width>
               <height>16777215</height>
              </size>
             </property>
@@ -1488,7 +1545,7 @@
            <widget class="QLineEdit" name="statFocalIR">
             <property name="maximumSize">
              <size>
-              <width>60</width>
+              <width>80</width>
               <height>16777215</height>
              </size>
             </property>
@@ -1528,7 +1585,7 @@
            <widget class="QLineEdit" name="statFocusIR">
             <property name="maximumSize">
              <size>
-              <width>60</width>
+              <width>80</width>
               <height>16777215</height>
              </size>
             </property>
@@ -1630,7 +1687,7 @@
           <property name="spacing">
            <number>2</number>
           </property>
-          <item row="0" column="0" colspan="2">
+          <item row="0" column="0" colspan="4">
            <widget class="QLabel" name="lblTrackStatus">
             <property name="text">
              <string>状态: 未锁定</string>
@@ -1640,11 +1697,39 @@
           <item row="1" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>坐标:</string>
+             <string>类型:</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
+           <widget class="QLineEdit" name="trackTargetType">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>距离:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="trackDistance">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>坐标:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1" colspan="3">
            <widget class="QLineEdit" name="trackPos">
             <property name="minimumSize">
              <size>
@@ -1657,28 +1742,28 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>距离:</string>
+             <string>角度:</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
-           <widget class="QLineEdit" name="trackDistance">
+          <item row="3" column="1" colspan="3">
+           <widget class="QLineEdit" name="trackAngle">
             <property name="readOnly">
              <bool>true</bool>
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label">
             <property name="text">
              <string>脱靶:</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1" colspan="3">
            <widget class="QLineEdit" name="trackMissDistance">
             <property name="minimumSize">
              <size>

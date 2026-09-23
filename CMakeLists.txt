@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.19)
+
+# JOM 生成器在中文 Windows 上会写出 UTF-8 的 /showIncludes 前缀，
+# 而 cl.exe 实际输出 GBK，导致头文件依赖跟踪失效（改头文件不重编 → 陈旧 obj → 崩溃）。
+# 强制 CMake 使用自带依赖扫描器，绕开该编码不匹配问题。
+set(CMAKE_DEPENDS_USE_COMPILER FALSE)
+
 project(T-JSON LANGUAGES CXX)
+
+list(APPEND CMAKE_PREFIX_PATH "D:/Coding/Qt/6.11.2/msvc2022_64")
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Gui WebEngineWidgets WebChannel SerialPort Test)
 # Compute Qt binary directory from Qt6_DIR
@@ -34,6 +42,10 @@ qt_add_executable(T-JSON
     src/core/JsonFrameParser.cpp
     src/core/JsonFrameParser.h
     src/core/DeviceState.h
+    src/core/DeviceConfig.h
+    src/core/DeviceConfig.cpp
+    src/core/DeviceEntry.h
+    src/core/DeviceEntry.cpp
     src/core/DeviceTypes.h
     src/core/EventBus.cpp
     src/core/EventBus.h
@@ -100,9 +112,10 @@ qt_add_executable(T-JSON
     src/infrastructure/devicecontroller.h
     src/infrastructure/configmanager.cpp
     src/infrastructure/configmanager.h
-    src/ui/views/settingsdialog.cpp
-    src/ui/views/settingsdialog.h
-    ui/settingsdialog.ui
+    src/ui/views/devicepropertiesdialog.cpp
+    src/ui/views/devicepropertiesdialog.h
+    src/ui/views/wheelredirectfilter.cpp
+    src/ui/views/wheelredirectfilter.h
     ui/mapwidget.ui
     src/ui/views/videowidget.cpp
     src/ui/views/videowidget.h

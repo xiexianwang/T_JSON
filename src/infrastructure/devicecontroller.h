@@ -21,6 +21,7 @@
 #include "infrastructure/viscaprotocol.h"
 
 class DeviceCommandService;
+class DeviceConfig;
 
 // 设备控制器类
 // 协调 TJsonClient（网络通信）、ConfigManager（配置参数）与
@@ -41,7 +42,7 @@ public:
         return 0;
     }
 
-    explicit DeviceController(TJsonClient* client, ConfigManager* cfg, QObject *parent = nullptr);
+    explicit DeviceController(TJsonClient* client, ConfigManager* cfg, DeviceConfig* devCfg, QObject *parent = nullptr);
 
     // ================= 基础控制 =================
     void setWorkMode(int mode);             // 设置工作模式
@@ -83,9 +84,10 @@ public:
     void motorZeroCalib();                  // 零点校准
     void motorReturnZero();                 // 回到绝对位置零点
     void motorCheckMode();                  // 查询当前模式（手动/自动）
+    void motorReadCurrent();                // 读实际电流（MODBUS-RTU 寄存器 0x000D）
     void motorToggleMode();                 // 切换模式（手动↔自动）
     void motorToggleSilentMode();           // 切换静音/狂暴模式
-    void motorSetCurrent(int ma);           // 设置电机电流并固化
+    void motorSetCurrent(int run, int hold, int delay); // 设置运行/保持电流与切换延迟
 
     // ================= 镜头控制 (VISCA / Pelco-D) =================
     // target: 0=可见光(VISCA), 1=红外(Pelco-D)
@@ -110,12 +112,14 @@ signals:
     void commandSent(const QString& serialType, const QByteArray& data);  // 指令已发送通知
     void motorModeResult(bool isManual);  // 电机模式查询结果: true=手动, false=自动
     void motorSilentResult(bool isSilent); // 静音模式切换结果: true=静音, false=狂暴
+    void motorCurrentResult(int run, int hold, int delay); // motor_ack 上报电流
     void motorSerialError(const QString& msg);
     void motorTcpError(const QString& msg);
 
 private:
     TJsonClient* m_client;          // 网络客户端（非拥有指针）
     ConfigManager* m_cfg;           // 配置管理器（非拥有指针）
+    DeviceConfig* m_devCfg;         // 每设备配置（非拥有指针，由 DeviceContext 提供）
     DeviceCommandService* m_motorService;   // 电机指令服务（子对象）
 
     int m_lastLensTarget = 0;       // 最近一次镜头操作的目标（0=可见光, 1=红外）

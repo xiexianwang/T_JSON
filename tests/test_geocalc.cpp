@@ -15,6 +15,7 @@ private slots:
     void parseCoord_basic();
     void parseCoord_suffix();
     void parseCoord_invalid();
+    void parseCoord_strictOk();
 
     void haversine_known();
     void haversine_zero();
@@ -55,6 +56,19 @@ void TestGeoCalculator::parseCoord_invalid()
     QCOMPARE(GeoCalculator::parseCoord("abc"), 0.0);
     QCOMPARE(GeoCalculator::parseCoord(""), 0.0);
     QCOMPARE(GeoCalculator::parseCoord("12N"), 12.0); // 无小数合法
+}
+
+void TestGeoCalculator::parseCoord_strictOk()
+{
+    bool ok = false;
+    QCOMPARE(GeoCalculator::parseCoord("0", &ok), 0.0);
+    QVERIFY(ok);
+    QCOMPARE(GeoCalculator::parseCoord("31.5S", &ok), -31.5);
+    QVERIFY(ok);
+    QCOMPARE(GeoCalculator::parseCoord("abc", &ok), 0.0);
+    QVERIFY(!ok);
+    QCOMPARE(GeoCalculator::parseCoord("", &ok), 0.0);
+    QVERIFY(!ok);
 }
 
 void TestGeoCalculator::haversine_known()

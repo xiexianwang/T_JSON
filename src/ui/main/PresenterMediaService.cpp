@@ -19,7 +19,6 @@ void PresenterMediaService::connectStream(DeviceContext* device, const QString& 
         return;
     }
     device->startVideo(trimmedUrl);
-    m_view->setVideoConnectButton(QString::fromUtf8("连接中..."), false);
     m_view->showStatusMessage(QString::fromUtf8("正在连接 RTSP 视频流..."));
 }
 
@@ -28,7 +27,6 @@ void PresenterMediaService::disconnectStream(DeviceContext* device)
     if (!device || !m_view) return;
     device->stopVideo();
     m_view->repaintVideoGrid();
-    m_view->setVideoConnectButton(QString::fromUtf8("开启"), true);
     m_view->showStatusMessage(QString::fromUtf8("视频已断开"), 3000);
 }
 

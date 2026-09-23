@@ -5,23 +5,36 @@
 
 #include "devicecommandservice.h"
 #include "infrastructure/configmanager.h"
+#include "core/DeviceConfig.h"
 #include "infrastructure/modbustransport.h"
 #include "infrastructure/stm32tcptransport.h"
 #include <QTimer>
 #include <QJsonDocument>
 
-DeviceCommandService::DeviceCommandService(ConfigManager* cfg, QObject *parent)
+DeviceCommandService::DeviceCommandService(ConfigManager* cfg, DeviceConfig* devCfg, QObject *parent)
     : QObject(parent)
     , m_cfg(cfg)
+    , m_devCfg(devCfg)
 {
     m_modbus = new ModbusTransport(this);
     m_tcp = new Stm32TcpTransport(this);
 
-    // MODBUS 串口接收：识别模式查询应答 (data[1]==0x03)
+    // MODBUS 串口接收：仅对「读保持寄存器应答」(功能码 0x03, 2 字节数据) 消费请求 FIFO，
+    // 按请求顺序区分「模式查询(0x01B1)」与「电流读取(0x000D)」——两者应答结构相同。
+    // 写指令回显(0x06) 等其它帧不消费队列，避免错位。
     connect(m_modbus, &ModbusTransport::dataReceived, this, [this](const QByteArray& data) {
-        if (data.size() >= 5 && static_cast<quint8>(data.at(1)) == 0x03) {
-            bool isManual = (static_cast<quint8>(data.at(3)) == 0x01);
-            emit motorModeResult(isManual);
+        if (data.size() >= 5 && static_cast<quint8>(data.at(1)) == 0x03
+            && static_cast<quint8>(data.at(2)) == 0x02
+            && !m_modbusReadQueue.isEmpty()) {
+            const ModbusReadKind kind = m_modbusReadQueue.dequeue();
+            if (kind == ModbusReadKind::Mode) {
+                emit motorModeResult(static_cast<quint8>(data.at(3)) == 0x01);
+            } else {
+                quint16 ma = 0;
+                // MODBUS 无保持电流/延迟概念，hold/delay 置 -1 表示不适用
+                if (ModbusTransport::parseReadRegisterResponse(data, &ma))
+                    emit motorCurrentResult(static_cast<int>(ma), -1, -1);
+            }
         }
         emit commandSent("MODBUS_RECV", data);
     });
@@ -35,6 +48,15 @@ DeviceCommandService::DeviceCommandService(ConfigManager* cfg, QObject *parent)
         QJsonDocument doc = QJsonDocument::fromJson(data, &err);
         if (err.error != QJsonParseError::NoError || !doc.isObject()) return;
         QJsonObject obj = doc.object();
+
+        // 电机上报电流：motor_ack {run_current, hold_current, iholddelay}
+        if (obj.contains("run_current") || obj.contains("hold_current")) {
+            int run   = obj["run_current"].toInt(-1);
+            int hold  = obj["hold_current"].toInt(-1);
+            int delay = obj["iholddelay"].toInt(-1);
+            if (run >= 0 && hold >= 0 && delay >= 0)
+                emit motorCurrentResult(run, hold, delay);
+        }
 
         if (!obj.contains("status")) return;
         int status = obj["status"].toInt(-1);
@@ -65,6 +87,9 @@ DeviceCommandService::DeviceCommandService(ConfigManager* cfg, QObject *parent)
     });
 }
 
+QString DeviceCommandService::proto() const { return m_devCfg ? m_devCfg->motorProtocol : m_cfg->motorProtocol(); }
+QString DeviceCommandService::channel() const { return m_devCfg ? m_devCfg->motorCommandChannel : m_cfg->motorCommandChannel(); }
+
 void DeviceCommandService::setPelcoDSender(const std::function<void(const QByteArray&)>& sender)
 {
     m_pelcoDSender = sender;
@@ -91,7 +116,11 @@ bool DeviceCommandService::isMotorSerialOpen() const
 
 void DeviceCommandService::openMotorTcp()
 {
-    m_tcp->open(m_cfg->motorTcpIp(), m_cfg->motorTcpPort());
+    if (m_devCfg) {
+        m_tcp->open(m_devCfg->motorTcpIp, m_devCfg->motorTcpPort);
+    } else {
+        m_tcp->open(m_cfg->motorTcpIp(), m_cfg->motorTcpPort());
+    }
 }
 
 void DeviceCommandService::closeMotorTcp()
@@ -106,7 +135,7 @@ bool DeviceCommandService::isMotorTcpOpen() const
 
 void DeviceCommandService::sendModbus(const QByteArray& pkt)
 {
-    if (m_cfg->motorCommandChannel() == "串口") {
+    if (channel() == "串口") {
         if (!m_modbus->isOpen()) {
             emit motorSerialError(tr("电机串口未打开"));
             return;
@@ -137,9 +166,9 @@ void DeviceCommandService::sendMotorTcpV4(const QJsonObject& json)
 
 void DeviceCommandService::motorStart()
 {
-    if (m_cfg->motorProtocol() == "MODBUS-RTU") {
+    if (proto() == "MODBUS-RTU") {
         sendModbus(QByteArray::fromHex("01060037001039C8"));
-    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    } else if (proto() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
         cmd["action"] = 5;
         sendMotorTcpV4(cmd);
@@ -150,9 +179,13 @@ void DeviceCommandService::motorStart()
 
 void DeviceCommandService::motorStop()
 {
-    if (m_cfg->motorProtocol() == "MODBUS-RTU") {
+    if (proto() == "MODBUS-RTU") {
         sendModbus(QByteArray::fromHex("0106003800000807"));
-    } else if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+        // 停止需连续下发两条指令，帧间隔 50ms
+        QTimer::singleShot(50, this, [this]() {
+            sendModbus(QByteArray::fromHex("01060037000439C7"));
+        });
+    } else if (proto() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
         cmd["action"] = 8;
         sendMotorTcpV4(cmd);
@@ -163,7 +196,7 @@ void DeviceCommandService::motorStop()
 
 void DeviceCommandService::motorWiperStop()
 {
-    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    if (proto() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
         cmd["action"] = 8;
         sendMotorTcpV4(cmd);
@@ -179,7 +212,7 @@ void DeviceCommandService::motorWiperStop()
 
 void DeviceCommandService::motorJogLeft()
 {
-    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    if (proto() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
         cmd["action"] = 3;
         cmd["target_pos"] = 50000;
@@ -187,13 +220,13 @@ void DeviceCommandService::motorJogLeft()
         sendMotorTcpV4(cmd);
         return;
     }
-    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    if (proto() != "MODBUS-RTU") return;
     sendModbus(QByteArray::fromHex("01060037008039A4"));
 }
 
 void DeviceCommandService::motorJogRight()
 {
-    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    if (proto() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
         cmd["action"] = 4;
         cmd["target_pos"] = 50000;
@@ -201,37 +234,46 @@ void DeviceCommandService::motorJogRight()
         sendMotorTcpV4(cmd);
         return;
     }
-    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    if (proto() != "MODBUS-RTU") return;
     sendModbus(QByteArray::fromHex("01060037004039F4"));
 }
 
 void DeviceCommandService::motorZeroCalib()
 {
-    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    if (proto() != "MODBUS-RTU") return;
     sendModbus(QByteArray::fromHex("0106003A00016807"));
 }
 
 void DeviceCommandService::motorReturnZero()
 {
-    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    if (proto() == "STM32-TCP-V4.0") {
         QJsonObject cmd;
         cmd["action"] = 2;
         sendMotorTcpV4(cmd);
         return;
     }
-    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    if (proto() != "MODBUS-RTU") return;
     sendModbus(QByteArray::fromHex("01060037000439C7"));
 }
 
 void DeviceCommandService::motorCheckMode()
 {
-    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    if (proto() != "MODBUS-RTU") return;
+    m_modbusReadQueue.enqueue(ModbusReadKind::Mode);
     sendModbus(QByteArray::fromHex("010301B10001D5D1"));
+}
+
+void DeviceCommandService::motorReadCurrent()
+{
+    if (proto() != "MODBUS-RTU") return;
+    m_modbusReadQueue.enqueue(ModbusReadKind::Current);
+    // 读保持寄存器 0x000D（实际电流）
+    sendModbus(QByteArray::fromHex("0103000D000115C9"));
 }
 
 void DeviceCommandService::motorToggleMode()
 {
-    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    if (proto() == "STM32-TCP-V4.0") {
         m_tcpIsAuto = !m_tcpIsAuto;
         QJsonObject cmd;
         cmd["action"] = m_tcpIsAuto ? 11 : 10;
@@ -240,7 +282,7 @@ void DeviceCommandService::motorToggleMode()
         emit motorModeResult(!m_tcpIsAuto);
         return;
     }
-    if (m_cfg->motorProtocol() != "MODBUS-RTU") return;
+    if (proto() != "MODBUS-RTU") return;
 
     m_modbusIsAuto = !m_modbusIsAuto;
     if (m_modbusIsAuto) {
@@ -261,7 +303,7 @@ void DeviceCommandService::motorToggleMode()
 
 void DeviceCommandService::motorToggleSilentMode()
 {
-    if (m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    if (proto() == "STM32-TCP-V4.0") {
         m_tcpIsSilent = !m_tcpIsSilent;
         QJsonObject cmd;
         cmd["action"] = m_tcpIsSilent ? 6 : 7;
@@ -271,12 +313,27 @@ void DeviceCommandService::motorToggleSilentMode()
     }
 }
 
-void DeviceCommandService::motorSetCurrent(int ma)
+void DeviceCommandService::motorSetCurrent(int run, int hold, int delay)
 {
+    // STM32-TCP-V4.0: action=9 SetCurrent (run_current/hold_current/iholddelay)
+    if (proto() == "STM32-TCP-V4.0") {
+        run   = qBound(1, run, 31);
+        hold  = qBound(1, hold, 31);
+        delay = qBound(0, delay, 15);
+        QJsonObject cmd;
+        cmd["action"] = 9;
+        cmd["run_current"] = run;
+        cmd["hold_current"] = hold;
+        cmd["iholddelay"] = delay;
+        sendMotorTcpV4(cmd);
+        return;
+    }
+
+    // MODBUS-RTU 保留原有逻辑（单一运行电流值作为 mA）
+    int ma = run;
     if (ma < 0) ma = 0;
     if (ma > 2000) ma = 2000;
 
-    // 构造设置电流指令
     QByteArray pkt;
     pkt.append((char)0x01);
     pkt.append((char)0x06);

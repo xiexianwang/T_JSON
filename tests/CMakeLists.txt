@@ -83,3 +83,22 @@ tjson_add_test(test_devicestateservice
         test_devicestateservice.cpp
         ../src/ui/main/DeviceStateService.cpp
 )
+
+# ---- 10. DeviceEntry: explicit type / stable id / serialization / legacy ----
+tjson_add_test(test_deviceentry
+    SOURCES
+        test_deviceentry.cpp
+        ../src/core/DeviceEntry.cpp
+)
+
+# ---- 11. RTSP 停帧看门狗判定：纯逻辑（不依赖 FFmpeg） ----
+tjson_add_test(test_streamwatchdog
+    SOURCES
+        test_streamwatchdog.cpp
+)
+
+# ---- 12. AI 目标类型名称映射：模型 × Class → 中文名 ----
+tjson_add_test(test_aitargettype
+    SOURCES
+        test_aitargettype.cpp
+)

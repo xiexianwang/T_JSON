@@ -28,6 +28,11 @@ public:
     // MODBUS-RTU CRC16 校验（多项式 0xA001）
     static quint16 crc16(const QByteArray& data);
 
+    // 解析「读保持寄存器」单寄存器应答：
+    // [从站][0x03][字节数=0x02][值高][值低][CRC_lo][CRC_hi]
+    // 成功返回 true 并写出寄存器值，格式不符返回 false。
+    static bool parseReadRegisterResponse(const QByteArray& resp, quint16* value);
+
 signals:
     void dataReceived(const QByteArray& data);      // 收到原始数据
     void errorOccurred(const QString& msg);         // 打开失败/运行错误

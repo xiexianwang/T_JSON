@@ -58,6 +58,19 @@ void ModbusTransport::send(const QByteArray& pkt)
         m_serial->write(pkt);
 }
 
+bool ModbusTransport::parseReadRegisterResponse(const QByteArray& resp, quint16* value)
+{
+    // 最短长度：从站 + 功能码 + 字节数 + 2 数据 + 2 CRC = 7
+    if (resp.size() < 7) return false;
+    if (static_cast<quint8>(resp.at(1)) != 0x03) return false;   // 功能码
+    if (static_cast<quint8>(resp.at(2)) != 0x02) return false;   // 字节数
+
+    const quint8 hi = static_cast<quint8>(resp.at(3));
+    const quint8 lo = static_cast<quint8>(resp.at(4));
+    if (value) *value = static_cast<quint16>((hi << 8) | lo);
+    return true;
+}
+
 quint16 ModbusTransport::crc16(const QByteArray& data)
 {
     uint16_t crc = 0xFFFF;

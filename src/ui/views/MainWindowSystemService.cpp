@@ -7,6 +7,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QSystemTrayIcon>
+#include <QAction>
 
 MainWindowSystemService::MainWindowSystemService(QObject* parent)
     : QObject(parent)
@@ -17,6 +18,8 @@ void MainWindowSystemService::setup(const Setup& setup)
 {
     m_setup = setup;
     m_setup.trayMenu->addAction(QStringLiteral("显示主窗口"), this, &MainWindowSystemService::onTrayShow);
+    m_setup.trayMenu->addSeparator();
+    buildCloseActionMenu();
     m_setup.trayMenu->addSeparator();
     m_setup.trayMenu->addAction(QStringLiteral("退出"), this, &MainWindowSystemService::onTrayExit);
     m_setup.trayIcon->setContextMenu(m_setup.trayMenu);
@@ -63,6 +66,7 @@ void MainWindowSystemService::onTrayExit()
 void MainWindowSystemService::handleCloseEvent(QCloseEvent* event)
 {
     const auto action = m_setup.config->closeAction();
+    updateCloseActionMenu();
     if (action == ConfigManager::Exit) {
         m_setup.trayIcon->hide();
         qApp->quit();
@@ -90,4 +94,41 @@ void MainWindowSystemService::handleChangeEvent(QEvent* event)
         m_setup.maximize->setToolTip(max
             ? QString::fromUtf8("窗口化") : QString::fromUtf8("最大化"));
     }
+}
+
+void MainWindowSystemService::buildCloseActionMenu()
+{
+    m_closeActionMenu = new QMenu(QStringLiteral("关闭行为"), m_setup.trayMenu);
+
+    auto addAction = [this](const QString& text, QAction*& action, ConfigManager::CloseAction value) {
+        action = m_closeActionMenu->addAction(text);
+        action->setCheckable(true);
+        connect(action, &QAction::triggered, this, [this, value]() {
+            if (m_setup.config) {
+                m_setup.config->setCloseAction(value);
+                m_setup.config->save();
+            }
+            updateCloseActionMenu();
+        });
+    };
+
+    addAction(QStringLiteral("关闭时询问"),     m_actAsk,  ConfigManager::Ask);
+    addAction(QStringLiteral("退出程序"),       m_actExit, ConfigManager::Exit);
+    addAction(QStringLiteral("最小化到托盘"),   m_actMin,  ConfigManager::Minimize);
+
+    m_setup.trayMenu->addMenu(m_closeActionMenu);
+    updateCloseActionMenu();
+}
+
+void MainWindowSystemService::updateCloseActionMenu()
+{
+    const auto action = m_setup.config ? m_setup.config->closeAction() : ConfigManager::Ask;
+    m_actAsk->setChecked(action == ConfigManager::Ask);
+    m_actExit->setChecked(action == ConfigManager::Exit);
+    m_actMin->setChecked(action == ConfigManager::Minimize);
+}
+
+void MainWindowSystemService::onCloseActionChanged()
+{
+    updateCloseActionMenu();
 }

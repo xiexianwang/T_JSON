@@ -3,6 +3,8 @@
 #include "infrastructure/configmanager.h"
 #include "core/DeviceState.h"
 #include "core/GeoCalculator.h"
+#include "service/DeviceManager.h"
+#include "service/DeviceContext.h"
 
 #include <QJsonArray>
 #include <QPoint>
@@ -11,6 +13,14 @@
 PresenterMapService::PresenterMapService(IMainView* view, ConfigManager* cfg, QObject* parent)
     : QObject(parent), m_view(view), m_cfg(cfg)
 {
+}
+
+// 获取指定设备的相机/云台配置；无上下文时回退到默认值
+const DeviceConfig& PresenterMapService::deviceCam(const QString& deviceId) const
+{
+    static const DeviceConfig kDefaultCfg;
+    auto* ctx = DeviceManager::instance().getDevice(deviceId);
+    return ctx ? ctx->deviceConfig() : kDefaultCfg;
 }
 
 PresenterMapService::DeviceMapState& PresenterMapService::mapState(const QString& deviceId)
@@ -33,11 +43,14 @@ double PresenterMapService::calculateVisualDistance(const QString& deviceId,
         return dist;
 
     int low = state.model % 10;
-    double ref = m_cfg->cam().targetRefSize(low, cls);
-    if (ref <= 0 && (cls == 0xB1 || cls == 0xB2)) {
+    const DeviceConfig& cam = deviceCam(deviceId);
+    double ref = cam.targetRefSize(low, cls);
+    if (ref <= 0) {
+        // Class 为真实类型码（0xA0-0xA4）；参考尺寸缺失时按当前模型遍历
+        // 其他已配置类型兜底（0xA0 空中目标等无专属参考尺寸）。
         static const int fallback[] = {0xA1, 0xA2, 0xA3, 0xA4};
         for (int fc : fallback) {
-            ref = m_cfg->cam().targetRefSize(low, fc);
+            ref = cam.targetRefSize(low, fc);
             if (ref > 0) break;
         }
     }
@@ -52,9 +65,9 @@ double PresenterMapService::calculateVisualDistance(const QString& deviceId,
 
     const bool isVis = (DeviceState::pipShowToComboIndex(state.currentPipShow) != 1 &&
                         DeviceState::pipShowToComboIndex(state.currentPipShow) != 4);
-    const double pxSize = isVis ? m_cfg->cam().visPixelSize : m_cfg->cam().irPixelSize;
-    const double focal = isVis ? m_cfg->cam().visMinFocal * state.currentVisZoom
-                               : m_cfg->cam().irMinFocal * state.currentIrZoom;
+    const double pxSize = isVis ? cam.visPixelSize : cam.irPixelSize;
+    const double focal = isVis ? cam.visMinFocal * state.currentVisZoom
+                               : cam.irMinFocal * state.currentIrZoom;
     dist = GeoCalculator::estimateTargetDistance(boxPx, focal, pxSize, ref);
     if (updateTrackLabel && m_view)
         m_view->setTrackDistance(QString::number(dist, 'f', 1) + QStringLiteral(" m (估算)"));
@@ -65,7 +78,7 @@ double PresenterMapService::calculateVisualDistance(const QString& deviceId,
 void PresenterMapService::updateAiInfo(const QString& deviceId, const QJsonObject& doc,
                                        const DeviceState& state)
 {
-    CameraConfig& camCfg = m_cfg->cam();
+    const DeviceConfig& camCfg = deviceCam(deviceId);
     const int pip = DeviceState::pipShowToComboIndex(state.currentPipShow);
     const bool isVis = pip != 1 && pip != 4;
     CameraIntrinsics camInfo;
@@ -136,9 +149,9 @@ void PresenterMapService::updateAiInfo(const QString& deviceId, const QJsonObjec
     QJsonObject lockedObj, lostObj;
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         const QJsonObject obj = it.value().toObject();
-        const int cls = obj.value("Class").toInt();
-        if (cls == 0xB1 && lockedId.isEmpty()) { lockedId = it.key(); lockedObj = obj; }
-        else if (cls == 0xB2 && lostId.isEmpty()) { lostId = it.key(); lostObj = obj; }
+        const int st = obj.value("State").toInt(); // State：0xB1 跟踪正常 / 0xB2 跟踪丢失
+        if (st == 0xB1 && lockedId.isEmpty()) { lockedId = it.key(); lockedObj = obj; }
+        else if (st == 0xB2 && lostId.isEmpty()) { lostId = it.key(); lostObj = obj; }
     }
 
     if (!lockedId.isEmpty()) {
@@ -220,7 +233,7 @@ void PresenterMapService::updateDevicePosition(const QString& deviceId, const De
     double range = state.laserRange;
     bool estimated = false;
     if (range <= 0) { range = saved.lastAiDist; estimated = saved.lastAiDistEstimated; }
-    CameraConfig& cam = m_cfg->cam();
+    const DeviceConfig& cam = deviceCam(deviceId);
     const double visW = cam.visPixelSize * cam.visResX / 1000.0;
     const double visFocal = cam.visMinFocal * state.currentVisZoom;
     const double hfov = 2 * qAtan(visW / (2 * visFocal)) * 180.0 / M_PI;

@@ -7,6 +7,7 @@
 #include <QByteArray>
 #include "core/DeviceState.h"
 #include "core/DeviceTypes.h"
+#include "core/DeviceConfig.h"
 #include "infrastructure/tjsonclient.h"
 #include "infrastructure/devicecontroller.h"
 #include "infrastructure/rtspthread.h"
@@ -24,7 +25,7 @@ class DeviceContext : public QObject
 {
     Q_OBJECT
 public:
-    explicit DeviceContext(const QString& deviceId, ConfigManager* cfg, QObject *parent = nullptr);
+    explicit DeviceContext(const QString& deviceId, ConfigManager* cfg, const DeviceConfig& devCfg, QObject *parent = nullptr);
     ~DeviceContext() override;
 
     QString deviceId() const { return m_deviceId; }
@@ -69,6 +70,8 @@ public:
     void startVideo(const QString& url);
     void stopVideo();
     bool isVideoRunning() const;
+    bool isVideoHealthy() const;                            // 是否在持续收帧（健康）
+    RtspThread::Stats videoStats() const;                   // RTSP 会话统计快照
 
     // ================= 云台控制 (Pelco-D) =================
     void ptzMove(PtzDir dir);
@@ -122,14 +125,20 @@ public:
     void motorJogRight();
     void motorZeroCalib();
     void motorCheckMode();
+    void motorReadCurrent();
     void motorToggleMode();
     void motorToggleSilentMode();
-    void motorSetCurrent(int ma);
+    void motorSetCurrent(int run, int hold, int delay);
 
     // ================= PTZ 转发服务 =================
-    void startPtzForwarder(const QString& ptzIp, quint16 ptzPort, quint16 mockServerPort);
+    void startPtzForwarder();
     void setPtzOffsets(double panOffset, double tiltOffset);
     void flushZeroPosition();
+
+    // ================= 设备配置 =================
+    DeviceConfig& deviceConfig() { return m_devCfg; }
+    const DeviceConfig& deviceConfig() const { return m_devCfg; }
+    void setDeviceConfig(const DeviceConfig& cfg) { m_devCfg = cfg; }
 
     // ================= 状态 =================
     DeviceState* state() const { return m_state.get(); }
@@ -139,13 +148,16 @@ signals:
     void commandSent(const QString& serialType, const QByteArray& data);
     void motorModeResult(bool isManual);
     void motorSilentResult(bool isSilent);
+    void motorCurrentResult(int run, int hold, int delay);
     void motorSerialError(const QString& msg);
     void motorTcpError(const QString& msg);
+    void rtspStatsChanged(const RtspThread::Stats& stats);
 
 private:
     QString m_deviceId;
     quint64 m_sessionGeneration = 0;
     ConfigManager* m_cfg;
+    DeviceConfig m_devCfg;
 
     // 底层驱动与组件（聚合根内部持有，不对外暴露）
     State m_lifecycleState = State::Active;

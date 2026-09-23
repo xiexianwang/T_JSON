@@ -39,10 +39,7 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     a.setOrganizationName("LSS");
     a.setApplicationName("LSS Video Manager");
-#ifdef Q_OS_WIN
-    SetUnhandledExceptionFilter(crashHandler);
-#endif
     MainWindow w;
-    w.show();
+    w.showMaximized();
     return QApplication::exec();
 }

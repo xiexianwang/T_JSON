@@ -80,7 +80,8 @@ void GeoCalculator::pixelBboxToGps(double pixelX, double pixelY, double distance
     outLon = lon2 * 180.0 / M_PI;
 }
 
-double GeoCalculator::parseCoord(const QString& s) {
+double GeoCalculator::parseCoord(const QString& s, bool* ok) {
+    if (ok) *ok = false;
     QString t = s.trimmed().toUpper();
     char suf = 0;
     if (!t.isEmpty()) {
@@ -89,12 +90,17 @@ double GeoCalculator::parseCoord(const QString& s) {
             suf = c.toLatin1(); t.chop(1);
         }
     }
-    bool ok = false;
-    double v = t.toDouble(&ok);
-    if (!ok) return 0.0;
+    if (t.isEmpty()) return 0.0;
+    bool parsed = false;
+    double v = t.toDouble(&parsed);
+    if (!parsed) return 0.0;
+    if (ok) *ok = true;
     return (suf == 'S' || suf == 'W') ? -v : v;
 }
 
+double GeoCalculator::parseCoord(const QString& s) {
+    return parseCoord(s, nullptr);
+}
 double GeoCalculator::haversineDistance(double lat1, double lon1, double lat2, double lon2) {
     double R = 6371000.0;
     double dLat = (lat2 - lat1) * M_PI / 180.0;

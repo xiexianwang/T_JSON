@@ -5,7 +5,11 @@
 #include <QString>
 #include <QJsonObject>
 #include <memory>
+#include <functional>
 #include "core/DeviceState.h"
+#include "core/DeviceConfig.h"
+#include "core/DeviceEntry.h"
+#include "infrastructure/rtspthread.h"
 #include "infrastructure/tjsonframe.h"
 #include "PresenterStateViewService.h"
 
@@ -42,11 +46,6 @@ public:
     void lensStop();
 
     // --- 提取的业务按钮逻辑 ---
-    void on_btnConnect_clicked();
-    void startVideoStream(const QString& url);
-    void on_btnCancelConnect_clicked();
-    void on_btnVideoConnect_clicked();
-    void on_btnVideoDisconnect_clicked();
     void on_btnPtzMoveTo_clicked();
     void on_btnPtzMoveToGps_clicked();
     void on_btnPanZeroCalib_clicked();
@@ -56,11 +55,16 @@ public:
     // --- 电机通道初始化/切换 ---
     void initMotorChannel();
     void applyMotorChannel();
+    void applyMotorChannelForDevice(const QString& deviceId);
     bool isMotorSerialOpen() const;
     bool isMotorTcpOpen() const;
+    // 当前设备的电机协议 / 指令通道（未连接时回退全局默认）
+    QString motorProtocol() const;
+    QString motorCommandChannel() const;
 
     // --- PTZ 转发服务 ---
     void initPtzForwarder();
+    void initPtzForwarderForDevice(const QString& deviceId);
 
     // --- 雨刷电机控制 ---
     void onWiperStart();
@@ -73,6 +77,7 @@ public:
     void onWiperSilent();
     void onWiperCurrentSet();
     void checkMotorMode();
+    void readMotorCurrent();   // 读实际电流（MODBUS-RTU 寄存器 0x000D）
 
     // --- 预置位与复位 ---
     void on_btnCallPreset_clicked();
@@ -94,11 +99,14 @@ public:
     void sendAlgoModel(int model);
     void onComboDisplayModeChanged(int index);
 
-    // --- 多设备支持 ---
-    void onDeviceDoubleClicked(const QString& name, const QString& ip, const QString& rtspUrl);
-    void onDeviceRemoved(const QString& ip);
-    void onDeviceToggleConnect(const QString& ip);
+    // --- 多设备支持（设备树驱动，id 为稳定标识） ---
+    void onDeviceActivated(const QString& deviceId, const DeviceEntry& entry);
+    void onDeviceRemoved(const QString& deviceId);
+    void onDeviceToggleConnect(const QString& deviceId, const DeviceEntry& entry);
     QString currentDeviceId() const;
+
+    // --- 切换当前设备焦点（点击视频格）：不触碰 TCP/RTSP，避免视频闪断 ---
+    void selectDevice(const QString& deviceId);
 
     // --- 视频流状态查询/关闭 ---
     bool isVideoStreamRunning() const;
@@ -110,7 +118,12 @@ signals:
     void motorSerialErrorOccurred(const QString& msg);
     void motorTcpErrorOccurred(const QString& msg);
     void motorSilentChanged(bool isSilent);
+    void motorCurrentChanged(int run, int hold, int delay);
+    void rtspStatsChanged(const QString& deviceId, const RtspThread::Stats& stats);
     void commandSentToLog(const QString& serialType, const QByteArray& data);
+    void deviceConfigChanged(const QString& deviceId, const DeviceConfig& cfg);
+    // 当前焦点设备变化（含置空），供 View 更新设备树标记
+    void currentDeviceChanged(const QString& deviceId);
 
 private:
     IMainView* m_view;
@@ -140,9 +153,12 @@ private:
 
     DeviceContext* currentDevice() const;
 
+    void saveDeviceSwitchConfig(const std::function<void(DeviceConfig&, bool)>& setter, bool value);
+    void refreshSwitchView(const QString& deviceId);
+
 private slots:
-    void onDeviceConnected();
-    void onDeviceDisconnected();
+    void onDeviceConnected(const QString& deviceId);
+    void onDeviceDisconnected(const QString& deviceId);
     void onDeviceStateUpdated(const QString& deviceId, std::shared_ptr<DeviceState> state);
     void onDeviceAiInfoUpdated(const QString& deviceId, const QJsonObject& aiDoc);
     void onDeviceAiTimeout(const QString& deviceId);

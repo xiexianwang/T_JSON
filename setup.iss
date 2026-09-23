@@ -3,10 +3,10 @@
 
 #define MyAppName "LSS Video Manager 测试版"
 #define MyAppNameCN "LSS视频管理客户端 - 测试版"
-#define MyAppVersion "1.1-beta"
+#define MyAppVersion "2.1"
 #define MyAppPublisher "江苏莱瑟斯"
 #define MyAppExeName "LSSVideoManager.exe"
-#define MyBuildDir "build\Desktop_Qt_6_11_1_MSVC2022_64bit-Release"
+#define MyBuildDir "build\Desktop_Qt_6_11_2_MSVC2022_64bit_Release"
 
 [Setup]
 AppId={{D9C5E6F7-A8B9-0123-4567-89ABCDEF0123}
@@ -17,14 +17,14 @@ DefaultDirName={autopf}\LSS Video Manager
 DefaultGroupName=LSS Video Manager
 AllowNoIcons=yes
 OutputDir=installer
-OutputBaseFilename=LSS-Video-Manager-V1.1-beta-Setup
+OutputBaseFilename=LSS-Video-Manager-V2.1-Setup
 Compression=lzma2/fast
 SolidCompression=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=admin
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式:"; Flags: checkedonce
@@ -34,7 +34,7 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Source: "{#MyBuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\LSSVideoManager.exe.manifest"; DestDir: "{app}"; Flags: ignoreversion
 
-; Qt 运行时
+; Qt 运行时（Release）
 Source: "{#MyBuildDir}\Qt6Core.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6Gui.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6Widgets.dll"; DestDir: "{app}"; Flags: ignoreversion
@@ -53,6 +53,7 @@ Source: "{#MyBuildDir}\Qt6QuickWidgets.dll"; DestDir: "{app}"; Flags: ignorevers
 Source: "{#MyBuildDir}\Qt6OpenGL.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6Positioning.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6PrintSupport.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyBuildDir}\Qt6Pdf.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6Svg.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6SerialPort.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyBuildDir}\Qt6Lottie.dll"; DestDir: "{app}"; Flags: ignoreversion
@@ -94,8 +95,7 @@ Source: "{#MyBuildDir}\qmltooling\*"; DestDir: "{app}\qmltooling"; Flags: ignore
 ; resources 目录（QSS、地图 HTML 等内置资源已编译进 exe，但保留目录用于运行期生成文件）
 Source: "{#MyBuildDir}\resources\*"; DestDir: "{app}\resources"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 版本说明
-Source: "docs\V1.1-beta-版本说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+; 版本说明（已整合至 CHANGELOG.md）
 
 ; VC++ 运行库（静默安装）
 Source: "{#MyBuildDir}\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall
@@ -111,7 +111,7 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; StatusMsg:
 Filename: "{app}\{#MyAppExeName}"; Description: "启动 {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\taskkill"; Parameters: "/f /im LSSVideoManager.exe"; Flags: runhidden
+Filename: "{sys}\taskkill"; Parameters: "/f /im LSSVideoManager.exe"; Flags: runhidden; RunOnceId: "KillApp"
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);

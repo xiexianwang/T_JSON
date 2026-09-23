@@ -47,9 +47,10 @@ void PresenterMotorService::initMotorChannel(const QString& deviceId)
 {
     DeviceContext* ctx = getCtx(deviceId);
     if (!ctx) return;
-    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
-        ctx->openMotorSerial(m_cfg->motorComPort());
-    } else if (m_cfg->motorIpEnabled() && m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    const DeviceConfig& cfg = ctx->deviceConfig();
+    if (cfg.motorSerialEnabled && cfg.motorProtocol == "MODBUS-RTU" && cfg.motorCommandChannel == "串口") {
+        ctx->openMotorSerial(cfg.motorComPort);
+    } else if (cfg.motorIpEnabled && cfg.motorProtocol == "STM32-TCP-V4.0") {
         ctx->openMotorTcp();
     }
 }
@@ -58,10 +59,11 @@ void PresenterMotorService::applyMotorChannel(const QString& deviceId)
 {
     DeviceContext* ctx = getCtx(deviceId);
     if (!ctx) return;
-    if (m_cfg->motorSerialEnabled() && m_cfg->motorProtocol() == "MODBUS-RTU" && m_cfg->motorCommandChannel() == "串口") {
-        ctx->openMotorSerial(m_cfg->motorComPort());
+    const DeviceConfig& cfg = ctx->deviceConfig();
+    if (cfg.motorSerialEnabled && cfg.motorProtocol == "MODBUS-RTU" && cfg.motorCommandChannel == "串口") {
+        ctx->openMotorSerial(cfg.motorComPort);
         ctx->closeMotorTcp();
-    } else if (m_cfg->motorIpEnabled() && m_cfg->motorProtocol() == "STM32-TCP-V4.0") {
+    } else if (cfg.motorIpEnabled && cfg.motorProtocol == "STM32-TCP-V4.0") {
         ctx->openMotorTcp();
         ctx->closeMotorSerial();
     } else {
@@ -74,7 +76,7 @@ void PresenterMotorService::initPtzForwarder(const QString& deviceId)
 {
     DeviceContext* ctx = getCtx(deviceId);
     if (!ctx) return;
-    ctx->startPtzForwarder(m_cfg->serialIp(), m_cfg->serialPort(), m_cfg->mockServerPort());
+    ctx->startPtzForwarder();
 }
 
 void PresenterMotorService::onWiperStart(const QString& deviceId)
@@ -124,14 +126,32 @@ void PresenterMotorService::onWiperSilent(const QString& deviceId)
     if (DeviceContext* ctx = getCtx(deviceId)) ctx->motorToggleSilentMode();
 }
 
-void PresenterMotorService::onWiperCurrentSet(const QString& deviceId, int ma)
+void PresenterMotorService::onWiperCurrentSet(const QString& deviceId, int run, int hold, int delay)
 {
-    if (DeviceContext* ctx = getCtx(deviceId)) ctx->motorSetCurrent(ma);
+    if (DeviceContext* ctx = getCtx(deviceId)) {
+        // 按协议约束电流参数：
+        //   STM32-TCP-V4.0：run/hold ∈ 1-31，delay ∈ 0-15
+        //   MODBUS-RTU/Pelco-D：仅运行电流(mA) ≤ 2000，保持/延迟不适用
+        const QString proto = ctx->deviceConfig().motorProtocol;
+        if (proto == "STM32-TCP-V4.0") {
+            run = qBound(1, run, 31);
+            hold = qBound(1, hold, 31);
+            delay = qBound(0, delay, 15);
+        } else {
+            run = qBound(0, run, 2000);
+        }
+        ctx->motorSetCurrent(run, hold, delay);
+    }
 }
 
 void PresenterMotorService::checkMotorMode(const QString& deviceId)
 {
     if (DeviceContext* ctx = getCtx(deviceId)) ctx->motorCheckMode();
+}
+
+void PresenterMotorService::readMotorCurrent(const QString& deviceId)
+{
+    if (DeviceContext* ctx = getCtx(deviceId)) ctx->motorReadCurrent();
 }
 
 void PresenterMotorService::callPreset(const QString& deviceId, int preset)

@@ -42,6 +42,7 @@ AiInfoData AiInfoData::parse(const QJsonObject& doc)
             t.id = it.key();
             QJsonObject obj = it.value().toObject();
             t.cls = obj.value("Class").toInt();
+            t.state = obj.value("State").toInt();
             t.distance = obj.value("Distance").toDouble(0);
             if (obj.contains("Points")) {
                 QJsonObject pts = obj.value("Points").toObject();
@@ -50,6 +51,12 @@ AiInfoData AiInfoData::parse(const QJsonObject& doc)
                 t.right = pts.value("Right").toInt();
                 t.bottom = pts.value("Bottom").toInt();
                 t.hasPoints = true;
+            }
+            if (obj.contains("Angle") && obj.value("Angle").isObject()) {
+                const QJsonObject ang = obj.value("Angle").toObject();
+                t.angleHor = ang.value("Hor").toDouble(0);
+                t.angleVer = ang.value("Ver").toDouble(0);
+                t.hasAngle = true;
             }
             d.targets.append(t);
         }

@@ -13,6 +13,7 @@ class QLabel;
 class QStatusBar;
 class ConfigManager;
 class MainPresenter;
+class DeviceConfig;
 
 class MainWindowControlService : public QObject
 {
@@ -54,8 +55,16 @@ public:
         QPushButton* btnWiperZeroCalib = nullptr;
         QPushButton* btnWiperMode = nullptr;
         QPushButton* btnWiperSilent = nullptr;
-        QLineEdit* editWiperCurrent = nullptr;
-        QLineEdit* statWiperStatus = nullptr;
+        QLineEdit* editWiperRunCurrent = nullptr;
+        QLineEdit* editWiperHoldCurrent = nullptr;
+        QLineEdit* editWiperHoldDelay = nullptr;
+
+        // 仪表盘电机参数（只读显示电机上报/最后下发值）
+        QLineEdit* editMotorMode = nullptr;
+        QLineEdit* editMotorRunCurrent = nullptr;
+        QLineEdit* editMotorHoldCurrent = nullptr;
+        QLineEdit* editMotorHoldDelay = nullptr;
+
         QStatusBar* statusbar = nullptr;
     };
 
@@ -70,12 +79,16 @@ public:
 
 private:
     void refreshStyle(QWidget* w);
+    void updateMotorModeLabel();
 
     ControlWidgets m_w;
     ConfigManager* m_cfg = nullptr;
     MainPresenter* m_presenter = nullptr;
     std::function<bool()> m_requireConnected;
     std::function<bool()> m_requireMotorReady;
+    bool m_motorManual = false;
+    bool m_motorSilent = false;
+    QString m_motorProtocol;   // 当前设备电机协议（用于按协议启用/禁用电流项）
 };
 
 #endif // MAINWINDOWCONTROLSERVICE_H

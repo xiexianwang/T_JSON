@@ -18,19 +18,12 @@ ConfigManager::ConfigManager(QObject *parent)
 void ConfigManager::load()
 {
     QSettings settings("LSS", "LSS_Video_Manager");
-    m_ptz.load(settings);     // 加载云台参数
-    m_lens.load(settings);    // 加载镜头参数
-    m_cam.load(settings);     // 加载相机参数
     m_serialIp   = settings.value("SerialIp", "192.168.1.66").toString();
     m_serialPort = static_cast<quint16>(settings.value("SerialPort", 4001).toUInt());
     m_mockServerPort = static_cast<quint16>(settings.value("MockServerPort", 5001).toUInt());
     m_ptzPanOffset = settings.value("PtzPanOffset", 0.0).toDouble();
     m_ptzTiltOffset = settings.value("PtzTiltOffset", 0.0).toDouble();
     m_closeAction = static_cast<CloseAction>(settings.value("CloseAction", Ask).toUInt());
-    m_captureUploadEnabled = settings.value("CaptureUploadEnabled", false).toBool();
-    m_digitalZoomEnabled = settings.value("DigitalZoomEnabled", false).toBool();
-    m_autoZoomEnabled = settings.value("AutoZoomEnabled", false).toBool();
-    m_posResetEnabled = settings.value("PosResetEnabled", false).toBool();
     m_motorCommandChannel = settings.value("MotorCommandChannel", "Pelco-D").toString();
     m_motorProtocol   = settings.value("MotorProtocol", "Pelco-D").toString();
     m_motorComPort    = settings.value("MotorComPort", "COM1").toString();
@@ -44,6 +37,16 @@ void ConfigManager::load()
     m_deviceTcpPort = static_cast<quint16>(settings.value("DeviceTcpPort", 8089).toUInt());
     m_visFovDistance = settings.value("VisFovDistance", 4000).toInt();
     m_irFovDistance = settings.value("IrFovDistance", 2000).toInt();
+
+    m_rtspTransport = settings.value("RtspTransport", "tcp").toString();
+    m_rtspIoTimeoutMs = settings.value("RtspIoTimeoutMs", 2000).toInt();
+    m_rtspStallTimeoutMs = settings.value("RtspStallTimeoutMs", 10000).toInt();
+    m_rtspBackoffInitialMs = settings.value("RtspBackoffInitialMs", 1000).toInt();
+    m_rtspBackoffMaxMs = settings.value("RtspBackoffMaxMs", 15000).toInt();
+    m_rtspBackoffJitterPercent = settings.value("RtspBackoffJitterPercent", 20).toInt();
+    m_rtspMaxRetries = settings.value("RtspMaxRetries", 0).toInt();
+    m_rtspMinSessionMs = settings.value("RtspMinSessionMs", 2000).toInt();
+    m_rtspTcpKeepAlive = settings.value("RtspTcpKeepAlive", true).toBool();
 }
 
 // 重新加载：直接委托给 load() 以实现刷新
@@ -56,19 +59,12 @@ void ConfigManager::reload()
 void ConfigManager::save()
 {
     QSettings settings("LSS", "LSS_Video_Manager");
-    m_ptz.save(settings);
-    m_lens.save(settings);
-    m_cam.save(settings);
     settings.setValue("SerialIp",   m_serialIp);
     settings.setValue("SerialPort", m_serialPort);
     settings.setValue("MockServerPort", m_mockServerPort);
     settings.setValue("PtzPanOffset", m_ptzPanOffset);
     settings.setValue("PtzTiltOffset", m_ptzTiltOffset);
     settings.setValue("CloseAction", static_cast<quint8>(m_closeAction));
-    settings.setValue("CaptureUploadEnabled", m_captureUploadEnabled);
-    settings.setValue("DigitalZoomEnabled", m_digitalZoomEnabled);
-    settings.setValue("AutoZoomEnabled", m_autoZoomEnabled);
-    settings.setValue("PosResetEnabled", m_posResetEnabled);
     settings.setValue("MotorCommandChannel", m_motorCommandChannel);
     settings.setValue("MotorProtocol", m_motorProtocol);
     settings.setValue("MotorComPort", m_motorComPort);
@@ -82,7 +78,14 @@ void ConfigManager::save()
     settings.setValue("DeviceTcpPort", m_deviceTcpPort);
     settings.setValue("VisFovDistance", m_visFovDistance);
     settings.setValue("IrFovDistance", m_irFovDistance);
-    emit ptzConfigChanged();     // 通知云台配置已更新
-    emit lensConfigChanged();    // 通知镜头配置已更新
-    emit cameraConfigChanged();  // 通知相机参数已更新
+
+    settings.setValue("RtspTransport", m_rtspTransport);
+    settings.setValue("RtspIoTimeoutMs", m_rtspIoTimeoutMs);
+    settings.setValue("RtspStallTimeoutMs", m_rtspStallTimeoutMs);
+    settings.setValue("RtspBackoffInitialMs", m_rtspBackoffInitialMs);
+    settings.setValue("RtspBackoffMaxMs", m_rtspBackoffMaxMs);
+    settings.setValue("RtspBackoffJitterPercent", m_rtspBackoffJitterPercent);
+    settings.setValue("RtspMaxRetries", m_rtspMaxRetries);
+    settings.setValue("RtspMinSessionMs", m_rtspMinSessionMs);
+    settings.setValue("RtspTcpKeepAlive", m_rtspTcpKeepAlive);
 }

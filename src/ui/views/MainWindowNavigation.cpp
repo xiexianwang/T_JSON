@@ -1,5 +1,4 @@
 #include "MainWindowNavigation.h"
-#include "ui/views/settingsdialog.h"
 #include "ui/views/cmdlogdialog.h"
 #include "ui/main/MainPresenter.h"
 #include "ui/main/IMainView.h"
@@ -11,11 +10,9 @@ MainWindowNavigation::MainWindowNavigation(QObject* parent)
 {
 }
 
-void MainWindowNavigation::setup(NavButtons buttons, QPushButton* btnMapToggle,
-                                  ConfigManager* cfg, MainPresenter* presenter, IMainView* view)
+void MainWindowNavigation::setup(NavButtons buttons, ConfigManager* cfg, MainPresenter* presenter, IMainView* view)
 {
     m_btns = buttons;
-    m_btnMapToggle = btnMapToggle;
     m_cfg = cfg;
     m_presenter = presenter;
     m_view = view;
@@ -50,11 +47,5 @@ void MainWindowNavigation::onBtnNavLogClicked()
 
 void MainWindowNavigation::onBtnNavSettingsClicked()
 {
-    SettingsDialog dlg(m_cfg, m_view->asWidget());
-    dlg.exec();
-
-    // 电机协议变更后重新打开串口
-    m_presenter->applyMotorChannel();
-    // 重启 PTZ 转发服务
-    m_presenter->initPtzForwarder();
+    // 系统参数设置弹窗已移除，相机/PTZ/镜头参数改为每设备在"设备属性"中编辑
 }

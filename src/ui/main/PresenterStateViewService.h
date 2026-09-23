@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include "core/DeviceState.h"
+#include "core/DeviceConfig.h"
 
 class IMainView;
 class ConfigManager;
@@ -39,7 +40,9 @@ public:
                                          const StateViewCache& previous);
 
 private:
-    void updateLensStats(const StateViewCache& cache);
+    void updateLensStats(const StateViewCache& cache, bool hasZoomInfo,
+                         const DeviceConfig& cam);
+    const DeviceConfig& deviceCam(const QString& deviceId) const;
 
     IMainView* m_view;
     ConfigManager* m_cfg;

@@ -6,17 +6,19 @@
 
 #include "devicecontroller.h"
 #include "devicecommandservice.h"
+#include "core/DeviceConfig.h"
 #include <QDebug>
 #include <QTimer>
 
 // 构造函数：保存 TJsonClient 和 ConfigManager 的指针，创建电机指令服务
 // 注意：TJsonClient/ConfigManager 均为非拥有指针，由外部管理其生命周期
-DeviceController::DeviceController(TJsonClient* client, ConfigManager* cfg, QObject *parent)
+DeviceController::DeviceController(TJsonClient* client, ConfigManager* cfg, DeviceConfig* devCfg, QObject *parent)
     : QObject(parent)
     , m_client(client)
     , m_cfg(cfg)
+    , m_devCfg(devCfg)
 {
-    m_motorService = new DeviceCommandService(cfg, this);
+    m_motorService = new DeviceCommandService(cfg, devCfg, this);
     // 注入 Pelco-D 透传回调：电机走 PELCO_D 通道时经 TJsonClient 串口透传
     m_motorService->setPelcoDSender([this](const QByteArray& pkt) {
         sendTransparentData("PELCO_D", pkt);
@@ -29,6 +31,8 @@ DeviceController::DeviceController(TJsonClient* client, ConfigManager* cfg, QObj
             this, &DeviceController::motorModeResult);
     connect(m_motorService, &DeviceCommandService::motorSilentResult,
             this, &DeviceController::motorSilentResult);
+    connect(m_motorService, &DeviceCommandService::motorCurrentResult,
+            this, &DeviceController::motorCurrentResult);
     connect(m_motorService, &DeviceCommandService::motorSerialError,
             this, &DeviceController::motorSerialError);
     connect(m_motorService, &DeviceCommandService::motorTcpError,
@@ -72,22 +76,22 @@ void DeviceController::setDisplayMode(int mode)
 // 根据方向枚举值判断是否需要 Pan/Tilt 速度，组 Pelco-D 包后通过串口透传发送
 void DeviceController::ptzMove(PtzDir dir)
 {
-    PtzConfig& ptz = m_cfg->ptz();
+    DeviceConfig& dev = *m_devCfg;
     quint8 cmd2 = static_cast<quint8>(dir);
     // 判断方向是否包含水平分量 (bit1-2) 和垂直分量 (bit3-4)
     bool hasPan = (cmd2 & 0x06) != 0;          // 有 Pan 分量
     bool hasTilt = (cmd2 & 0x18) != 0;         // 有 Tilt 分量
-    quint8 panSpeed = hasPan ? ptz.panSpeed : 0x00;     // 无水平运动时速度置 0
-    quint8 tiltSpeed = hasTilt ? ptz.tiltSpeed : 0x00;  // 无垂直运动时速度置 0
+    quint8 panSpeed = hasPan ? dev.panSpeed : 0x00;     // 无水平运动时速度置 0
+    quint8 tiltSpeed = hasTilt ? dev.tiltSpeed : 0x00;  // 无垂直运动时速度置 0
 
-    QByteArray pkt = PelcoDProtocol::buildMove(ptz.address, dir, panSpeed, tiltSpeed);
+    QByteArray pkt = PelcoDProtocol::buildMove(dev.ptzAddress, dir, panSpeed, tiltSpeed);
     sendTransparentData("PELCO_D", pkt);
 }
 
 // 云台停止运动：发送 Cmd2=0x00 的停止指令
 void DeviceController::ptzStop()
 {
-    quint8 addr = m_cfg->ptz().address;
+    quint8 addr = m_devCfg->ptzAddress;
     QByteArray pkt = PelcoDProtocol::buildStop(addr);
     sendTransparentData("PELCO_D", pkt);
 }
@@ -95,7 +99,7 @@ void DeviceController::ptzStop()
 // 云台转动到绝对角度
 void DeviceController::ptzMoveTo(double pan, double tilt)
 {
-    quint8 addr = m_cfg->ptz().address;
+    quint8 addr = m_devCfg->ptzAddress;
 
     // 如果开启了模拟串口服务器，则应用软件偏置
     if (m_cfg->softwarePtzCalibrationEnabled()) {
@@ -123,7 +127,7 @@ void DeviceController::ptzMoveTo(double pan, double tilt)
 // 云台水平零点标定 (Pelco-D: 0x49)
 void DeviceController::ptzSetZero()
 {
-    quint8 addr = m_cfg->ptz().address;
+    quint8 addr = m_devCfg->ptzAddress;
     QByteArray pkt = PelcoDProtocol::buildSetZero(addr);
     sendTransparentData("PELCO_D", pkt);
 }
@@ -133,7 +137,7 @@ void DeviceController::lensZoomOut(int target)
 {
     m_lastLensTarget = target;
     m_lastLensIsZoom = true;
-    LensConfig& l = m_cfg->lens();
+    DeviceConfig& l = *m_devCfg;
     quint8 speed = l.zoomSpeed;
     if (target == 0) {
         // 可见光：VISCA Zoom Wide
@@ -151,7 +155,7 @@ void DeviceController::lensZoomIn(int target)
 {
     m_lastLensTarget = target;
     m_lastLensIsZoom = true;
-    LensConfig& l = m_cfg->lens();
+    DeviceConfig& l = *m_devCfg;
     quint8 speed = l.zoomSpeed;
     if (target == 0) {
         QByteArray pkt = ViscaProtocol::buildZoom(l.visAddress, true, speed);
@@ -167,7 +171,7 @@ void DeviceController::lensFocusIn(int target)
 {
     m_lastLensTarget = target;
     m_lastLensIsZoom = false;       // 标记为变焦操作
-    LensConfig& l = m_cfg->lens();
+    DeviceConfig& l = *m_devCfg;
     if (target == 0) {
         // 可见光：VISCA Focus Far
         QByteArray pkt = ViscaProtocol::buildFocus(l.visAddress, true);
@@ -184,7 +188,7 @@ void DeviceController::lensFocusOut(int target)
 {
     m_lastLensTarget = target;
     m_lastLensIsZoom = false;
-    LensConfig& l = m_cfg->lens();
+    DeviceConfig& l = *m_devCfg;
     if (target == 0) {
         // 可见光：VISCA Focus Near
         QByteArray pkt = ViscaProtocol::buildFocus(l.visAddress, false);
@@ -200,7 +204,7 @@ void DeviceController::lensFocusOut(int target)
 // 根据上次操作的目标和类型选择对应的停止指令
 void DeviceController::lensStop()
 {
-    LensConfig& l = m_cfg->lens();
+    DeviceConfig& l = *m_devCfg;
     if (m_lastLensTarget == 0) {
         // 可见光：VISCA 停止（区分变倍停止和变焦停止）
         if (m_lastLensIsZoom)
@@ -225,7 +229,7 @@ void DeviceController::setPreset(int preset)
         qWarning() << "Preset out of range:" << preset;
         return;
     }
-    quint8 addr = m_cfg->ptz().address;
+    quint8 addr = m_devCfg->ptzAddress;
     QByteArray pkt = PelcoDProtocol::buildSetPreset(addr, static_cast<quint8>(preset));
     sendTransparentData("PELCO_D", pkt);
 }
@@ -237,7 +241,7 @@ void DeviceController::callPreset(int preset)
         qWarning() << "Preset out of range:" << preset;
         return;
     }
-    quint8 addr = m_cfg->ptz().address;
+    quint8 addr = m_devCfg->ptzAddress;
     QByteArray pkt = PelcoDProtocol::buildCallPreset(addr, static_cast<quint8>(preset));
     sendTransparentData("PELCO_D", pkt);
 }
@@ -249,7 +253,7 @@ void DeviceController::delPreset(int preset)
         qWarning() << "Preset out of range:" << preset;
         return;
     }
-    quint8 addr = m_cfg->ptz().address;
+    quint8 addr = m_devCfg->ptzAddress;
     QByteArray pkt = PelcoDProtocol::buildClearPreset(addr, static_cast<quint8>(preset));
     sendTransparentData("PELCO_D", pkt);
 }
@@ -397,6 +401,7 @@ void DeviceController::motorJogRight() { m_motorService->motorJogRight(); }
 void DeviceController::motorZeroCalib() { m_motorService->motorZeroCalib(); }
 void DeviceController::motorReturnZero() { m_motorService->motorReturnZero(); }
 void DeviceController::motorCheckMode() { m_motorService->motorCheckMode(); }
+void DeviceController::motorReadCurrent() { m_motorService->motorReadCurrent(); }
 void DeviceController::motorToggleMode() { m_motorService->motorToggleMode(); }
 void DeviceController::motorToggleSilentMode() { m_motorService->motorToggleSilentMode(); }
-void DeviceController::motorSetCurrent(int ma) { m_motorService->motorSetCurrent(ma); }
+void DeviceController::motorSetCurrent(int run, int hold, int delay) { m_motorService->motorSetCurrent(run, hold, delay); }

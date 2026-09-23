@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QDateTime>
 #include "core/DeviceState.h"
+#include "core/DeviceConfig.h"
 
 class IMainView;
 class ConfigManager;
@@ -46,6 +47,7 @@ private:
     };
 
     DeviceMapState& mapState(const QString& deviceId);
+    const DeviceConfig& deviceCam(const QString& deviceId) const;
     IMainView* m_view;
     ConfigManager* m_cfg;
     QHash<QString, DeviceMapState> m_deviceStates;

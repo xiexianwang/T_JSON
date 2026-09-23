@@ -8,6 +8,7 @@
 class QCloseEvent;
 class QEvent;
 class QMenu;
+class QAction;
 class QPushButton;
 class ConfigManager;
 
@@ -42,9 +43,16 @@ public:
     void onTrayExit();
     void handleCloseEvent(QCloseEvent* event);
     void handleChangeEvent(QEvent* event);
+    void onCloseActionChanged();
 
 private:
+    void buildCloseActionMenu();
+    void updateCloseActionMenu();
     Setup m_setup;
+    QMenu* m_closeActionMenu = nullptr;
+    QAction* m_actAsk = nullptr;
+    QAction* m_actExit = nullptr;
+    QAction* m_actMin = nullptr;
 };
 
 #endif // MAINWINDOWSYSTEMSERVICE_H

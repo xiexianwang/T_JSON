@@ -5,6 +5,119 @@
 
 ---
 
+---
+
+## 2026-09-23 · V2.1 发布
+
+### 本版改动
+
+- 跟踪状态显示修复：`lblTrackStatus` 由误读 `Class` 改为按 `State` 判定（`0xB1` 正常 / `0xB2` 丢失）。
+- 目标类型展示：新增 `core/AiTargetType.h`（模型 × Class → 类型名）；跟踪面板新增 类型/角度 行；识别表"类别"列改显示类型名。
+- 无激光兜底：跟踪框距离在无 `Distance` 时回退视觉测距估算，显示 `X.X m (估算)`。
+- 视觉测距参考尺寸默认值：新增 `DeviceConfig::defaultTargetRefSize`（人 1.7 / 车 4.5 / 船 15 / 无人机 0.5 / 飞机 30 / 直升机 12 / 鸟 0.5 m），修复缺省 -1 被钳为 0.1。
+- 滚轮行为：新增 `WheelRedirectFilter`，设备属性与控制面板内滚轮统一滚动面板而非改值。
+- 8089 重连提速：退避 1s→5s 封顶、新增 4s 连接超时、假死阈值 30s→15s、重试改为无限。
+- UI 调整：删除跟踪面板"引导"行；识别表列宽固定；类型与距离同排；云台角度左对齐；仪表盘焦距/聚焦列加宽。
+- 版本资源：`resources/app.rc` 增加 `VERSIONINFO`（2.1.0.0）。
+
+### 安装包
+
+- 版本 V2.1：`installer\LSS-Video-Manager-V2.1-Setup.exe`。
+- `setup.iss`：版本 2.0→2.1、构建目录指向最新 Release、补入 `Qt6Pdf.dll`、`[UninstallRun]` 增加 `RunOnceId`。
+
+## 2026-09-23 · 设备树：移除拖拽重组（修复设备静默丢失）
+
+### 问题
+
+- 设备树拖拽切换分组存在数据丢失 BUG：任意拖拽后设备可能消失。
+- **根因**：依赖 Qt 内建 `InternalMove`（“复制插入 + 删除源行”）。
+  行为 3 列（名称/设备/视频流）且分组可嵌套，插入后行号偏移易删错行；
+  `QStandardItemModel::InternalMove` 不保证携带子节点。
+  拖完立即 `treeModified` → `scheduleSave` 落盘，丢失被持久化。
+
+### 修改
+
+- `DeviceTreeWidget`：禁用拖拽与接收放置（`setDragEnabled(false)` /
+  `setAcceptDrops(false)` / `setDropIndicatorShown(false)` / `DragDropMode=NoDragDrop`）；
+  移除 `startDrag`/`dragMoveEvent`/`dropEvent`/`isValidDropTarget` 及 `m_dragId`/`m_itemModel`；
+  `createItem` 不再设置 drag/drop。
+- 设备归属维护改为右键菜单（添加子分组 / 添加设备 / 删除 / 重命名），
+  功能不受影响（需求未要求拖拽重组，设备槽位按 id 绑定与树序无关）。
+
+### 测试
+
+- 构建通过；`ctest` 11/11。
+
+## 2026-09-23 · RTSP 重连机制工业级加固（七项）
+
+### 解决的问题 / 实现功能
+
+- **① 关闭不再阻塞 UI**：`RtspThread::closeStream()` 由「等待线程退出（最多 5s）」改为停用 + 脱离：置会话代次失效、`requestStop()` 后立即返回；旧线程经中断回调在 I/O 超时内退出并自毁。`wait()` 仅在析构兜底（3s）。
+- **② 可观测性**：新增 `RtspThread::Stats`（connected/healthy/reconnectCount/consecutiveFailures/lastFrameAgeMs/lastError）与 `statsChanged` 信号，逐层转发到 `IMainView::onRtspStats`；`MainWindow` 在链路异常/连续失败时提示状态栏。
+- **③ 可配置化**：`ConfigManager` 新增 RTSP 参数（transport/ioTimeout/stallTimeout/backoffInitial/backoffMax/jitter/maxRetries/minSession/tcpKeepAlive），`DeviceContext::startVideo` 组装为 `RtspThread::StreamConfig` 传入。
+- **④ 退避抖动**：新增 `infrastructure/rtspbackoff.h`（`rtspJitterBounds`/`rtspApplyJitter`），重连延迟叠加 ±20% 随机量，避免多设备同拍重连惊群。
+- **⑤ 传输层兜底**：支持 `transport` 可配（tcp/udp）；TCP 下启用 `tcp_keepalive=1`。
+- **⑥ 会话回收/保活**：`avformat_close_input` 对 RTSP 自动发送 `TEARDOWN`，服务端会话及时回收。
+- **⑦ 打开即失败防抖**：新增 `minSessionMs`（默认 2s）——会话时长低于该值不重置退避并计入连续失败，抑制「连上即断」的震荡。
+- **⑧ 控制器级外部看门狗（关键修复）**：实测发现「仅靠中断回调打断 `av_read_frame`」在 RTSP/TCP 卡死场景下不可靠（线程永久阻塞在读取中）。新增 UI 线程 `QTimer`（2s）比对控制器侧「最后收帧时刻」（工作线程每帧直接原子写入），超时即主动关闭并**重建全新会话**——等价于自动执行一次「手动断开 + 重新连接」，不依赖卡死线程的任何回调。仅在工作线程「正在读取」时判定，避免与其内部退避重连冲突。
+- **RTSP `timeout` 选项**：除 `rw_timeout` 外补充 RTSP demuxer 自身 socket I/O 超时，促使卡住线程自行超时返回，减少重建时遗留的僵尸线程。
+- **⑨ 8089 TCP 活动看门狗**：`TJsonClient` 原先仅被动等待 TCP 栈报错（拔设备端网线时可能数十秒），心跳只发不校验。新增活动看门狗（2s 周期）：记录最近一次收到任意上行数据的时间，连续 `kActivityTimeoutMs`(30s) 无数据即主动 `abort()` 触发重连，使 8089 恢复时间收敛为「检测时长 + 退避初始延迟」，与拔线位置无关。
+- **代次隔离**：控制器分配 `generation`，Worker 仅在自身为当前代次时上报帧/事件/统计。
+- **测试**：`test_streamwatchdog` 扩展为看门狗判定 + 退避抖动共 9 断言；`ctest` 11/11 通过。
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/infrastructure/rtspthread.h/.cpp` | `StreamConfig`/`Stats`/`generation`；非阻塞关闭；抖动退避；`tcp_keepalive`；`minSessionMs`；统计上报 |
+| `src/infrastructure/rtspbackoff.h` | 新增：退避抖动纯逻辑（可测） |
+| `src/infrastructure/configmanager.h/.cpp` | 新增 9 项 RTSP 参数（读写/持久化） |
+| `src/service/DeviceContext.h/.cpp` | `startVideo` 组装配置；`isVideoHealthy()/videoStats()`；`rtspStatsChanged` 信号 |
+| `src/ui/main/IMainView.h`、`PresenterDeviceService`、`MainPresenter`、`mainwindow.h/.cpp` | 统计信号转发与状态栏提示 |
+| `tests/test_streamwatchdog.cpp` | 扩展看门狗 + 抖动断言 |
+
+### 遗留问题
+
+- 实机插拔网线验证恢复时延（预期最坏约 ioTimeout+stallTimeout ≈ 12s）。
+- 配置目前为全局；后续如需按设备覆盖，可在 `DeviceEntry` 增加字段。
+
+---
+
+## 2026-09-17 · 设备树全面重构：显式类型 + 稳定 ID + 约束加固
+
+### 解决的问题 / 实现功能
+
+- **新增 `core/DeviceEntry.*`（纯数据节点模型）**：节点类型显式化（`Group`/`Device`），不再用「RTSP 非空」隐式推断；设备 id 改为 UUID 稳定标识（`dev_<uuid>`），与 IP 彻底解耦；名称独立存储，修正原名含空格被 `section(' ')` 截断的缺陷。
+- **移除 `default_device` 幽灵设备**：`PresenterDeviceService` 构造不再预建设备，`currentDevice()` 允许返回 `nullptr`；`MainPresenter` 不再 `addDevice` 默认设备；`VideoGridWidget` 删除幽灵设备特判。
+- **合并设备切换路径**：`switchToDevice` 与 `toggleDeviceConnect` 合并为统一的 `activateDevice(deviceId, entry)`，消除三处重复的仪表盘/地图/识别清理代码；公共清理收口至 `resetForSwitch()`。
+- **连接状态可视化**：新增「状态」列（已连接/未连接），连接时加粗高亮；右键菜单的连接/断开文案改读实时运行态，消除此前 `RoleConnected` 与 `DeviceContext::isConnected()` 双份真相不一致。
+- **交互冲突与约束**：双击改为仅连接设备（重命名改 F2/右键）；拖拽校验（禁止拖入设备节点、禁止拖入自身子树、层级上限 4 层）；设备删除二次确认；设备数量上限 64；新建/编辑 IP 循环校验格式（IPv4/主机名）与唯一性。
+- **持久化加固**：`saveToDisk` 改用 `QSaveFile` 原子写入；文件带 `version` 字段；旧数组格式自动迁移回写；解析失败自动备份 `.bad` 并提示，不再静默丢数据；`setData` 触发的写盘合并到事件循环末尾，避免每次连接/断开都写盘。
+- **布局持久化**：宫格布局（1/4/9/16）经 `QSettings` 记忆并自动恢复。
+- **键盘操作**：Enter 连接、Del 删除、F2 重命名。
+- **视频槽位提示**：`IMainView::setVideoFrame` 返回 `bool`，槽位已满时经 `videoSlotUnavailable` 提示，消除「已连接但无画面」的静默状态。
+- **单元测试**：新增 `tests/test_deviceentry.cpp`（20 断言：显式类型、名称空格、往返一致、旧格式兼容、IP 校验、RTSP 归一化），`ctest` 10/10 通过；过程中发现并修复 `192.168.1` 漏段被误判为合法主机名的漏洞。
+
+### 核心改动文件
+
+| 文件 | 改动内容 |
+|---|---|
+| `src/core/DeviceEntry.h/.cpp` | 新增：节点类型/UUID/连接参数/DeviceConfig/校验/JSON 序列化 |
+| `src/ui/components/DeviceTreeWidget.h/.cpp` | 重写：显式角色、状态列、拖拽校验、删除确认、原子写、布局持久化、键盘操作 |
+| `src/ui/main/PresenterDeviceService.h/.cpp` | `activateDevice` 统一入口、移除幽灵设备、槽位提示、清理收口 |
+| `src/ui/main/MainPresenter.h/.cpp` | `onDeviceActivated` 替换 `onDeviceDoubleClicked`，移除默认设备 |
+| `src/ui/views/mainwindow.cpp` | 适配 id 直传、设备属性按 id 查询 |
+| `src/ui/main/IMainView.h`、`mainwindow_imainview.cpp` | `setVideoFrame` 返回绑定结果 |
+| `src/ui/components/VideoGridWidget.cpp` | 移除 `default_device` 特判 |
+| `CMakeLists.txt`、`tests/CMakeLists.txt` | 纳入 DeviceEntry 源与测试目标 |
+
+### 遗留问题
+
+- **实机验证**：多设备并行（各自出图、切换后电机/地图一致性）仍需真实设备确认。
+- **旧数据**：`%APPDATA%/LSS/LSS Video Manager/device_tree.json` 首次启动自动迁移到 v2 格式。
+
+---
+
 ## 2026-08-20 · 架构债务治理：服务层拆分 + MainWindow 拆分
 
 ### 解决的问题 / 实现功能

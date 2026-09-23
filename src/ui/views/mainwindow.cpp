@@ -9,6 +9,7 @@
 #include "ui_mainwindow.h"
 #include <QAbstractButton>
 #include <QLineEdit>
+#include <QHeaderView>
 #include "ui/components/VideoGridWidget.h"
 #include "ui/components/DeviceTreeWidget.h"
 
@@ -19,6 +20,8 @@
 #include "ui/views/MainWindowLayoutService.h"
 #include "ui/views/MainWindowSystemService.h"
 #include "ui/views/MainWindowControlService.h"
+#include "ui/views/devicepropertiesdialog.h"
+#include "ui/views/wheelredirectfilter.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QFile>
@@ -26,6 +29,7 @@
 #include <QDateTime>
 #include <QApplication>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QCloseEvent>
 #include <QTimer>
 #include <QButtonGroup>
@@ -33,6 +37,11 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QCheckBox>
+#include <QIntValidator>
+#include <QDoubleValidator>
+#include <QLocale>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 
 
@@ -51,6 +60,7 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
 
     setupUiStyles();
+    setupInputValidators();
 
     // Replace old single videoWidget with VideoGridWidget
     ui->videoWidget->hide();
@@ -58,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent)
     if (ui->widgetDisplay->layout()) {
         ui->widgetDisplay->layout()->addWidget(m_videoGrid);
     }
-    m_videoGrid->bindDevice(m_presenter->currentDeviceId());
+    // 不预绑定 default_device，VideoWidget 在真正连接设备时按需创建
 
 
     
@@ -86,9 +96,55 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(btnToggleTree, &QToolButton::toggled, m_deviceTree, &QWidget::setVisible);
 
-    connect(m_deviceTree, &DeviceTreeWidget::channelDoubleClicked, m_presenter, &MainPresenter::onDeviceDoubleClicked);
+    connect(m_deviceTree, &DeviceTreeWidget::deviceActivated, m_presenter, &MainPresenter::onDeviceActivated);
     connect(m_deviceTree, &DeviceTreeWidget::deviceRemoved, m_presenter, &MainPresenter::onDeviceRemoved);
     connect(m_deviceTree, &DeviceTreeWidget::deviceToggleConnect, m_presenter, &MainPresenter::onDeviceToggleConnect);
+    connect(m_deviceTree, &DeviceTreeWidget::layoutModeChanged, m_videoGrid, &VideoGridWidget::setLayoutMode);
+    // click video tile -> switch current device (focus only, keep streams)
+    connect(m_videoGrid, &VideoGridWidget::deviceClicked, this, [this](const QString& deviceId) {
+        const DeviceEntry entry = m_deviceTree->entryForId(deviceId);
+        DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
+        if (ctx && ctx->isConnected()) {
+            m_presenter->selectDevice(deviceId);              // connected: focus only
+        } else if (entry.id == deviceId) {
+            m_presenter->onDeviceActivated(deviceId, entry);  // offline: full connect
+        }
+    });
+    // double-click video tile -> toggle enlarge (plan A), and focus that device
+    connect(m_videoGrid, &VideoGridWidget::deviceDoubleClicked, this, [this](const QString& deviceId) {
+        m_videoGrid->toggleFocus(deviceId);
+        const DeviceEntry entry = m_deviceTree->entryForId(deviceId);
+        DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
+        if (ctx && ctx->isConnected()) {
+            m_presenter->selectDevice(deviceId);
+        } else if (entry.id == deviceId) {
+            m_presenter->onDeviceActivated(deviceId, entry);
+        }
+    });
+    // tree structure changed -> recompute numbers and refresh video badges
+    connect(m_deviceTree, &DeviceTreeWidget::treeModified, this, [this]() {
+        refreshDeviceLabelsAndActive();
+    });
+    connect(m_deviceTree, &DeviceTreeWidget::devicePropertiesRequested, this, [this](const QString& deviceId) {
+        DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
+        DeviceConfig cfg = m_deviceTree->entryForId(deviceId).config;
+        if (ctx) cfg = ctx->deviceConfig();
+
+        DevicePropertiesDialog dlg(m_deviceTree->entryForId(deviceId).ip, &cfg, this);
+        if (dlg.exec() != QDialog::Accepted) return;
+
+        m_deviceTree->setConfigForId(deviceId, cfg);
+        if (ctx) {
+            ctx->setDeviceConfig(cfg);
+            // 已连接时重新初始化电机/转台通道
+            if (ctx->isConnected()) {
+                m_presenter->applyMotorChannelForDevice(deviceId);
+                m_presenter->initPtzForwarderForDevice(deviceId);
+            }
+        }
+        // 协议可能已改变：按新协议刷新电机按钮/电流项（保持电流/延迟仅 STM32 可用）
+        m_controlService->updateMotorButtons();
+    });
 
     ui->titleBar->installEventFilter(this);
     ui->titleBar->setProperty("form", "title");
@@ -122,19 +178,14 @@ MainWindow::MainWindow(QWidget *parent)
     // 初始化导航服务
     m_navigation = new MainWindowNavigation(this);
     m_navigation->setup({ui->btnNavMonitor, ui->btnNavPlayback, ui->btnNavLog, ui->btnNavSettings},
-                        ui->btnMapToggle, m_cfg, m_presenter, this);
+                        m_cfg, m_presenter, this);
 
     // 初始化对话框服务
     m_dialogService = new MainWindowDialogService(this);
     m_dialogService->setup(m_cfg, m_presenter, this);
 
-    // 根据配置自动初始化电机通道
-    m_presenter->initMotorChannel();
-
-    // PTZ Forwarder start（延迟到事件循环启动后）
-    QTimer::singleShot(0, this, [this]() {
-        m_presenter->initPtzForwarder();
-    });
+    // 电机/转台初始化现在跟随设备连接（在 toggleDeviceConnect 中调用）
+    // 不再在启动时全局初始化
 
     // 迷你地图：容器 → MapWidget → 覆盖层
     m_mapContainer = new QWidget(ui->widgetDisplay);
@@ -208,12 +259,6 @@ MainWindow::MainWindow(QWidget *parent)
     // AIInfo 超时清理：设备无目标时不发帧，2 秒无更新则清除残留标记
     
 
-    // 恢复上次的开关状态
-    ui->checkDigitalZoom->setChecked(m_cfg->digitalZoomEnabled());
-    ui->checkAutoZoom->setChecked(m_cfg->autoZoomEnabled());
-    ui->checkCaptureUpload->setChecked(m_cfg->captureUploadEnabled());
-    ui->checkPosReset->setChecked(m_cfg->posResetEnabled());
-
     // 初始化框选启用状态
     int wm = ui->comboWorkMode->currentIndex();
     if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId()))
@@ -272,8 +317,13 @@ MainWindow::MainWindow(QWidget *parent)
     cw.btnWiperZeroCalib = ui->btnWiperZeroCalib;
     cw.btnWiperMode = ui->btnWiperMode;
     cw.btnWiperSilent = ui->btnWiperSilent;
-    cw.editWiperCurrent = ui->editWiperCurrent;
-    cw.statWiperStatus = ui->statWiperStatus;
+    cw.editWiperRunCurrent = ui->editWiperRunCurrent;
+    cw.editWiperHoldCurrent = ui->editWiperHoldCurrent;
+    cw.editWiperHoldDelay = ui->editWiperHoldDelay;
+    cw.editMotorMode = ui->editMotorMode;
+    cw.editMotorRunCurrent = ui->editMotorRunCurrent;
+    cw.editMotorHoldCurrent = ui->editMotorHoldCurrent;
+    cw.editMotorHoldDelay = ui->editMotorHoldDelay;
     cw.statusbar = ui->statusbar;
     m_controlService->setup(cw, m_cfg, m_presenter,
         [this]() { return requireConnected(); },
@@ -287,6 +337,22 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_presenter, &MainPresenter::commandSentToLog, m_logDialog, &CmdLogDialog::appendLog);
     m_navigation->setLogDialog(m_logDialog);
     m_dialogService->setLogDialog(m_logDialog);
+
+    //============================================================================
+    // 附加功能开关：设备配置变化时同步持久化到设备树
+    //============================================================================
+    connect(m_presenter, &MainPresenter::deviceConfigChanged, this,
+            [this](const QString& deviceId, const DeviceConfig& cfg) {
+        m_deviceTree->setConfigForId(deviceId, cfg);
+    });
+
+    // 设备切换后：刷新设备树当前焦点标记 + 按新设备协议刷新电机按钮/电流项
+    connect(m_presenter, &MainPresenter::currentDeviceChanged, this,
+            [this](const QString& deviceId) {
+        m_deviceTree->setCurrentDevice(deviceId);
+        m_controlService->updateMotorButtons();
+        m_videoGrid->setActiveDevice(deviceId);
+    });
 
     auto* trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
@@ -316,9 +382,28 @@ MainWindow::MainWindow(QWidget *parent)
 
     for (auto *cb : findChildren<QComboBox *>()) {
         cb->setFocusPolicy(Qt::StrongFocus);
-        cb->installEventFilter(this);
     }
     m_controlService->updateMotorButtons();
+
+    // 启动时按树序初始化设备编号并同步到视频格角标
+    refreshDeviceLabelsAndActive();
+
+    // ===== TEMP DEBUG: env LSS_AUTOPROPS=1 自动打开设备属性复现崩溃 =====
+    if (qEnvironmentVariableIsSet("LSS_AUTOPROPS")) {
+        QTimer::singleShot(6000, this, [this]() {
+            const QList<QString> ids = m_deviceTree->allDeviceIds();
+            for (const QString& deviceId : ids) {
+                if (deviceId.isEmpty()) continue;
+                const DeviceEntry entry = m_deviceTree->entryForId(deviceId);
+                DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
+                DeviceConfig cfg = ctx ? ctx->deviceConfig() : entry.config;
+                qWarning() << "[AUTOPROPS] open props for" << entry.ip
+                           << "cfg.targetRefMap.size()=" << cfg.targetRefMap.size();
+                DevicePropertiesDialog dlg(entry.ip, &cfg, this);
+                dlg.exec();
+            }
+        });
+    }
 }
 
 //============================================================================
@@ -329,10 +414,7 @@ MainWindow::MainWindow(QWidget *parent)
 //============================================================================
 MainWindow::~MainWindow()
 {
-    // 0. 移除构造时安装在 QComboBox 上的 eventFilter（防止析构期间访问已销毁的 m_layoutService）
-    for (auto *cb : findChildren<QComboBox *>()) {
-        cb->removeEventFilter(this);
-    }
+    // 0. 滚轮重定向过滤器为 MainWindow 子对象，随对象树析构自动清理。
 
     // 1. 移除 MainWindow 作为过滤器安装到子控件上的 eventFilter
     if (ui && ui->titleBar) ui->titleBar->removeEventFilter(this);
@@ -343,7 +425,14 @@ MainWindow::~MainWindow()
     disconnect(this, nullptr, nullptr, nullptr);
     disconnect(nullptr, nullptr, this, nullptr);
 
-    // 3. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
+    // 3. 清空视窗网格绑定（widget 随 VideoGridWidget 析构自动销毁）
+    if (m_videoGrid) {
+        const auto keys = m_videoGrid->boundDeviceIds();
+        for (const QString& id : keys)
+            m_videoGrid->unbindDevice(id);
+    }
+
+    // 4. 关闭所有设备（停止 RTSP 线程、断开 TCP、取消自动重连）
     DeviceManager::instance().removeAllDevices();
 
     // 4. 不手动 delete 服务/m_pipDialog —— 它们是 QObject 子对象，
@@ -527,7 +616,16 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 //============================================================================
 void MainWindow::setupUiStyles()
 {
-    ui->tableIdentify->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    QHeaderView* identifyHeader = ui->tableIdentify->horizontalHeader();
+    identifyHeader->setStretchLastSection(false);
+    identifyHeader->setSectionResizeMode(0, QHeaderView::Fixed);
+    identifyHeader->setSectionResizeMode(1, QHeaderView::Fixed);
+    identifyHeader->setSectionResizeMode(2, QHeaderView::Fixed);
+    identifyHeader->setSectionResizeMode(3, QHeaderView::Stretch);
+    identifyHeader->setSectionResizeMode(4, QHeaderView::Stretch);
+    ui->tableIdentify->setColumnWidth(0, 40);
+    ui->tableIdentify->setColumnWidth(1, 80);
+    ui->tableIdentify->setColumnWidth(2, 70);
 
     QFile file(QStringLiteral(":/style.qss"));
     if (file.open(QFile::ReadOnly | QFile::Text)) {
@@ -545,88 +643,117 @@ void MainWindow::setupUiStyles()
         QPalette pal = ui->scrollAreaControl->viewport()->palette();
         pal.setColor(QPalette::Window, QColor(0x44, 0x44, 0x44));
         ui->scrollAreaControl->viewport()->setPalette(pal);
+
+        // 滚轮只作用于控制面板滚动条：悬停在输入控件（Spin/Edit/Combo/Slider）上
+        // 时滚动面板，不改变控件数值。
+        WheelRedirectFilter::install(ui->scrollAreaControl, this);
     }
 }
 
 //============================================================================
-// on_btnConnect_clicked - 连接/断开设备按钮
-// 已连接时点击为断开；未连接时读取 IP 和端口发起 TCP 连接
+// setupInputValidators - 为数值输入框安装 QValidator
+// 目的：类型期即拦截字母/符号，避免非法输入被静默解析为 0 或钳到下限。
+// 注意：QIntValidator/QDoubleValidator 允许中间态为空串，提交期仍需复校验。
 //============================================================================
-void MainWindow::on_btnConnect_clicked()
+void MainWindow::setupInputValidators()
 {
-    m_presenter->on_btnConnect_clicked();
+    // 双精度输入：统一用 C locale（小数点 '.'）且禁用科学计数法
+    const auto makeDoubleValidator = [](double lo, double hi, int decimals, QWidget* parent) {
+        auto* v = new QDoubleValidator(lo, hi, decimals, parent);
+        v->setNotation(QDoubleValidator::StandardNotation);
+        v->setLocale(QLocale::c());
+        return v;
+    };
+
+    // 云台角度：方位 ±360°、俯仰 ±90°
+    ui->editTargetPan->setValidator(makeDoubleValidator(-360.0, 360.0, 2, ui->editTargetPan));
+    ui->editTargetTilt->setValidator(makeDoubleValidator(-90.0, 90.0, 2, ui->editTargetTilt));
+
+    // 经纬度：十进制度 + 可选 N/S/E/W 后缀（大小写不敏感）
+    const QRegularExpression coordRe(QStringLiteral("^[+-]?\\d{0,3}(\\.\\d{0,7})?[NnSsEeWw]?$"));
+    for (QLineEdit* le : {ui->editTargetLat, ui->editTargetLon, ui->editSetLat, ui->editSetLon}) {
+        le->setValidator(new QRegularExpressionValidator(coordRe, le));
+    }
+
+    // 高度（米）
+    ui->editTargetAlt->setValidator(makeDoubleValidator(-10000.0, 10000.0, 2, ui->editTargetAlt));
+    ui->editSetHeight->setValidator(makeDoubleValidator(-10000.0, 10000.0, 2, ui->editSetHeight));
+
+    // 雨刷电流：运行电流范围随协议动态调整（见 updateMotorButtons），此处先给默认 0-2000
+    ui->editWiperRunCurrent->setValidator(new QIntValidator(0, 2000, ui->editWiperRunCurrent));
+    ui->editWiperHoldCurrent->setValidator(new QIntValidator(1, 31, ui->editWiperHoldCurrent));
+    ui->editWiperHoldDelay->setValidator(new QIntValidator(0, 15, ui->editWiperHoldDelay));
 }
 
-
-
-//============================================================================
-// on_btnCancelConnect_clicked - 取消正在进行的连接
-// 直接断开 TCP 连接并恢复按钮状态
-//============================================================================
-void MainWindow::on_btnCancelConnect_clicked()
+void MainWindow::keyPressEvent(QKeyEvent *event)
 {
-    m_presenter->on_btnCancelConnect_clicked();
+    if (event->key() == Qt::Key_Escape && m_videoGrid && m_videoGrid->hasFocus()) {
+        m_videoGrid->clearFocus();
+        event->accept();
+        return;
+    }
+    QMainWindow::keyPressEvent(event);
 }
 
-
-
-//============================================================================
-// on_btnVideoConnect_clicked - 连接 RTSP 视频流
-// 从输入框获取 RTSP URL 后交给 RtspThread 进行拉流
-//============================================================================
-void MainWindow::on_btnVideoConnect_clicked()
+void MainWindow::refreshDeviceLabelsAndActive()
 {
-    m_presenter->on_btnVideoConnect_clicked();
+    if (!m_deviceTree || !m_videoGrid) return;
+    m_deviceTree->renumberDevices();
+    const QList<QString> ids = m_deviceTree->allDeviceIds();
+    for (const QString& id : ids) {
+        const DeviceEntry e = m_deviceTree->entryForId(id);
+        const int number = m_deviceTree->deviceNumberForId(id);
+        const QString name = e.name.isEmpty() ? e.ip : e.name;
+        m_videoGrid->setDeviceLabel(id, number, name);
+    }
+    m_videoGrid->setActiveDevice(m_presenter->currentDeviceId());
 }
-
-
-
-//============================================================================
-// on_btnVideoDisconnect_clicked - 断开 RTSP 视频流
-// 停止拉流线程、清除视频画面、恢复按钮状态
-//============================================================================
-void MainWindow::on_btnVideoDisconnect_clicked()
-{
-    m_presenter->on_btnVideoDisconnect_clicked();
-}
-
-
-
-//============================================================================
-// onRtspFrame - 收到一帧 RTSP 视频图像
-// 将解码后的 QImage 传递给 VideoWidget 进行渲染
-//============================================================================
-
 
 //============================================================================
 // onRtspOpened - RTSP 视频流成功打开
-// 更新按钮文本与状态栏提示
 //============================================================================
-void MainWindow::onRtspOpened()
+void MainWindow::onRtspOpened(const QString& deviceId)
 {
-    ui->btnVideoConnect->setEnabled(false);
-    ui->btnVideoConnect->setText(QString::fromUtf8("已连接"));
+    m_deviceTree->setVideoConnected(deviceId, true);
+    // 视频就绪后不再在画面上叠加状态文本（清除“RTSP 未连接”占位/状态）
+    if (auto vw = m_videoGrid->getWidget(deviceId))
+        vw->clearStatusText();
     ui->statusbar->showMessage(QString::fromUtf8("RTSP 视频已连接"), 3000);
 }
 
 //============================================================================
 // onRtspError - RTSP 视频流错误处理
-// 清除画面、恢复按钮，并在状态栏显示错误信息
 //============================================================================
-void MainWindow::onRtspError(const QString &msg)
+void MainWindow::onRtspError(const QString& deviceId, const QString &msg)
 {
-    if (auto vw = m_videoGrid->getWidget(m_presenter->currentDeviceId())) vw->clearFrame();
+    QString statusMsg = msg.isEmpty()
+        ? QString::fromUtf8("RTSP 断开，正在重连...")
+        : QString::fromUtf8("RTSP 重连失败，继续重试...");
+    m_deviceTree->setVideoConnected(deviceId, false);
+    if (auto vw = m_videoGrid->getWidget(deviceId)) {
+        vw->clearFrame();
+        vw->setStatusText(statusMsg);
+    }
     if (m_presenter->isVideoStreamRunning()) {
-        // 线程还在运行说明是自动重连中，保持按钮在"重连中..."状态
-        ui->btnVideoConnect->setText(QString::fromUtf8("重连中..."));
-        ui->statusbar->showMessage(msg.isEmpty()
-            ? QString::fromUtf8("RTSP 断开，正在重连...")
-            : QString::fromUtf8("RTSP 重连失败，继续重试..."));
+        ui->statusbar->showMessage(statusMsg);
     } else {
-        // 线程已退出，按钮恢复"开启"让用户手动再试
-        ui->btnVideoConnect->setEnabled(true);
-        ui->btnVideoConnect->setText(QString::fromUtf8("开启"));
         ui->statusbar->showMessage(msg);
+    }
+}
+
+//============================================================================
+// onRtspStats - RTSP 链路健康度更新（可观测性）
+// 仅当链路异常（已连接但不健康，或连续失败）时提示，避免刷屏。
+//============================================================================
+void MainWindow::onRtspStats(const QString& deviceId, const RtspThread::Stats& stats)
+{
+    Q_UNUSED(deviceId);
+    if (stats.connected && !stats.healthy) {
+        ui->statusbar->showMessage(
+            QString::fromUtf8("RTSP 链路异常，已重连 %1 次，正在恢复...").arg(stats.reconnectCount));
+    } else if (!stats.connected && stats.consecutiveFailures >= 3) {
+        ui->statusbar->showMessage(
+            QString::fromUtf8("RTSP 连接失败 %1 次，持续重试中...").arg(stats.consecutiveFailures));
     }
 }
 
@@ -642,65 +769,30 @@ void MainWindow::onVideoSelection(const QString& deviceId, int cx, int cy, int p
 
 //============================================================================
 // onDeviceConnected - 设备连接成功回调
-// 更新按钮样式为红色"断开连接"，自动查询设备当前图像参数
 //============================================================================
-void MainWindow::onDeviceConnected()
+void MainWindow::onDeviceConnected(const QString& deviceId)
 {
-    ui->btnConnect->setText(QString::fromUtf8("断开连接"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", "connected");
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
+    m_deviceTree->setDeviceConnected(deviceId, true);
     ui->statusbar->showMessage(QString::fromUtf8("已连接到设备"), 3000);
-
-    // 连接成功后自动请求一次图像参数，以便 UI 与设备状态同步
-
-    // 首次连接设备时自动打开 RTSP，后续不再覆盖用户操作
-    if (!m_rtspEverOpened) {
-        QString rtspUrl = ui->lineEditRtsp->text().trimmed();
-        if (!rtspUrl.isEmpty()) {
-            m_rtspEverOpened = true;
-            ui->btnVideoConnect->setEnabled(false);
-            ui->btnVideoConnect->setText(QString::fromUtf8("连接中..."));
-            m_presenter->startVideoStream(rtspUrl);
-        }
-    }
 }
 
 //============================================================================
 // onDeviceDisconnected - 设备断开回调
-// 恢复连接按钮的初始外观
 //============================================================================
-void MainWindow::onDeviceDisconnected()
+void MainWindow::onDeviceDisconnected(const QString& deviceId)
 {
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", QVariant());
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
+    m_deviceTree->setDeviceConnected(deviceId, false);
+    // 视窗显示 RTSP 连接状态（设备断开即视频断开）
+    // 状态提示仅经状态栏，不在视频画面上叠加文字
     ui->statusbar->showMessage(QString::fromUtf8("设备已断开"), 3000);
-
-    // 停止系统参数定时下发
 }
-
-
 
 //============================================================================
 // onErrorOccurred - 连接错误处理
-// 非重连时弹框显示错误；重连中只在状态栏提示，继续自动重连
 //============================================================================
 void MainWindow::onErrorOccurred(const QString& errorMsg)
 {
-    if (ui->btnConnect->property("state").toString() == QStringLiteral("reconnecting")) {
-        ui->statusbar->showMessage(QString::fromUtf8("重连失败，%1").arg(errorMsg), 3000);
-        return;
-    }
-
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", QVariant());
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
+    ui->statusbar->showMessage(QString::fromUtf8("连接错误，%1").arg(errorMsg), 3000);
     QMessageBox::warning(this, QString::fromUtf8("连接错误"), errorMsg);
 }
 
@@ -850,20 +942,10 @@ void MainWindow::refreshStyle(QWidget *w) {
 
 
 void MainWindow::onDeviceReconnecting(int attempt, int maxRetries) {
-    QString total = maxRetries > 0 ? QString("/%1").arg(maxRetries) : QStringLiteral("");
-    ui->btnConnect->setText(QString::fromUtf8("连接中(重试:%1%2)").arg(attempt).arg(total));
-    ui->btnConnect->setEnabled(false);
-    ui->btnConnect->setProperty("state", "reconnecting");
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(true);
+    Q_UNUSED(maxRetries);
     ui->statusbar->showMessage(QString::fromUtf8("断开，正在重连 %1 次...").arg(attempt));
 }
 
 void MainWindow::onDeviceReconnectFailed() {
-    ui->btnConnect->setText(QString::fromUtf8("连接设备"));
-    ui->btnConnect->setEnabled(true);
-    ui->btnConnect->setProperty("state", QVariant());
-    refreshStyle(ui->btnConnect);
-    ui->btnCancelConnect->setVisible(false);
     ui->statusbar->showMessage(QString::fromUtf8("重连 10 次失败，请检查设备连接"), 5000);
 }

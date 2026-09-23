@@ -55,16 +55,13 @@ public:
     void resizeEvent(QResizeEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void changeEvent(QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
     // ---- IMainView 接口实现 ----
     QWidget* asWidget() override;
     void showStatusMessage(const QString& msg, int timeoutMs = 0) override;
-    void setConnectButton(const QString& text, bool enabled, const QString& state = QString(), bool cancelVisible = false) override;
-    void setVideoConnectButton(const QString& text, bool enabled) override;
 
-    QString ipText() const override;
-    QString rtspUrlText() const override;
     QString targetPanText() const override;
     QString targetTiltText() const override;
     QString targetLonText() const override;
@@ -73,7 +70,9 @@ public:
     QString setLatText() const override;
     QString setLonText() const override;
     QString setHeightText() const override;
-    int wiperCurrentMa() const override;
+    int wiperRunCurrent() const override;
+    int wiperHoldCurrent() const override;
+    int wiperHoldDelay() const override;
     int presetValue() const override;
     int workModeIndex() const override;
     int algoModel2Index() const override;
@@ -84,18 +83,20 @@ public:
     QString statPanAngleText() const override;
     QString statTiltAngleText() const override;
 
-    void showDeviceState(int camMode, const QString& lat, const QString& lon,
+    void showDeviceState(const QString& lat, const QString& lon,
                          const QString& height, const QString& pan, const QString& tilt) override;
     void showLensStats(double visZoom, double visFocal, double visHfov,
                        double irZoom, double irFocal, double irHfov) override;
     void setIdentifyCount(const QString& text) override;
     void clearIdentifyTable() override;
-    void addIdentifyRow(const QString& id, int cls, double dist,
+    void addIdentifyRow(const QString& id, const QString& typeName, double dist,
                         const QString& pos, const QString& miss) override;
     void showTrackStatus(const QString& text, const QString& state) override;
     void setTrackDistance(const QString& text) override;
     void setTrackPos(const QString& text) override;
     void setTrackMissDistance(const QString& text) override;
+    void setTrackTargetType(const QString& text) override;
+    void setTrackAngle(const QString& text) override;
     void showImageParams(const QString& resolution, const QString& bitrate,
                          const QString& codec, const QString& workMode,
                          const QString& pipShow, const QString& algoModel,
@@ -108,9 +109,10 @@ public:
     void setAutoZoomChecked(bool checked) override;
     void setCaptureUploadChecked(bool checked) override;
     void setPosResetChecked(bool checked) override;
-    void setVideoFrame(const QString& deviceId, const QImage& frame) override;
+    bool setVideoFrame(const QString& deviceId, const QImage& frame) override;
     void clearVideoFrame(const QString& deviceId) override;
     void setVideoSelectionEnabled(const QString& deviceId, bool enabled) override;
+    void setVideoStatusText(const QString& deviceId, const QString& text) override;
     void repaintVideoGrid() override;
     void mapClearAllTracks() override;
     void mapUpdateTargetMarkers(const QJsonArray& targets) override;
@@ -132,17 +134,14 @@ private slots:
     void onTrayShow();
     void onTrayExit();
 
-    // ── 设备连接相关 ──
-    void on_btnConnect_clicked();           // 连接/断开设备按钮
-    void on_btnCancelConnect_clicked();     // 取消正在进行的连接
-
 public slots:
     // 以下槽由 MainPresenter 通过事件总线回调触发（同时实现 IMainView 接口）
-    void onDeviceConnected() override;               // 设备连接成功回调
-    void onDeviceDisconnected() override;            // 设备断开回调
+    void onDeviceConnected(const QString& deviceId) override;               // 设备连接成功回调
+    void onDeviceDisconnected(const QString& deviceId) override;            // 设备断开回调
     void onErrorOccurred(const QString& errorMsg) override;  // 连接错误处理
     void onDeviceReconnecting(int attempt, int maxRetries) override;
     void onDeviceReconnectFailed() override;         // T-JSON ACK 应答处理
+    void onRtspStats(const QString& deviceId, const RtspThread::Stats& stats) override;  // RTSP 链路健康
 
     // ── JSON 数据与抓拍 ──
     void onImageSnapped(const QByteArray& jpegData,     // 抓拍图像回调
@@ -172,13 +171,9 @@ public slots:
     void on_btnSetLocation_clicked();                   // 手动下发经纬度
     void on_btnGetImageParams_clicked();                // 查询图像参数
 
-    // ── RTSP 视频流 ──
-    void on_btnVideoConnect_clicked();      // 连接 RTSP 视频流
-    void on_btnVideoDisconnect_clicked();   // 断开 RTSP 视频流
-
 public slots:
-    void onRtspOpened() override;                    // RTSP 连接成功
-    void onRtspError(const QString &msg) override;   // RTSP 连接出错
+    void onRtspOpened(const QString& deviceId) override;                    // RTSP 连接成功
+    void onRtspError(const QString& deviceId, const QString &msg) override;   // RTSP 连接出错
     void onVideoSelection(const QString& deviceId, int cx, int cy, int pw, int ph); // 视频画面框选
 
 private:
@@ -206,7 +201,8 @@ private:             // UI 设计器生成的界面对象
 
     // ── 私有工具方法 ──
     void setupUiStyles();                           // 加载并应用 QSS 样式表
-    bool m_rtspEverOpened = false;                  // 首次连接自动打开 RTSP 标记（Presenter 管理，View 暂存）
+    void refreshDeviceLabelsAndActive();             // sync device number/name to video badges
+    void setupInputValidators();                    // 为数值输入框安装 QValidator，拦截非法字符
 };
 
 #endif // MAINWINDOW_H

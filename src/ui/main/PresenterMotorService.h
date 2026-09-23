@@ -33,8 +33,9 @@ public:
     void onWiperZeroCalib(const QString& deviceId);
     void onWiperMode(const QString& deviceId);
     void onWiperSilent(const QString& deviceId);
-    void onWiperCurrentSet(const QString& deviceId, int ma);
+    void onWiperCurrentSet(const QString& deviceId, int run, int hold, int delay);
     void checkMotorMode(const QString& deviceId);
+    void readMotorCurrent(const QString& deviceId);
 
     void callPreset(const QString& deviceId, int preset);
     void setPreset(const QString& deviceId, int preset);

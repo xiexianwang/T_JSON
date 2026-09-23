@@ -3,6 +3,8 @@
 #include "PresenterMapService.h"
 #include "infrastructure/configmanager.h"
 #include "core/DeviceState.h"
+#include "service/DeviceManager.h"
+#include "service/DeviceContext.h"
 
 #include <QtMath>
 
@@ -13,12 +15,20 @@ PresenterStateViewService::PresenterStateViewService(IMainView* view, ConfigMana
 {
 }
 
+// 获取指定设备的相机/云台配置；无上下文时回退到默认值
+const DeviceConfig& PresenterStateViewService::deviceCam(const QString& deviceId) const
+{
+    static const DeviceConfig kDefaultCfg;
+    auto* ctx = DeviceManager::instance().getDevice(deviceId);
+    return ctx ? ctx->deviceConfig() : kDefaultCfg;
+}
+
 StateViewCache PresenterStateViewService::updateStatusFromState(const QString& deviceId,
                                                                  const DeviceState& state,
                                                                  const StateViewCache& previous)
 {
     StateViewCache cache = previous;
-    CameraConfig& cam = m_cfg->cam();
+    const DeviceConfig& cam = deviceCam(deviceId);
     cache.currentVisZoom = state.currentVisZoom;
     cache.currentIrZoom = state.currentIrZoom;
 
@@ -36,11 +46,11 @@ StateViewCache PresenterStateViewService::updateStatusFromState(const QString& d
         while (rawTilt > 180.0) rawTilt -= 360.0;
     }
     cache.currentTilt = rawTilt;
-    m_view->showDeviceState(state.camShowMode, state.latitudeRaw, state.longitudeRaw,
+    m_view->showDeviceState(state.latitudeRaw, state.longitudeRaw,
                             heightStr,
                             QString::number(rawPan, 'f', 1) + QStringLiteral("°"),
                             QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
-    updateLensStats(cache);
+    updateLensStats(cache, state.hasZoomInfo, cam);
     m_mapService->updateDevicePosition(deviceId, state);
 
     static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
@@ -72,31 +82,48 @@ StateViewCache PresenterStateViewService::updateStatusFromState(const QString& d
     if (low >= 2 && low <= 6) modelStr += QString(" / %1").arg(QString::fromUtf8(lowMap[low]));
     if (modelStr.isEmpty()) modelStr = QString::number(model);
     cache.previousAlgoModel = model;
-    m_view->showImageParams(resStr, bitrateStr, codecStr, wmStr, pipStr, modelStr,
-                            state.maxVisFL, state.maxIRFL);
+    if (state.hasImageSetting) {
+        m_view->showImageParams(resStr, bitrateStr, codecStr, wmStr, pipStr, modelStr,
+                                state.maxVisFL, state.maxIRFL);
+    } else {
+        m_view->showImageParams(QString(), QString(), QString(), QString(), QString(), QString(),
+                                QString(), QString());
+    }
     cache.currentPipShow = comboIdx;
     cache.previousDisplayMode = comboIdx;
 
-    if (!cache.algoModelInitialized) {
+    // 工作模式/显示模式/算法模型均来自 ImageSetting 帧（含 WorkMode/PipShow/Model）。
+    // ZoomInfo 帧高频先到但不含这些字段，若此时用默认值初始化会把下拉框锁死为
+    // 默认项（如“关闭AI”），后续 ImageSetting 到达也不再更新。故必须等首个
+    // ImageSetting 帧到达后再初始化，保证连上设备后状态与设备实际一致。
+    const bool canInitFromImageSetting = state.hasImageSetting;
+    if (canInitFromImageSetting && !cache.algoModelInitialized) {
         cache.currentAlgoModel = model;
         m_view->setAlgoModel1Index(high);
         if (low >= 2 && low <= 6) m_view->setAlgoModel2Index(low - 2);
         cache.algoModelInitialized = true;
     }
-    if (!cache.displayModeInitialized) {
+    if (canInitFromImageSetting && !cache.displayModeInitialized) {
         m_view->setDisplayModeIndex(comboIdx);
         cache.displayModeInitialized = true;
     }
-    if (!cache.workModeInitialized && wm >= 0) {
+    if (canInitFromImageSetting && !cache.workModeInitialized && wm >= 0) {
         m_view->setWorkModeIndex(wm);
+        // setWorkModeIndex 内部 blockSignals，不会触发 onComboWorkModeChanged，
+        // 故此处显式同步框选使能（点选/框选跟踪模式才允许框选）。
+        m_view->setVideoSelectionEnabled(deviceId, wm == 3 || wm == 4);
         cache.workModeInitialized = true;
     }
     return cache;
 }
 
-void PresenterStateViewService::updateLensStats(const StateViewCache& cache)
+void PresenterStateViewService::updateLensStats(const StateViewCache& cache, bool hasZoomInfo,
+                                                const DeviceConfig& cam)
 {
-    const CameraConfig& cam = m_cfg->cam();
+    if (!hasZoomInfo) {
+        m_view->showLensStats(0, 0, 0, 0, 0, 0);
+        return;
+    }
     const double kRad2Deg = 180.0 / 3.14159265358979323846;
     const double visFocal = cam.visMinFocal * cache.currentVisZoom;
     const double irFocal = cam.irMinFocal * cache.currentIrZoom;

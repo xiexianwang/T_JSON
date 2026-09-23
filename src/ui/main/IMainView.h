@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QRect>
 #include <QJsonArray>
+#include "infrastructure/rtspthread.h"
 
 class QWidget;
 
@@ -26,17 +27,7 @@ public:
     // ---- 状态栏/提示 ----
     virtual void showStatusMessage(const QString& msg, int timeoutMs = 0) = 0;
 
-    // ---- 连接按钮状态 ----
-    virtual void setConnectButton(const QString& text, bool enabled,
-                                  const QString& state = QString(),
-                                  bool cancelVisible = false) = 0;
-
-    // ---- 视频连接按钮状态 ----
-    virtual void setVideoConnectButton(const QString& text, bool enabled) = 0;
-
     // ---- 输入读取 ----
-    virtual QString ipText() const = 0;
-    virtual QString rtspUrlText() const = 0;
     virtual QString targetPanText() const = 0;
     virtual QString targetTiltText() const = 0;
     virtual QString targetLonText() const = 0;
@@ -45,7 +36,9 @@ public:
     virtual QString setLatText() const = 0;
     virtual QString setLonText() const = 0;
     virtual QString setHeightText() const = 0;
-    virtual int wiperCurrentMa() const = 0;
+    virtual int wiperRunCurrent() const = 0;
+    virtual int wiperHoldCurrent() const = 0;
+    virtual int wiperHoldDelay() const = 0;
     virtual int presetValue() const = 0;
     virtual int workModeIndex() const = 0;
     virtual int algoModel2Index() const = 0;
@@ -58,7 +51,7 @@ public:
     virtual QString statTiltAngleText() const = 0;
 
     // ---- 设备状态显示 ----
-    virtual void showDeviceState(int camMode, const QString& lat, const QString& lon,
+    virtual void showDeviceState(const QString& lat, const QString& lon,
                                  const QString& height, const QString& pan,
                                  const QString& tilt) = 0;
 
@@ -69,7 +62,7 @@ public:
     // ---- AI 识别表格 ----
     virtual void setIdentifyCount(const QString& text) = 0;
     virtual void clearIdentifyTable() = 0;
-    virtual void addIdentifyRow(const QString& id, int cls, double dist,
+    virtual void addIdentifyRow(const QString& id, const QString& typeName, double dist,
                                 const QString& pos, const QString& miss) = 0;
 
     // ---- 跟踪状态显示 ----
@@ -77,6 +70,8 @@ public:
     virtual void setTrackDistance(const QString& text) = 0;   // 空串 = 清除
     virtual void setTrackPos(const QString& text) = 0;
     virtual void setTrackMissDistance(const QString& text) = 0;
+    virtual void setTrackTargetType(const QString& text) = 0; // 目标类型（按当前模型）
+    virtual void setTrackAngle(const QString& text) = 0;      // 设备上报水平/垂直角度
 
     // ---- 图像参数显示 ----
     virtual void showImageParams(const QString& resolution, const QString& bitrate,
@@ -95,9 +90,11 @@ public:
     virtual void setPosResetChecked(bool checked) = 0;
 
     // ---- 视频网格（Presenter 不再直接操作 VideoWidget） ----
-    virtual void setVideoFrame(const QString& deviceId, const QImage& frame) = 0;
+    // 返回值：true = 已成功绑定视频槽位；false = 槽位已满（调用方需提示用户）
+    virtual bool setVideoFrame(const QString& deviceId, const QImage& frame) = 0;
     virtual void clearVideoFrame(const QString& deviceId) = 0;
     virtual void setVideoSelectionEnabled(const QString& deviceId, bool enabled) = 0;
+    virtual void setVideoStatusText(const QString& deviceId, const QString& text) = 0;
     virtual void repaintVideoGrid() = 0;
 
     // ---- 地图操作（Presenter 不再直接操作 MapWidget） ----
@@ -121,13 +118,16 @@ public:
     virtual void onImageSnapped(const QByteArray& jpegData, const QRect& location) = 0;
 
     // ---- Presenter → View 状态回调 ----
-    virtual void onDeviceConnected() = 0;
-    virtual void onDeviceDisconnected() = 0;
+    virtual void onDeviceConnected(const QString& deviceId) = 0;
+    virtual void onDeviceDisconnected(const QString& deviceId) = 0;
     virtual void onErrorOccurred(const QString& errorMsg) = 0;
-    virtual void onRtspOpened() = 0;
-    virtual void onRtspError(const QString& msg) = 0;
+    virtual void onRtspOpened(const QString& deviceId) = 0;
+    virtual void onRtspError(const QString& deviceId, const QString& msg) = 0;
     virtual void onDeviceReconnecting(int attempt, int maxRetries) = 0;
     virtual void onDeviceReconnectFailed() = 0;
+
+    // ---- RTSP 链路健康（可观测性） ----
+    virtual void onRtspStats(const QString& deviceId, const RtspThread::Stats& stats) = 0;
 };
 
 #endif // IMAINVIEW_H

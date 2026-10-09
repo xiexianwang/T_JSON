@@ -39,6 +39,12 @@ CMakeLists.txt.user*
 # Allow FFmpeg libraries
 !thirdparty/ffmpeg/lib/*.lib
 
+# Command Code 本地配置（不入库）
+.commandcode/
+
+# 构建/打包产物
+dist/
+
 installer/
 
 installer/

@@ -1,8 +1,8 @@
 ; Inno Setup 脚本 — LSS Video Manager 视频管理客户端
 ; 使用 Inno Setup 6 编译
 
-#define MyAppName "LSS Video Manager 测试版"
-#define MyAppNameCN "LSS视频管理客户端 - 测试版"
+#define MyAppName "LSS Video Manager V2.1"
+#define MyAppNameCN "LSS Video Manager V2.1"
 #define MyAppVersion "2.1"
 #define MyAppPublisher "江苏莱瑟斯"
 #define MyAppExeName "LSSVideoManager.exe"

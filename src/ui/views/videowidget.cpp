@@ -28,6 +28,10 @@ void VideoWidget::setFrame(const QImage &frame)
     m_frame = frame;
     m_frameSize = frame.size();
     m_hasFrame = true;
+    // 空帧表示无画面（未连接/已断开/重连中）：清除残留状态文字，
+    // 否则帧已清空、文字仍停留在旧的“正在重连…”等状态。
+    if (frame.isNull())
+        m_statusText.clear();
     if (isVisible())
         update();
 }

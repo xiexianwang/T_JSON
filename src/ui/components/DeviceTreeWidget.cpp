@@ -482,6 +482,11 @@ void DeviceTreeWidget::onDoubleClicked(const QModelIndex &index)
     emit deviceActivated(id, entryForId(id));
 }
 
+void DeviceTreeWidget::setConnStateProvider(std::function<ConnState(const QString &)> provider)
+{
+    m_connStateProvider = std::move(provider);
+}
+
 // ============================================================================
 // 右键菜单
 // ============================================================================
@@ -504,7 +509,7 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
             // 右键先把选中项同步到该设备，保证视觉焦点跟随
             m_treeView->setCurrentIndex(idx);
 
-            auto *activate = menu.addAction(QStringLiteral("连接/切换到该设备"));
+            auto *activate = menu.addAction(QStringLiteral("切换到该设备"));
             connect(activate, &QAction::triggered, this, [this, id]() {
                 QStandardItem *it = findItemById(id);
                 if (it) emit deviceActivated(id, entryForId(id));
@@ -531,9 +536,15 @@ void DeviceTreeWidget::onCustomContextMenu(const QPoint &pos)
 
             menu.addSeparator();
 
-            auto *toggleConn = menu.addAction(
-                item->data(RoleConnected).toBool() ? QStringLiteral("断开")
-                                                   : QStringLiteral("连接"));
+            // 文案读取实时运行态：空闲→连接；连接/重连中→取消连接；已连接→断开
+            ConnState st = item->data(RoleConnected).toBool() ? ConnState::Connected
+                                                              : ConnState::Idle;
+            if (m_connStateProvider) st = m_connStateProvider(id);
+            const QString toggleText =
+                st == ConnState::Connected ? QStringLiteral("断开")
+                : st == ConnState::Connecting ? QStringLiteral("取消连接")
+                                              : QStringLiteral("连接");
+            auto *toggleConn = menu.addAction(toggleText);
             connect(toggleConn, &QAction::triggered, this, [this, id]() {
                 QStandardItem *it = findItemById(id);
                 if (it) emit deviceToggleConnect(id, entryForId(id));

@@ -44,6 +44,13 @@ double PresenterMapService::calculateVisualDistance(const QString& deviceId,
 
     int low = state.model % 10;
     const DeviceConfig& cam = deviceCam(deviceId);
+    // 可见光有效像元/焦距：设备上报优先（按所选相机型号 Tofu6/Tofu7），否则回退缺省
+    const double visPix = cam.effectiveVisPixelSize(state.tofuParams.pixSize6,
+                                                    state.tofuParams.pixSize7,
+                                                    state.hasTofuParams);
+    const double visMinFocal = cam.effectiveVisMinFocal(state.tofuParams.minFocal6,
+                                                        state.tofuParams.minFocal7,
+                                                        state.hasTofuParams);
     double ref = cam.targetRefSize(low, cls);
     if (ref <= 0) {
         // Class 为真实类型码（0xA0-0xA4）；参考尺寸缺失时按当前模型遍历
@@ -65,8 +72,8 @@ double PresenterMapService::calculateVisualDistance(const QString& deviceId,
 
     const bool isVis = (DeviceState::pipShowToComboIndex(state.currentPipShow) != 1 &&
                         DeviceState::pipShowToComboIndex(state.currentPipShow) != 4);
-    const double pxSize = isVis ? cam.visPixelSize : cam.irPixelSize;
-    const double focal = isVis ? cam.visMinFocal * state.currentVisZoom
+    const double pxSize = isVis ? visPix : cam.irPixelSize;
+    const double focal = isVis ? visMinFocal * state.currentVisZoom
                                : cam.irMinFocal * state.currentIrZoom;
     dist = GeoCalculator::estimateTargetDistance(boxPx, focal, pxSize, ref);
     if (updateTrackLabel && m_view)
@@ -79,11 +86,17 @@ void PresenterMapService::updateAiInfo(const QString& deviceId, const QJsonObjec
                                        const DeviceState& state)
 {
     const DeviceConfig& camCfg = deviceCam(deviceId);
+    const double visPix = camCfg.effectiveVisPixelSize(state.tofuParams.pixSize6,
+                                                       state.tofuParams.pixSize7,
+                                                       state.hasTofuParams);
+    const double visMinFocal = camCfg.effectiveVisMinFocal(state.tofuParams.minFocal6,
+                                                           state.tofuParams.minFocal7,
+                                                           state.hasTofuParams);
     const int pip = DeviceState::pipShowToComboIndex(state.currentPipShow);
     const bool isVis = pip != 1 && pip != 4;
     CameraIntrinsics camInfo;
-    camInfo.pixelSizeUm = isVis ? camCfg.visPixelSize : camCfg.irPixelSize;
-    camInfo.focalLengthMm = isVis ? camCfg.visMinFocal * state.currentVisZoom
+    camInfo.pixelSizeUm = isVis ? visPix : camCfg.irPixelSize;
+    camInfo.focalLengthMm = isVis ? visMinFocal * state.currentVisZoom
                                   : camCfg.irMinFocal * state.currentIrZoom;
     camInfo.resX = isVis ? camCfg.visResX : camCfg.irResX;
     camInfo.resY = isVis ? camCfg.visResY : camCfg.irResY;
@@ -242,8 +255,14 @@ void PresenterMapService::updateDevicePosition(const QString& deviceId, const De
     bool estimated = false;
     if (range <= 0) { range = saved.lastAiDist; estimated = saved.lastAiDistEstimated; }
     const DeviceConfig& cam = deviceCam(deviceId);
-    const double visW = cam.visPixelSize * cam.visResX / 1000.0;
-    const double visFocal = cam.visMinFocal * state.currentVisZoom;
+    const double visPix = cam.effectiveVisPixelSize(state.tofuParams.pixSize6,
+                                                    state.tofuParams.pixSize7,
+                                                    state.hasTofuParams);
+    const double visMinFocal = cam.effectiveVisMinFocal(state.tofuParams.minFocal6,
+                                                        state.tofuParams.minFocal7,
+                                                        state.hasTofuParams);
+    const double visW = visPix * cam.visResX / 1000.0;
+    const double visFocal = visMinFocal * state.currentVisZoom;
     const double hfov = 2 * qAtan(visW / (2 * visFocal)) * 180.0 / M_PI;
     const double vfov = hfov * cam.visResY / cam.visResX;
     m_view->mapSetDevicePosition(lat, lon);

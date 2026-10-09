@@ -63,6 +63,29 @@ void DeviceController::setAlgoModel(int model)
     m_client->sendJsonCmd(cmd, FrameType::SetAlgoModel);
 }
 
+// 查询 48M-Tofu7 参数（无载荷，纯帧头指令 0x0C）
+void DeviceController::queryTofu7Params()
+{
+    m_client->sendBinaryCmd(FrameType::QueryTofu7Params);
+}
+
+// 设置 48M-Tofu7 参数（0x0D）
+void DeviceController::setTofu7Params(const DeviceState::TofuParams& p)
+{
+    QJsonObject cmd;
+    cmd["ControlType"] = "48MTofu7Setting";
+    cmd["Tofu7PixSize"] = p.pixSize7;
+    cmd["Tofu7MinFocalLength"] = p.minFocal7;
+    cmd["Tofu6PixSize"] = p.pixSize6;
+    cmd["Tofu6MinFocalLength"] = p.minFocal6;
+    cmd["Tofu6ExpectedSize"] = p.expectedSize6;
+    cmd["Tofu6ZeroOffsetX"] = p.zeroOffsetX6;
+    cmd["Tofu6ZeroOffsetY"] = p.zeroOffsetY6;
+    cmd["PTZSerialportServerAddr"] = p.ptzSerialServerAddr;
+    cmd["Tofu6IPAddr"] = p.tofu6Ip;
+    m_client->sendJsonCmd(cmd, FrameType::SetTofu7Params);
+}
+
 // 设置显示模式（如画中画、分屏等显示布局）
 void DeviceController::setDisplayMode(int mode)
 {

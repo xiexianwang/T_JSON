@@ -69,7 +69,6 @@ void VideoGridWidget::appendSlot()
         }
     });
     vw->setStatusText("空闲");
-    vw->setToolTip(QStringLiteral("单击切换设备；双击放大"));
     m_slots.append(vw);
 }
 
@@ -219,14 +218,6 @@ void VideoGridWidget::updateLayout()
         m_layout->setRowStretch(r, 1);
     for (int c = 0; c < m_cols; ++c)
         m_layout->setColumnStretch(c, 1);
-
-    // 刷新悬停提示：放大态提示可还原，网格态提示可放大
-    for (int i = 0; i < m_slots.size(); ++i) {
-        if (!m_slots[i]) continue;
-        m_slots[i]->setToolTip(i == m_focusSlot
-            ? QStringLiteral("双击或 Esc 还原")
-            : QStringLiteral("单击切换设备；双击放大"));
-    }
 
     // 放大态：仅显示目标槽位并铺满整个网格，其余槽位隐藏（仍在接收帧）
     const int capacity = m_rows * m_cols;

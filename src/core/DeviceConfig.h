@@ -46,14 +46,33 @@ struct DeviceConfig {
     bool posReset = false;       // 位置复位
 
     // ================= 相机光学参数 =================
-    double visPixelSize = 2.92;   // 可见光像元尺寸 (μm)
+    // 可见光相机型号：Tofu6（默认）/ Tofu7。可见光像元尺寸与最短焦距改由
+    // 设备上报（见 DeviceState.tofuParams），按此型号在 Tofu6/Tofu7 两组值中二选一。
+    QString visCameraModel = "Tofu6";
     double irPixelSize = 12.0;    // 红外像元尺寸 (μm)
     int visResX = 2688;           // 可见光水平分辨率 (px)
     int visResY = 1520;           // 可见光垂直分辨率 (px)
     int irResX = 640;             // 红外水平分辨率 (px)
     int irResY = 512;             // 红外垂直分辨率 (px)
-    double visMinFocal = 6.1;     // 可见光最短焦距 (mm)
     double irMinFocal = 25.0;     // 红外最短焦距 (mm)
+
+    // 设备未上报可见光参数时的缺省值（Tofu6 量级）
+    static constexpr double kDefaultVisPixelSize = 2.9;   // μm
+    static constexpr double kDefaultVisMinFocal = 6.0;    // mm
+
+    bool useTofu7() const { return visCameraModel == QStringLiteral("Tofu7"); }
+
+    // 可见光有效像元尺寸 (μm)：设备上报优先（按 visCameraModel 选 Tofu6/Tofu7），否则回退缺省
+    double effectiveVisPixelSize(double tofu6Pix, double tofu7Pix, bool hasReport) const {
+        if (!hasReport) return kDefaultVisPixelSize;
+        return useTofu7() ? tofu7Pix : tofu6Pix;
+    }
+
+    // 可见光有效最短焦距 (mm)：设备上报优先，否则回退缺省
+    double effectiveVisMinFocal(int tofu6Focal, int tofu7Focal, bool hasReport) const {
+        if (!hasReport) return kDefaultVisMinFocal;
+        return useTofu7() ? tofu7Focal : tofu6Focal;
+    }
 
     // 视觉法参考尺寸表，key = (modelLow << 8) | classCode；单位 m。
     // 为空表示未显式配置，targetRefSize 会回退到 defaultTargetRefSize。
@@ -111,9 +130,8 @@ struct DeviceConfig {
             {"autoZoom", autoZoom},
             {"captureUpload", captureUpload},
             {"posReset", posReset},
-            {"visPixelSize", visPixelSize},
+            {"visCameraModel", visCameraModel},
             {"irPixelSize", irPixelSize},
-            {"visMinFocal", visMinFocal},
             {"irMinFocal", irMinFocal},
             {"visResX", visResX},
             {"visResY", visResY},
@@ -160,9 +178,8 @@ struct DeviceConfig {
         if (obj.contains("captureUpload")) c.captureUpload = obj["captureUpload"].toBool();
         if (obj.contains("posReset")) c.posReset = obj["posReset"].toBool();
 
-        if (obj.contains("visPixelSize")) c.visPixelSize = obj["visPixelSize"].toDouble();
+        if (obj.contains("visCameraModel")) c.visCameraModel = obj["visCameraModel"].toString();
         if (obj.contains("irPixelSize")) c.irPixelSize = obj["irPixelSize"].toDouble();
-        if (obj.contains("visMinFocal")) c.visMinFocal = obj["visMinFocal"].toDouble();
         if (obj.contains("irMinFocal")) c.irMinFocal = obj["irMinFocal"].toDouble();
         if (obj.contains("visResX")) c.visResX = obj["visResX"].toInt();
         if (obj.contains("visResY")) c.visResY = obj["visResY"].toInt();

@@ -76,7 +76,7 @@ void MainWindowSystemService::handleCloseEvent(QCloseEvent* event)
         event->ignore();
     } else if (m_setup.trayIcon->isVisible()) {
         m_setup.hideWindow();
-        m_setup.trayIcon->showMessage(QStringLiteral("LSS Video Manager"),
+        m_setup.trayIcon->showMessage(QStringLiteral("LSS Video Manager V2.1"),
             QStringLiteral("程序已最小化到系统托盘"), QSystemTrayIcon::Information, 2000);
         event->ignore();
     } else {

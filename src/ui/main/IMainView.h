@@ -53,7 +53,8 @@ public:
     // ---- 设备状态显示 ----
     virtual void showDeviceState(const QString& lat, const QString& lon,
                                  const QString& height, const QString& pan,
-                                 const QString& tilt) = 0;
+                                 const QString& tilt,
+                                 const QString& northOffset = QString()) = 0;
 
     // ---- 镜头统计显示 ----
     virtual void showLensStats(double visZoom, double visFocal, double visHfov,

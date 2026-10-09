@@ -32,6 +32,8 @@ public:
     ~TJsonClient();
 
     bool isConnected() const;   // 返回当前 TCP 连接状态
+    // 是否处于连接/重连尝试中（已发起连接但尚未建立）。用于 UI 区分“连接中”与“空闲”
+    bool isConnecting() const;
 
 public slots:
     void connectToDevice(const QString& ip, quint16 port);   // 连接到指定 IP:Port

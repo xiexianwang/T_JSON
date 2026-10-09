@@ -19,6 +19,7 @@
 #include "infrastructure/configmanager.h"
 #include "infrastructure/pelcodprotocol.h"
 #include "infrastructure/viscaprotocol.h"
+#include "core/DeviceState.h"
 
 class DeviceCommandService;
 class DeviceConfig;
@@ -47,6 +48,10 @@ public:
     // ================= 基础控制 =================
     void setWorkMode(int mode);             // 设置工作模式
     void queryImageParams();                // 查询当前图像参数
+
+    // ================= 48M-Tofu7 参数 =================
+    void queryTofu7Params();                        // 查询 48M-Tofu7 参数 (0x0C)
+    void setTofu7Params(const DeviceState::TofuParams& p);   // 设置 48M-Tofu7 参数 (0x0D)
 
     // ================= 算法与显示控制 =================
     void setAlgoModel(int model);           // 设置 AI 算法模型

@@ -113,13 +113,14 @@ void PresenterDeviceService::toggleDeviceConnect(const QString& deviceId, const 
     DeviceContext* ctx = ensureContext(deviceId, entry);
     if (!ctx) return;
 
-    // 已连接：断开该设备（保留上下文、树节点与视频槽位）
-    if (ctx->isConnected()) {
+    // 已连接、或正在连接/重连中：一律断开该设备。
+    // 连接中即“取消连接”，停止后续自动重连（保留上下文、树节点与视频槽位）。
+    if (ctx->isConnected() || ctx->isConnecting()) {
         disconnectDevice(deviceId);
         return;
     }
 
-    // 未连接：统一走激活路径（内部完成信号重绑、焦点切换、TCP/RTSP 启动）
+    // 空闲：统一走激活路径（内部完成信号重绑、焦点切换、TCP/RTSP 启动）
     activateDevice(deviceId, entry);
 }
 
@@ -127,6 +128,9 @@ void PresenterDeviceService::disconnectDevice(const QString& deviceId)
 {
     DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
     if (!ctx) return;
+
+    // 是否处于“连接/重连中”（尚未建立）——用于区分“取消连接”与“断开”
+    const bool wasConnecting = !ctx->isConnected() && ctx->isConnecting();
 
     ctx->stopVideo();
     ctx->disconnectNetwork();
@@ -136,6 +140,13 @@ void PresenterDeviceService::disconnectDevice(const QString& deviceId)
         disconnectDeviceSignals();
     // 清帧但保留槽位（设备仍存在于设备树）
     m_view->setVideoFrame(deviceId, QImage());
+    // 同步刷新视频格文字，清掉先前残留的“正在重连…”提示
+    m_view->setVideoStatusText(deviceId, QString::fromUtf8("未连接"));
+
+    // 未连接成功即被取消时，TJsonClient 不会发 deviceDisconnected，
+    // 状态栏会残留“正在重连…”消息而看不到取消效果；此处显式给出反馈。
+    if (wasConnecting)
+        m_view->showStatusMessage(QString::fromUtf8("已取消连接"), 3000);
 }
 
 bool PresenterDeviceService::isDeviceConnected(const QString& deviceId) const
@@ -288,6 +299,7 @@ void PresenterDeviceService::setupEventBus()
             DeviceContext* ctx = DeviceManager::instance().getDevice(deviceId);
             if (ctx) {
                 ctx->queryImageParams();
+                ctx->queryTofu7Params();   // 48M-Tofu7 参数：连接后查询一次，供 FOV/测距使用
                 const DeviceConfig& dev = ctx->deviceConfig();
                 ctx->setDigitalZoom(dev.digitalZoom);
                 ctx->setAutoZoom(dev.autoZoom);

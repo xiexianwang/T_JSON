@@ -65,6 +65,7 @@ public:
     void disconnectDevice();                               // 完整停止（网络+视频+电机+PTZ 转发）
     void disconnectNetwork();                              // 仅断开 TCP（停止自动重连）
     bool isConnected() const;                              // TCP 是否已连接
+    bool isConnecting() const;                             // 是否正在连接/重连（尚未建立）
 
     // ================= 视频流 =================
     void startVideo(const QString& url);
@@ -85,6 +86,10 @@ public:
     void lensFocusIn(int target);
     void lensFocusOut(int target);
     void lensStop();
+
+    // ================= 48M-Tofu7 参数 =================
+    void queryTofu7Params();                        // 查询 48M-Tofu7 参数 (0x0C)
+    void setTofu7Params(const DeviceState::TofuParams& p);   // 设置 48M-Tofu7 参数 (0x0D)
 
     // ================= 图像参数 / 工作模式 / 算法 / 显示 =================
     void queryImageParams();
@@ -152,6 +157,7 @@ signals:
     void motorSerialError(const QString& msg);
     void motorTcpError(const QString& msg);
     void rtspStatsChanged(const RtspThread::Stats& stats);
+    void tofu7ParamsReceived(const DeviceState::TofuParams& params);   // 48M-Tofu7 参数上报
 
 private:
     QString m_deviceId;

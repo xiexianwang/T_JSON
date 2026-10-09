@@ -1,5 +1,6 @@
 #include "devicepropertiesdialog.h"
 #include "wheelredirectfilter.h"
+#include "service/DeviceContext.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -21,10 +22,12 @@
 #include <QScrollArea>
 #include <QSerialPortInfo>
 
-DevicePropertiesDialog::DevicePropertiesDialog(const QString& deviceIp, DeviceConfig* cfg, QWidget* parent)
+DevicePropertiesDialog::DevicePropertiesDialog(const QString& deviceIp, DeviceConfig* cfg,
+                                               DeviceContext* ctx, QWidget* parent)
     : QDialog(parent)
     , m_deviceIp(deviceIp)
     , m_cfg(cfg)
+    , m_ctx(ctx)
 {
     setWindowTitle(QStringLiteral("设备属性 - %1").arg(deviceIp));
     setMinimumWidth(460);
@@ -34,7 +37,42 @@ DevicePropertiesDialog::DevicePropertiesDialog(const QString& deviceIp, DeviceCo
     // 滚轮只作用于滚动区域：悬停在任意输入控件上时，滚轮滚动面板而非改值。
     WheelRedirectFilter::install(m_scroll, this);
     connect(m_comboMotorProtocol, &QComboBox::currentTextChanged, this, &DevicePropertiesDialog::updateProtocolControls);
+    // 48M-Tofu7 参数：已连接则查询设备并回填（弹窗事件循环期间异步到达）
+    if (m_ctx) {
+        connect(m_ctx, &DeviceContext::tofu7ParamsReceived, this,
+                [this](const DeviceState::TofuParams& p) { fillTofuFields(p); });
+        if (m_ctx->isConnected())
+            m_ctx->queryTofu7Params();
+    }
     updateProtocolControls();
+}
+
+void DevicePropertiesDialog::fillTofuFields(const DeviceState::TofuParams& p)
+{
+    m_spinTofu7PixSize->setValue(p.pixSize7);
+    m_spinTofu7MinFocal->setValue(p.minFocal7);
+    m_spinTofu6PixSize->setValue(p.pixSize6);
+    m_spinTofu6MinFocal->setValue(p.minFocal6);
+    m_spinTofu6ExpectedSize->setValue(p.expectedSize6);
+    m_spinTofu6ZeroOffsetX->setValue(p.zeroOffsetX6);
+    m_spinTofu6ZeroOffsetY->setValue(p.zeroOffsetY6);
+    if (!p.ptzSerialServerAddr.isEmpty()) m_editPtzSerialIp->setText(p.ptzSerialServerAddr);
+    if (!p.tofu6Ip.isEmpty()) m_editTofu6Ip->setText(p.tofu6Ip);
+}
+
+DeviceState::TofuParams DevicePropertiesDialog::tofuFieldsToParams() const
+{
+    DeviceState::TofuParams p;
+    p.pixSize7 = m_spinTofu7PixSize->value();
+    p.minFocal7 = m_spinTofu7MinFocal->value();
+    p.pixSize6 = m_spinTofu6PixSize->value();
+    p.minFocal6 = m_spinTofu6MinFocal->value();
+    p.expectedSize6 = m_spinTofu6ExpectedSize->value();
+    p.zeroOffsetX6 = m_spinTofu6ZeroOffsetX->value();
+    p.zeroOffsetY6 = m_spinTofu6ZeroOffsetY->value();
+    p.ptzSerialServerAddr = m_editPtzSerialIp->text().trimmed();
+    p.tofu6Ip = m_editTofu6Ip->text().trimmed();
+    return p;
 }
 
 void DevicePropertiesDialog::setupUi()
@@ -176,23 +214,12 @@ void DevicePropertiesDialog::setupUi()
     auto* camGroup = new QGroupBox(QStringLiteral("光学与相机参数"));
     auto* camLayout = new QFormLayout(camGroup);
 
-    m_spinVisPixelSize = new QDoubleSpinBox();
-    m_spinVisPixelSize->setRange(0.1, 50.0);
-    m_spinVisPixelSize->setDecimals(2);
-    m_spinVisPixelSize->setSuffix(QStringLiteral(" μm"));
-    camLayout->addRow(QStringLiteral("可见光像元尺寸:"), m_spinVisPixelSize);
-
     m_editVisResolution = new QLineEdit();
     m_editVisResolution->setPlaceholderText(QStringLiteral("2688x1520"));
     m_editVisResolution->setValidator(
         new QRegularExpressionValidator(QRegularExpression(QStringLiteral("^\\d{1,5}x\\d{1,5}$")),
                                         m_editVisResolution));
     camLayout->addRow(QStringLiteral("可见光分辨率:"), m_editVisResolution);
-
-    m_spinVisMinFocal = new QDoubleSpinBox();
-    m_spinVisMinFocal->setRange(1.0, 1000.0);
-    m_spinVisMinFocal->setSuffix(QStringLiteral(" mm"));
-    camLayout->addRow(QStringLiteral("可见光最小焦距:"), m_spinVisMinFocal);
 
     m_spinIrPixelSize = new QDoubleSpinBox();
     m_spinIrPixelSize->setRange(0.1, 50.0);
@@ -213,6 +240,67 @@ void DevicePropertiesDialog::setupUi()
     camLayout->addRow(QStringLiteral("红外最小焦距:"), m_spinIrMinFocal);
 
     contentLayout->addWidget(camGroup);
+
+    // ── 48M-Tofu7 参数（设备上报 / 下发） ──
+    auto* tofuGroup = new QGroupBox(QStringLiteral("48M-Tofu7 参数"));
+    auto* tofuLayout = new QFormLayout(tofuGroup);
+
+    m_comboVisCameraModel = new QComboBox();
+    m_comboVisCameraModel->addItems({"Tofu6", "Tofu7"});
+    tofuLayout->addRow(QStringLiteral("可见光相机型号:"), m_comboVisCameraModel);
+
+    auto* ipValidator = new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^\\d{1,3}(\\.\\d{1,3}){3}$")), this);
+
+    m_spinTofu7PixSize = new QDoubleSpinBox();
+    m_spinTofu7PixSize->setRange(0.1, 50.0);
+    m_spinTofu7PixSize->setDecimals(1);
+    m_spinTofu7PixSize->setSuffix(QStringLiteral(" μm"));
+    tofuLayout->addRow(QStringLiteral("Tofu7 像元尺寸:"), m_spinTofu7PixSize);
+
+    m_spinTofu7MinFocal = new QSpinBox();
+    m_spinTofu7MinFocal->setRange(1, 1000);
+    m_spinTofu7MinFocal->setSuffix(QStringLiteral(" mm"));
+    tofuLayout->addRow(QStringLiteral("Tofu7 最小焦距:"), m_spinTofu7MinFocal);
+
+    m_spinTofu6PixSize = new QDoubleSpinBox();
+    m_spinTofu6PixSize->setRange(0.1, 50.0);
+    m_spinTofu6PixSize->setDecimals(1);
+    m_spinTofu6PixSize->setSuffix(QStringLiteral(" μm"));
+    tofuLayout->addRow(QStringLiteral("Tofu6 像元尺寸:"), m_spinTofu6PixSize);
+
+    m_spinTofu6MinFocal = new QSpinBox();
+    m_spinTofu6MinFocal->setRange(1, 1000);
+    m_spinTofu6MinFocal->setSuffix(QStringLiteral(" mm"));
+    tofuLayout->addRow(QStringLiteral("Tofu6 最小焦距:"), m_spinTofu6MinFocal);
+
+    m_spinTofu6ExpectedSize = new QSpinBox();
+    m_spinTofu6ExpectedSize->setRange(0, 100000);
+    tofuLayout->addRow(QStringLiteral("Tofu6 期望像素:"), m_spinTofu6ExpectedSize);
+
+    m_spinTofu6ZeroOffsetX = new QDoubleSpinBox();
+    m_spinTofu6ZeroOffsetX->setRange(-180.0, 180.0);
+    m_spinTofu6ZeroOffsetX->setDecimals(1);
+    m_spinTofu6ZeroOffsetX->setSuffix(QStringLiteral(" °"));
+    tofuLayout->addRow(QStringLiteral("Tofu6 零位水平偏移:"), m_spinTofu6ZeroOffsetX);
+
+    m_spinTofu6ZeroOffsetY = new QDoubleSpinBox();
+    m_spinTofu6ZeroOffsetY->setRange(-180.0, 180.0);
+    m_spinTofu6ZeroOffsetY->setDecimals(1);
+    m_spinTofu6ZeroOffsetY->setSuffix(QStringLiteral(" °"));
+    tofuLayout->addRow(QStringLiteral("Tofu6 零位垂直偏移:"), m_spinTofu6ZeroOffsetY);
+
+    m_editPtzSerialIp = new QLineEdit();
+    m_editPtzSerialIp->setPlaceholderText(QStringLiteral("192.168.1.66"));
+    m_editPtzSerialIp->setValidator(ipValidator);
+    tofuLayout->addRow(QStringLiteral("云台串口服务器 IP:"), m_editPtzSerialIp);
+
+    m_editTofu6Ip = new QLineEdit();
+    m_editTofu6Ip->setPlaceholderText(QStringLiteral("192.168.1.200"));
+    m_editTofu6Ip->setValidator(ipValidator);
+    tofuLayout->addRow(QStringLiteral("Tofu6 相机 IP:"), m_editTofu6Ip);
+
+    contentLayout->addWidget(tofuGroup);
 
     // ── 视觉测距参考尺寸 ──
     auto* refGroup = new QGroupBox(QStringLiteral("视觉测距参考尺寸"));
@@ -286,12 +374,17 @@ void DevicePropertiesDialog::loadFromConfig()
     m_spinIrAddress->setValue(m_cfg->irAddress);
     m_spinZoomSpeed->setValue(m_cfg->zoomSpeed);
 
-    m_spinVisPixelSize->setValue(m_cfg->visPixelSize);
     m_editVisResolution->setText(QString("%1x%2").arg(m_cfg->visResX).arg(m_cfg->visResY));
-    m_spinVisMinFocal->setValue(m_cfg->visMinFocal);
     m_spinIrPixelSize->setValue(m_cfg->irPixelSize);
     m_editIrResolution->setText(QString("%1x%2").arg(m_cfg->irResX).arg(m_cfg->irResY));
     m_spinIrMinFocal->setValue(m_cfg->irMinFocal);
+
+    // 48M-Tofu7 参数：优先显示设备最近上报值，否则用缺省
+    m_comboVisCameraModel->setCurrentText(m_cfg->visCameraModel);
+    if (m_ctx && m_ctx->state() && m_ctx->state()->hasTofuParams)
+        fillTofuFields(m_ctx->state()->tofuParams);
+    else
+        fillTofuFields(DeviceState::TofuParams{});
 
     m_spinRef_2_161->setValue(m_cfg->targetRefSize(2, 0xA1));
     m_spinRef_2_162->setValue(m_cfg->targetRefSize(2, 0xA2));
@@ -336,9 +429,7 @@ void DevicePropertiesDialog::saveToConfig()
     m_cfg->irAddress = static_cast<quint8>(m_spinIrAddress->value());
     m_cfg->zoomSpeed = static_cast<quint8>(m_spinZoomSpeed->value());
 
-    m_cfg->visPixelSize = m_spinVisPixelSize->value();
-    m_cfg->visMinFocal = m_spinVisMinFocal->value();
-    auto visRes = m_editVisResolution->text().split('x');
+    m_cfg->visCameraModel = m_comboVisCameraModel->currentText();
     auto setRes = [](const QString& text, int& x, int& y) {
         auto p = text.split('x');
         if (p.size() == 2) { x = p[0].toInt(); y = p[1].toInt(); }
@@ -377,6 +468,9 @@ void DevicePropertiesDialog::onAccepted()
         }
     }
     saveToConfig();
+    // 已连接时把 48M-Tofu7 参数下发设备（0x0D）
+    if (m_ctx && m_ctx->isConnected())
+        m_ctx->setTofu7Params(tofuFieldsToParams());
     accept();
 }
 

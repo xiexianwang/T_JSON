@@ -72,29 +72,25 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     
-    // --- 动态添加设备列表侧边栏 (Drawer) ---
-    m_deviceTree = new DeviceTreeWidget(ui->centralwidget);
-    m_deviceTree->setFixedWidth(260); // 固定的抽屉宽度
-    
-    // 插入到水平布局的最左侧（widgetDisplay 的左边）
-    ui->horizontalLayout_middle->insertWidget(0, m_deviceTree);
+    // --- 设备列表侧边栏 / 开关按钮：均在 .ui 中静态声明 ---
+    m_deviceTree = ui->deviceTree;
 
-    // 动态添加一个切换侧边栏的按钮到顶部导航栏
-    QToolButton* btnToggleTree = new QToolButton(ui->titleBar);
-    btnToggleTree->setText(QString::fromUtf8("设备列表"));
-    btnToggleTree->setCheckable(true);
-    btnToggleTree->setChecked(true);
-    
-    // 提取原有的按钮样式函数以便复用
-    btnToggleTree->setIcon(QIcon(":/monitor.svg")); // 临时使用同样图标，或不用
-    btnToggleTree->setIconSize(QSize(18, 18));
-    btnToggleTree->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    btnToggleTree->setStyleSheet("QToolButton { color: #cccccc; border: none; padding: 5px; } QToolButton:checked { color: #00aaff; }");
+    // 右键菜单连接状态取实时运行态：连不上/重连中时显示“取消连接”
+    m_deviceTree->setConnStateProvider([](const QString& id) {
+        DeviceContext* ctx = DeviceManager::instance().getDevice(id);
+        if (!ctx) return DeviceTreeWidget::ConnState::Idle;
+        if (ctx->isConnected()) return DeviceTreeWidget::ConnState::Connected;
+        if (ctx->isConnecting()) return DeviceTreeWidget::ConnState::Connecting;
+        return DeviceTreeWidget::ConnState::Idle;
+    });
 
-    // 将其插入到标题栏左侧（标题文字后面）
-    ui->horizontalLayout_titleRow->insertWidget(1, btnToggleTree);
+    // 开关按钮的图标/样式在代码中设置（尺寸/勾选已在 .ui 声明）
+    ui->btnToggleTree->setIcon(QIcon(":/menu.svg"));
+    ui->btnToggleTree->setStyleSheet(
+        "QToolButton { background: transparent; border: none; padding: 0; }"
+        "QToolButton:hover { background: rgba(255,255,255,30); border-radius: 4px; }");
 
-    connect(btnToggleTree, &QToolButton::toggled, m_deviceTree, &QWidget::setVisible);
+    connect(ui->btnToggleTree, &QToolButton::toggled, m_deviceTree, &QWidget::setVisible);
 
     connect(m_deviceTree, &DeviceTreeWidget::deviceActivated, m_presenter, &MainPresenter::onDeviceActivated);
     connect(m_deviceTree, &DeviceTreeWidget::deviceRemoved, m_presenter, &MainPresenter::onDeviceRemoved);
@@ -130,7 +126,7 @@ MainWindow::MainWindow(QWidget *parent)
         DeviceConfig cfg = m_deviceTree->entryForId(deviceId).config;
         if (ctx) cfg = ctx->deviceConfig();
 
-        DevicePropertiesDialog dlg(m_deviceTree->entryForId(deviceId).ip, &cfg, this);
+        DevicePropertiesDialog dlg(m_deviceTree->entryForId(deviceId).ip, &cfg, ctx, this);
         if (dlg.exec() != QDialog::Accepted) return;
 
         m_deviceTree->setConfigForId(deviceId, cfg);
@@ -356,7 +352,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     auto* trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(QStringLiteral(":/qss/logo.ico")));
-    trayIcon->setToolTip(QStringLiteral("LSS视频管理客户端"));
+    trayIcon->setToolTip(QStringLiteral("LSS Video Manager V2.1"));
     auto* trayMenu = new QMenu(this);
     m_systemService = new MainWindowSystemService(this);
     m_systemService->setup({
@@ -399,7 +395,7 @@ MainWindow::MainWindow(QWidget *parent)
                 DeviceConfig cfg = ctx ? ctx->deviceConfig() : entry.config;
                 qWarning() << "[AUTOPROPS] open props for" << entry.ip
                            << "cfg.targetRefMap.size()=" << cfg.targetRefMap.size();
-                DevicePropertiesDialog dlg(entry.ip, &cfg, this);
+                DevicePropertiesDialog dlg(entry.ip, &cfg, ctx, this);
                 dlg.exec();
             }
         });
@@ -849,17 +845,17 @@ void MainWindow::on_btnPanZeroCalib_clicked()
 //============================================================================
 //============================================================================
 // on_comboAlgoModel1/2_currentIndexChanged - 算法模型下拉框切换
+// ModelSetting 下发的是扁平维度值：传感器 0/1，识别类型 2-6；
+// 组合值（高段×10+低段）仅由 QueryImageParams 回报，故此处各发本维度值。
 // 受 m_updatingFromDevice 保护，避免设备回传时重复下发指令
 //============================================================================
 void MainWindow::on_comboAlgoModel1_currentIndexChanged(int index)
 {
-    int low = ui->comboAlgoModel2->currentIndex();
-    m_presenter->sendAlgoModel(index * 10 + (low >= 0 ? low + 2 : 0));
+    m_presenter->sendAlgoModel(index);
 }
 void MainWindow::on_comboAlgoModel2_currentIndexChanged(int index)
 {
-    int high = ui->comboAlgoModel1->currentIndex();
-    m_presenter->sendAlgoModel(high * 10 + (index + 2));
+    m_presenter->sendAlgoModel(index + 2);
 }
 
 //============================================================================

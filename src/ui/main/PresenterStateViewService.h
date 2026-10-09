@@ -41,7 +41,7 @@ public:
 
 private:
     void updateLensStats(const StateViewCache& cache, bool hasZoomInfo,
-                         const DeviceConfig& cam);
+                         const DeviceConfig& cam, double visPixelSize, double visMinFocal);
     const DeviceConfig& deviceCam(const QString& deviceId) const;
 
     IMainView* m_view;

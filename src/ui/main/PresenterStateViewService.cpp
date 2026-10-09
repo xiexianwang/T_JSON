@@ -49,8 +49,16 @@ StateViewCache PresenterStateViewService::updateStatusFromState(const QString& d
     m_view->showDeviceState(state.latitudeRaw, state.longitudeRaw,
                             heightStr,
                             QString::number(rawPan, 'f', 1) + QStringLiteral("°"),
-                            QString::number(rawTilt, 'f', 1) + QStringLiteral("°"));
-    updateLensStats(cache, state.hasZoomInfo, cam);
+                            QString::number(rawTilt, 'f', 1) + QStringLiteral("°"),
+                            QString::number(state.northOffset, 'f', 2) + QStringLiteral("°"));
+    // 可见光有效像元/焦距：设备上报优先（按所选相机型号 Tofu6/Tofu7），否则回退缺省
+    const double visPix = cam.effectiveVisPixelSize(state.tofuParams.pixSize6,
+                                                    state.tofuParams.pixSize7,
+                                                    state.hasTofuParams);
+    const double visMinFocal = cam.effectiveVisMinFocal(state.tofuParams.minFocal6,
+                                                        state.tofuParams.minFocal7,
+                                                        state.hasTofuParams);
+    updateLensStats(cache, state.hasZoomInfo, cam, visPix, visMinFocal);
     m_mapService->updateDevicePosition(deviceId, state);
 
     static const char* resMap[] = {"1080P", "720P", "D1", "1440P"};
@@ -118,16 +126,17 @@ StateViewCache PresenterStateViewService::updateStatusFromState(const QString& d
 }
 
 void PresenterStateViewService::updateLensStats(const StateViewCache& cache, bool hasZoomInfo,
-                                                const DeviceConfig& cam)
+                                                const DeviceConfig& cam, double visPixelSize,
+                                                double visMinFocal)
 {
     if (!hasZoomInfo) {
         m_view->showLensStats(0, 0, 0, 0, 0, 0);
         return;
     }
     const double kRad2Deg = 180.0 / 3.14159265358979323846;
-    const double visFocal = cam.visMinFocal * cache.currentVisZoom;
+    const double visFocal = visMinFocal * cache.currentVisZoom;
     const double irFocal = cam.irMinFocal * cache.currentIrZoom;
-    const double visHfov = 2.0 * qAtan((cam.visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
+    const double visHfov = 2.0 * qAtan((visPixelSize * cam.visResX / 1000.0) / (2.0 * visFocal));
     const double irHfov = 2.0 * qAtan((cam.irPixelSize * cam.irResX / 1000.0) / (2.0 * irFocal));
     m_view->showLensStats(cache.currentVisZoom, visFocal, visHfov * kRad2Deg,
                           cache.currentIrZoom, irFocal, irHfov * kRad2Deg);

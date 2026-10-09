@@ -64,7 +64,8 @@ QString MainWindow::statTiltAngleText() const { return ui->statTiltAngle->text()
 // IMainView - 状态展示
 //============================================================================
 void MainWindow::showDeviceState(const QString& lat, const QString& lon,
-                                 const QString& height, const QString& pan, const QString& tilt)
+                                 const QString& height, const QString& pan, const QString& tilt,
+                                 const QString& northOffset)
 {
     if (!lat.isNull())
         ui->statLatitude->setText(lat);
@@ -81,6 +82,10 @@ void MainWindow::showDeviceState(const QString& lat, const QString& lon,
     if (!tilt.isNull()) {
         if (tilt.isEmpty()) ui->statTiltAngle->clear();
         else ui->statTiltAngle->setText(tilt);
+    }
+    if (!northOffset.isNull()) {
+        if (northOffset.isEmpty()) ui->statNorthOffset->clear();
+        else ui->statNorthOffset->setText(northOffset);
     }
 }
 

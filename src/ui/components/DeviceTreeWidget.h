@@ -6,6 +6,7 @@
 #include <QStandardItemModel>
 #include <QMenu>
 #include <QJsonArray>
+#include <functional>
 #include "core/DeviceConfig.h"
 #include "core/DeviceEntry.h"
 
@@ -51,6 +52,13 @@ public:
     void setVideoConnected(const QString &id, bool connected);
     // 当前焦点设备（仪表盘/电机/地图跟随）；空串表示无当前设备
     void setCurrentDevice(const QString &id);
+
+    // ---- 右键菜单连接状态 ----
+    // 设备连接实时状态：空闲 / 连接中（含重连）/ 已连接
+    enum class ConnState { Idle, Connecting, Connected };
+    // 注入实时状态查询：菜单文案读取运行态，避免与存储角色不一致。
+    // 未注入时回退读取 RoleConnected。
+    void setConnStateProvider(std::function<ConnState(const QString &)> provider);
 
     // 重算设备编号（按树序 1..N）并刷新显示；编号经 RoleDeviceNumber 暴露
     void renumberDevices();
@@ -105,6 +113,7 @@ private:
     bool m_loading = false;
     bool m_dirty = false;
     QString m_currentDeviceId;   // 当前焦点设备（运行时状态，不落盘）
+    std::function<ConnState(const QString &)> m_connStateProvider;  // 连接实时状态查询
 };
 
 #endif // DEVICETREEWIDGET_H

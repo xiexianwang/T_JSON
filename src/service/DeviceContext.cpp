@@ -44,7 +44,22 @@ DeviceContext::DeviceContext(const QString& deviceId, ConfigManager* cfg, const 
             m_state->longitude = GeoCalculator::parseCoord(zoom.longitude);
             m_state->altitude = zoom.height;
             m_state->laserRange = zoom.laserRange;
+            m_state->northOffset = zoom.northOffset;
             EventBus::instance().postDeviceStateUpdated(m_deviceId, m_state, m_sessionGeneration);
+        }
+        else if (controlType == "48MTofu7Getting") {
+            auto t = TofuParamsData::parse(doc);
+            m_state->hasTofuParams = true;
+            m_state->tofuParams.pixSize7 = t.pixSize7;
+            m_state->tofuParams.minFocal7 = t.minFocal7;
+            m_state->tofuParams.pixSize6 = t.pixSize6;
+            m_state->tofuParams.minFocal6 = t.minFocal6;
+            m_state->tofuParams.expectedSize6 = t.expectedSize6;
+            m_state->tofuParams.zeroOffsetX6 = t.zeroOffsetX6;
+            m_state->tofuParams.zeroOffsetY6 = t.zeroOffsetY6;
+            m_state->tofuParams.ptzSerialServerAddr = t.ptzSerialServerAddr;
+            m_state->tofuParams.tofu6Ip = t.tofu6Ip;
+            emit tofu7ParamsReceived(m_state->tofuParams);
         }
         else if (controlType == "ImageSetting") {
             auto img = ImageSettingData::parse(doc);
@@ -172,6 +187,11 @@ bool DeviceContext::isConnected() const
     return m_tcp->isConnected();
 }
 
+bool DeviceContext::isConnecting() const
+{
+    return m_tcp->isConnecting();
+}
+
 // ============================================================================
 // 视频流
 // ============================================================================
@@ -284,6 +304,18 @@ void DeviceContext::queryImageParams()
 {
     if (!isActive()) return;
     m_motor->queryImageParams();
+}
+
+void DeviceContext::queryTofu7Params()
+{
+    if (!isActive()) return;
+    m_motor->queryTofu7Params();
+}
+
+void DeviceContext::setTofu7Params(const DeviceState::TofuParams& p)
+{
+    if (!isActive()) return;
+    m_motor->setTofu7Params(p);
 }
 
 void DeviceContext::setWorkMode(int mode)

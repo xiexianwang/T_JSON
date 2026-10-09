@@ -96,8 +96,8 @@ bool MainWindowDialogService::showCloseConfirmation()
 void MainWindowDialogService::showAbout()
 {
     QMessageBox::about(m_view->asWidget(),
-        QStringLiteral("关于 LSS Video Manager"),
-        QStringLiteral("LSS Video Manager v2.1\n江苏莱瑟斯监控设备控制客户端"));
+        QStringLiteral("关于 LSS Video Manager V2.1"),
+        QStringLiteral("LSS Video Manager V2.1\n江苏莱瑟斯监控设备控制客户端"));
 }
 
 bool MainWindowDialogService::requireConnected()

@@ -12,6 +12,7 @@ ZoomInfoData ZoomInfoData::parse(const QJsonObject& doc)
     d.laserRange = doc.value("LaserRange").toDouble(0);
     d.pan = doc.value("PTZInfoH").toDouble(0);
     d.tilt = doc.value("PTZInfoV").toDouble(0);
+    d.northOffset = doc.value("NorthOffset").toDouble(0);
     return d;
 }
 
@@ -26,6 +27,21 @@ ImageSettingData ImageSettingData::parse(const QJsonObject& doc)
     d.model = doc.value("Model").toInt();
     d.maxVisFL = doc.value("MaxVisFL").toString();
     d.maxIRFL = doc.value("MaxIRFL").toString();
+    return d;
+}
+
+TofuParamsData TofuParamsData::parse(const QJsonObject& doc)
+{
+    TofuParamsData d;
+    d.pixSize7 = doc.value("Tofu7PixSize").toDouble(d.pixSize7);
+    d.minFocal7 = doc.value("Tofu7MinFocalLength").toInt(d.minFocal7);
+    d.pixSize6 = doc.value("Tofu6PixSize").toDouble(d.pixSize6);
+    d.minFocal6 = doc.value("Tofu6MinFocalLength").toInt(d.minFocal6);
+    d.expectedSize6 = doc.value("Tofu6ExpectedSize").toInt(d.expectedSize6);
+    d.zeroOffsetX6 = doc.value("Tofu6ZeroOffsetX").toDouble(d.zeroOffsetX6);
+    d.zeroOffsetY6 = doc.value("Tofu6ZeroOffsetY").toDouble(d.zeroOffsetY6);
+    d.ptzSerialServerAddr = doc.value("PTZSerialportServerAddr").toString(d.ptzSerialServerAddr);
+    d.tofu6Ip = doc.value("Tofu6IPAddr").toString(d.tofu6Ip);
     return d;
 }
 

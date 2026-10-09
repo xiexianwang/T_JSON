@@ -20,11 +20,11 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "CompanyName", "Jiangsu LSS\0"
-            VALUE "FileDescription", "LSS Video Manager\0"
+            VALUE "FileDescription", "LSS Video Manager V2.1\0"
             VALUE "FileVersion", "2.1.0.0\0"
             VALUE "InternalName", "LSSVideoManager\0"
             VALUE "OriginalFilename", "LSSVideoManager.exe\0"
-            VALUE "ProductName", "LSS Video Manager\0"
+            VALUE "ProductName", "LSS Video Manager V2.1\0"
             VALUE "ProductVersion", "2.1.0.0\0"
         END
     END

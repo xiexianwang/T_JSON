@@ -84,7 +84,8 @@ public:
     QString statTiltAngleText() const override;
 
     void showDeviceState(const QString& lat, const QString& lon,
-                         const QString& height, const QString& pan, const QString& tilt) override;
+                         const QString& height, const QString& pan, const QString& tilt,
+                         const QString& northOffset) override;
     void showLensStats(double visZoom, double visFocal, double visHfov,
                        double irZoom, double irFocal, double irHfov) override;
     void setIdentifyCount(const QString& text) override;

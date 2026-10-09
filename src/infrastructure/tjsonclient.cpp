@@ -69,6 +69,13 @@ bool TJsonClient::isConnected() const
     return m_socket->state() == QAbstractSocket::ConnectedState;
 }
 
+// 是否处于连接/重连尝试中：已启用自动连接（含重连）但尚未建立连接。
+// connectToDevice() 置位、disconnectDevice() 清除，连接成功后 isConnected() 为真。
+bool TJsonClient::isConnecting() const
+{
+    return m_autoReconnectEnabled && !isConnected();
+}
+
 // 连接到指定 IP 和端口
 // 重置重连计数器并更新重连参数以备断线后使用
 void TJsonClient::connectToDevice(const QString& ip, quint16 port)

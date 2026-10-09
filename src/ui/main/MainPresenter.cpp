@@ -715,8 +715,16 @@ void MainPresenter::sendAlgoModel(int model)
 {
     if (m_updatingFromDevice) return;
     if (!m_view->requireConnected()) return;
-    m_cache.currentAlgoModel = model;
-    m_cache.previousAlgoModel = model;
+    // model 为 ModelSetting 下发的扁平维度值：0/1=传感器，2-6=识别类型。
+    // 本地缓存按 QueryImageParams 回报的组合值维护（高段×10+低段），
+    // 供显示模式联动时比对传感器段。
+    if (model <= 1) {
+        const int lowIdx = m_view->algoModel2Index();
+        m_cache.currentAlgoModel = model * 10 + (lowIdx >= 0 ? lowIdx + 2 : 0);
+    } else {
+        m_cache.currentAlgoModel = (m_cache.currentAlgoModel / 10) * 10 + model;
+    }
+    m_cache.previousAlgoModel = m_cache.currentAlgoModel;
     m_controlService->setAlgoModel(currentDeviceId(), model);
     m_controlService->queryImageParams(currentDeviceId());
 }
@@ -732,10 +740,10 @@ void MainPresenter::onComboDisplayModeChanged(int index)
         int algoIdx = (index == 1 || index == 4) ? 1 : 0;
         if ((m_cache.currentAlgoModel / 10) != algoIdx) {
             int low = m_view->algoModel2Index();
-            int model = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
-            m_cache.currentAlgoModel = model;
+            m_cache.currentAlgoModel = algoIdx * 10 + (low >= 0 ? low + 2 : 0);
             m_view->setAlgoModel1Index(algoIdx);
-            m_controlService->setAlgoModel(currentDeviceId(), model);
+            // 下发传感器维度扁平值 0/1，组合值仅本地缓存。
+            m_controlService->setAlgoModel(currentDeviceId(), algoIdx);
         }
     }
     QTimer::singleShot(150, this, [this]() {

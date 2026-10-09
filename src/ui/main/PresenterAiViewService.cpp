@@ -30,6 +30,13 @@ void PresenterAiViewService::updateAiInfo(const QString& deviceId, const QJsonOb
                                           const StateViewCache& cache)
 {
     const DeviceConfig& cam = deviceCam(deviceId);
+    // 可见光有效像元/焦距：设备上报优先（按所选相机型号 Tofu6/Tofu7），否则回退缺省
+    const double visPix = cam.effectiveVisPixelSize(inputState.tofuParams.pixSize6,
+                                                    inputState.tofuParams.pixSize7,
+                                                    inputState.hasTofuParams);
+    const double visMinFocal = cam.effectiveVisMinFocal(inputState.tofuParams.minFocal6,
+                                                        inputState.tofuParams.minFocal7,
+                                                        inputState.hasTofuParams);
     const int workMode = doc.value("WorkMode").toInt();
     const int count = doc.value("ObjectCount").toInt();
     const QJsonObject objects = doc.value("Object").toObject();
@@ -39,8 +46,8 @@ void PresenterAiViewService::updateAiInfo(const QString& deviceId, const QJsonOb
         m_view->clearIdentifyTable();
 
         const bool isVis = (cache.currentPipShow != 1 && cache.currentPipShow != 4);
-        const double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-        const double fl = isVis ? cam.visMinFocal * cache.currentVisZoom
+        const double px = isVis ? visPix : cam.irPixelSize;
+        const double fl = isVis ? visMinFocal * cache.currentVisZoom
                                 : cam.irMinFocal * cache.currentIrZoom;
         const int halfW = (isVis ? cache.currentResX : cam.irResX) / 2;
         const int halfH = (isVis ? cache.currentResY : cam.irResY) / 2;
@@ -155,8 +162,8 @@ void PresenterAiViewService::updateAiInfo(const QString& deviceId, const QJsonOb
             m_view->setTrackPos(QString("(%1,%2) %3×%4").arg(cx).arg(cy).arg(r - l).arg(b - t));
 
             const bool isVis = (cache.currentPipShow != 1 && cache.currentPipShow != 4);
-            const double px = isVis ? cam.visPixelSize : cam.irPixelSize;
-            const double fl = isVis ? cam.visMinFocal * cache.currentVisZoom
+            const double px = isVis ? visPix : cam.irPixelSize;
+            const double fl = isVis ? visMinFocal * cache.currentVisZoom
                                     : cam.irMinFocal * cache.currentIrZoom;
             const double dx = (l + r) / 2.0 - (isVis ? cache.currentResX : cam.irResX) / 2;
             const double dy = (t + b) / 2.0 - (isVis ? cache.currentResY : cam.irResY) / 2;

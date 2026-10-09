@@ -32,12 +32,15 @@ public:
     bool send(const QJsonObject& json);
 
 signals:
-    void dataReceived(const QByteArray& data);    // 收到原始数据
+    void dataReceived(const QByteArray& data);    // 收到一帧的 JSON 负载（已剥离 8B 帧头）
     void frameSent(const QByteArray& pkt);        // 已发送完整帧（含帧头）
     void errorOccurred(const QString& msg);       // 连接失败/运行错误
 
 private:
+    void onReadyRead();                           // 按帧头切分接收缓冲，emit JSON 负载
+
     QTcpSocket* m_socket = nullptr;
+    QByteArray m_buffer;                          // 接收缓冲（处理半包/粘包）
     int m_seq = 0;                                // 命令序列号
     QString m_ip;                                 // 目标 IP（重连使用）
     quint16 m_port = 0;                           // 目标端口（重连使用）

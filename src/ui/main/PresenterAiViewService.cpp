@@ -74,7 +74,36 @@ void PresenterAiViewService::updateAiInfo(const QString& deviceId, const QJsonOb
         m_mapService->updateAiInfo(deviceId, doc, state);
     }
 
-    if (workMode < 2 || workMode > 4) return;
+    // 关闭 AI / 非法模式：识别与跟踪面板均需清空（设备可能持续推 AIInfo，
+    // 超时清理不会触发，故此处按 workMode 主动清空）。
+    if (workMode < 1 || workMode > 4) {
+        m_view->clearIdentifyTable();
+        m_view->setIdentifyCount(QString::fromUtf8("目标总数: 0"));
+        m_view->showTrackStatus(QString::fromUtf8("状态: 未锁定"), "nolock");
+        m_view->setTrackPos(QString());
+        m_view->setTrackMissDistance(QString());
+        m_view->setTrackDistance(QString());
+        m_view->setTrackTargetType(QString());
+        m_view->setTrackAngle(QString());
+        m_view->mapClearAllTracks();
+        m_view->mapUpdateTargetMarkers(QJsonArray());
+        return;
+    }
+
+    // 识别模式：填识别表，同时清空跟踪面板（避免切入识别后跟踪内容残留）。
+    if (workMode == 1) {
+        m_view->showTrackStatus(QString::fromUtf8("状态: 未锁定"), "nolock");
+        m_view->setTrackPos(QString());
+        m_view->setTrackMissDistance(QString());
+        m_view->setTrackDistance(QString());
+        m_view->setTrackTargetType(QString());
+        m_view->setTrackAngle(QString());
+        return;
+    }
+
+    // 跟踪模式：填跟踪面板，同时清空识别表（避免切入跟踪后识别内容残留）。
+    m_view->clearIdentifyTable();
+    m_view->setIdentifyCount(QString::fromUtf8("目标总数: 0"));
 
     // 跟踪模式：设备仅推送被跟踪目标。目标筛选优先 State==0xB1（跟踪正常），
     // 其次 State==0xB2（跟踪丢失）；缺 State 字段时（旧固件）兜底首元素并按锁定处理。

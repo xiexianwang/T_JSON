@@ -124,6 +124,8 @@ void PresenterMapService::updateAiInfo(const QString& deviceId, const QJsonObjec
             m_view->mapUpdateTargetMarkers(QJsonArray());
             return;
         }
+        // 识别模式：清除上一轮跟踪残留的轨迹线，避免与识别标记叠加。
+        m_view->mapClearAllTracks();
         QJsonArray targets;
         for (auto it = objects.begin(); it != objects.end(); ++it) {
             const QJsonObject obj = it.value().toObject();
@@ -143,7 +145,13 @@ void PresenterMapService::updateAiInfo(const QString& deviceId, const QJsonObjec
         m_view->mapUpdateTargetMarkers(targets);
         return;
     }
-    if (workMode < 2 || workMode > 4) return;
+    // 关闭 AI / 非法模式：清除地图残留的目标标记、轨迹与 FOV。
+    if (workMode < 2 || workMode > 4) {
+        m_view->mapClearAllTracks();
+        m_view->mapUpdateTargetMarkers(QJsonArray());
+        m_view->mapClearFov();
+        return;
+    }
 
     QString lockedId, lostId;
     QJsonObject lockedObj, lostObj;
